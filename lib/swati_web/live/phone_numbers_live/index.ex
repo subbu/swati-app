@@ -399,6 +399,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
         {:ok, phone_number} ->
           socket = maybe_assign_agent(socket, phone_number, tenant, actor)
           socket = maybe_activate_number(socket, phone_number, actor)
+          socket = maybe_activate_for_assigned_agent(socket, phone_number, actor)
 
           {:noreply,
            socket
@@ -454,6 +455,19 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     auto_activate = Map.get(socket.assigns.buy_settings, "auto_activate", false)
 
     if auto_activate do
+      case Telephony.activate_phone_number(phone_number, actor) do
+        {:ok, _} -> socket
+        {:error, _} -> put_flash(socket, :error, "Activation failed.")
+      end
+    else
+      socket
+    end
+  end
+
+  defp maybe_activate_for_assigned_agent(socket, phone_number, actor) do
+    agent_id = Map.get(socket.assigns.buy_settings, "agent_id")
+
+    if is_binary(agent_id) and agent_id != "" do
       case Telephony.activate_phone_number(phone_number, actor) do
         {:ok, _} -> socket
         {:error, _} -> put_flash(socket, :error, "Activation failed.")
