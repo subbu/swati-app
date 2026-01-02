@@ -60,7 +60,7 @@ defmodule SwatiWeb.Router do
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: SwatiWeb.Telemetry
+      live_dashboard "/metrics", metrics: SwatiWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
@@ -76,18 +76,18 @@ defmodule SwatiWeb.Router do
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
       live "/settings/members", TenantLive.Members, :index
 
-      live "/dashboard/onboarding", OnboardingLive, :index
-      live "/dashboard/agents", AgentsLive.Index, :index
-      live "/dashboard/agents/new", AgentsLive.Form, :new
-      live "/dashboard/agents/:id/edit", AgentsLive.Form, :edit
-      live "/dashboard/agents/:id/versions", AgentsLive.Versions, :index
-      live "/dashboard/integrations", IntegrationsLive.Index, :index
-      live "/dashboard/integrations/new", IntegrationsLive.Form, :new
-      live "/dashboard/integrations/:id/edit", IntegrationsLive.Form, :edit
-      live "/dashboard/integrations/:id", IntegrationsLive.Show, :show
-      live "/dashboard/numbers", PhoneNumbersLive.Index, :index
-      live "/dashboard/calls", CallsLive.Index, :index
-      live "/dashboard/calls/:id", CallsLive.Show, :show
+      live "/onboarding", OnboardingLive, :index
+      live "/agents", AgentsLive.Index, :index
+      live "/agents/new", AgentsLive.Form, :new
+      live "/agents/:id/edit", AgentsLive.Form, :edit
+      live "/agents/:id/versions", AgentsLive.Versions, :index
+      live "/integrations", IntegrationsLive.Index, :index
+      live "/integrations/new", IntegrationsLive.Form, :new
+      live "/integrations/:id/edit", IntegrationsLive.Form, :edit
+      live "/integrations/:id", IntegrationsLive.Show, :show
+      live "/numbers", PhoneNumbersLive.Index, :index
+      live "/calls", CallsLive.Index, :index
+      live "/calls/:id", CallsLive.Show, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

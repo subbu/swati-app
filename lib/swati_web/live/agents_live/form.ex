@@ -17,7 +17,7 @@ defmodule SwatiWeb.AgentsLive.Form do
           </div>
           <div class="flex items-center gap-2">
             <.button :if={@live_action == :edit} phx-click="publish" variant="soft">Publish</.button>
-            <.button navigate={~p"/dashboard/agents"} variant="ghost">Back</.button>
+            <.button navigate={~p"/agents"} variant="ghost">Back</.button>
           </div>
         </div>
 
@@ -200,7 +200,7 @@ defmodule SwatiWeb.AgentsLive.Form do
             {:noreply,
              socket
              |> put_flash(:info, "Agent created.")
-             |> push_navigate(to: ~p"/dashboard/agents")}
+             |> push_navigate(to: ~p"/agents")}
 
           {:error, changeset} ->
             {:noreply, assign_form(socket, changeset, attrs)}

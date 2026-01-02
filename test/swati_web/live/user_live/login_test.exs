@@ -6,11 +6,11 @@ defmodule SwatiWeb.UserLive.LoginTest do
 
   describe "login page" do
     test "renders login page", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      assert html =~ "Log in"
-      assert html =~ "Register"
-      assert html =~ "Log in with email"
+      assert has_element?(lv, "h1", "Welcome back")
+      assert has_element?(lv, "button", "Send magic link")
+      assert has_element?(lv, "button", "Sign in")
     end
   end
 
@@ -76,16 +76,11 @@ defmodule SwatiWeb.UserLive.LoginTest do
   end
 
   describe "login navigation" do
-    test "redirects to registration page when the Register button is clicked", %{conn: conn} do
+    test "does not show sign up links", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      {:ok, _login_live, login_html} =
-        lv
-        |> element("main a", "Sign up")
-        |> render_click()
-        |> follow_redirect(conn, ~p"/users/register")
-
-      assert login_html =~ "Register"
+      refute has_element?(lv, "a", "Sign up")
+      refute has_element?(lv, "a", "Register")
     end
   end
 
@@ -101,11 +96,11 @@ defmodule SwatiWeb.UserLive.LoginTest do
       assert has_element?(
                lv,
                "p",
-               "You need to reauthenticate to perform sensitive actions on your account."
+               "Reauthenticate to continue managing your account."
              )
 
       refute has_element?(lv, "a", "Register")
-      assert has_element?(lv, "button", "Log in with email")
+      assert has_element?(lv, "button", "Send magic link")
       assert has_element?(lv, ~s(#login_form_magic_email[value="#{user.email}"]))
     end
   end

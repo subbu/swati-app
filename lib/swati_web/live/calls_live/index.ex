@@ -43,7 +43,7 @@ defmodule SwatiWeb.CallsLive.Index do
               </:cell>
               <:cell>{agent_name(call.agent_id, @agents)}</:cell>
               <:cell class="text-right">
-                <.link class="text-sm underline" navigate={~p"/dashboard/calls/#{call.id}"}>
+                <.link class="text-sm underline" navigate={~p"/calls/#{call.id}"}>
                   View
                 </.link>
               </:cell>

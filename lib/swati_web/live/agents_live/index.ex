@@ -13,7 +13,7 @@ defmodule SwatiWeb.AgentsLive.Index do
             <h1 class="text-2xl font-semibold">Agents</h1>
             <p class="text-sm text-base-content/70">Design and publish voice agents.</p>
           </div>
-          <.button navigate={~p"/dashboard/agents/new"}>New agent</.button>
+          <.button navigate={~p"/agents/new"}>New agent</.button>
         </div>
 
         <.table>
@@ -34,12 +34,12 @@ defmodule SwatiWeb.AgentsLive.Index do
               <:cell class="text-xs text-base-content/60">{agent.llm_model}</:cell>
               <:cell class="text-right">
                 <div class="flex items-center justify-end gap-2">
-                  <.link class="text-sm underline" navigate={~p"/dashboard/agents/#{agent.id}/edit"}>
+                  <.link class="text-sm underline" navigate={~p"/agents/#{agent.id}/edit"}>
                     Edit
                   </.link>
                   <.link
                     class="text-sm underline"
-                    navigate={~p"/dashboard/agents/#{agent.id}/versions"}
+                    navigate={~p"/agents/#{agent.id}/versions"}
                   >
                     Versions
                   </.link>

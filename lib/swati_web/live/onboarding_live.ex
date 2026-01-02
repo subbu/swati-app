@@ -56,25 +56,25 @@ defmodule SwatiWeb.OnboardingLive do
           "Create your first Agent",
           "Configure prompts and tools.",
           has_agents?(tenant),
-          ~p"/dashboard/agents/new"
+          ~p"/agents/new"
         ),
         step_for(
           "Add MCP integration",
           "Connect tools and data.",
           has_integrations?(tenant),
-          ~p"/dashboard/integrations/new"
+          ~p"/integrations/new"
         ),
         step_for(
           "Provision phone number",
           "Buy or attach a number.",
           has_numbers?(tenant),
-          ~p"/dashboard/numbers"
+          ~p"/numbers"
         ),
         step_for(
           "Activate and test",
           "Assign an agent and activate inbound calls.",
           has_active_numbers?(tenant),
-          ~p"/dashboard/numbers"
+          ~p"/numbers"
         )
       ]
       |> Enum.map(&decorate_step/1)

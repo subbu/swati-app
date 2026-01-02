@@ -30,13 +30,13 @@ defmodule SwatiWeb.IntegrationsLive.Show do
             </.button>
             <.button
               id="integration-edit-button"
-              navigate={~p"/dashboard/integrations/#{@integration.id}/edit"}
+              navigate={~p"/integrations/#{@integration.id}/edit"}
             >
               Edit
             </.button>
             <.button
               id="integration-back-button"
-              navigate={~p"/dashboard/integrations"}
+              navigate={~p"/integrations"}
               variant="ghost"
             >
               Back

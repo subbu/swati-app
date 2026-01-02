@@ -35,63 +35,201 @@ defmodule SwatiWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="border-b border-base-300 bg-base-100">
-      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <div class="flex items-center gap-3">
-          <.link navigate={~p"/"} class="flex items-center gap-2">
-            <img src={~p"/images/logo.svg"} width="32" />
-            <span class="text-lg font-semibold">Swati</span>
-          </.link>
-          <.badge :if={@current_scope && @current_scope.tenant} color="primary" variant="soft">
-            {@current_scope.tenant.name}
-          </.badge>
-        </div>
-        <nav class="flex items-center gap-2">
-          <.link :if={@current_scope} navigate={~p"/dashboard/onboarding"} class="text-sm font-medium">
-            Dashboard
-          </.link>
-          <.link :if={@current_scope} navigate={~p"/dashboard/agents"} class="text-sm font-medium">
-            Agents
-          </.link>
-          <.link
-            :if={@current_scope}
-            navigate={~p"/dashboard/integrations"}
-            class="text-sm font-medium"
-          >
-            Integrations
-          </.link>
-          <.link :if={@current_scope} navigate={~p"/dashboard/numbers"} class="text-sm font-medium">
-            Numbers
-          </.link>
-          <.link :if={@current_scope} navigate={~p"/dashboard/calls"} class="text-sm font-medium">
-            Calls
-          </.link>
-          <.link :if={@current_scope} navigate={~p"/users/settings"} class="text-sm font-medium">
-            Settings
-          </.link>
-          <.link
-            :if={@current_scope}
-            href={~p"/users/log-out"}
-            method="delete"
-            class="text-sm font-medium"
-          >
-            Log out
-          </.link>
-          <.link :if={!@current_scope} navigate={~p"/users/register"} class="text-sm font-medium">
-            Register
-          </.link>
-          <.link :if={!@current_scope} navigate={~p"/users/log-in"} class="text-sm font-medium">
-            Log in
-          </.link>
-        </nav>
-      </div>
-    </header>
+    <%= if @current_scope do %>
+      <% user = @current_scope.user %>
+      <% tenant = @current_scope.tenant %>
+      <% avatar_text = if user && user.email, do: user.email, else: "User" %>
+      <% avatar_url = "https://ui-avatars.com/api/?name=#{URI.encode_www_form(avatar_text)}" %>
 
-    <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div class="space-y-6">
+      <.sheet id="mobile-sidebar-nav" placement="left" class="w-full max-w-xs">
+        <div class="flex mb-6 shrink-0 items-center gap-2">
+          <img src={~p"/images/logo.svg"} alt="Swati" class="h-7 w-auto" />
+          <div class="min-w-0">
+            <span class="block text-xl font-extrabold text-foreground">Swati</span>
+            <.badge :if={tenant} color="primary" variant="soft" class="mt-1">
+              {tenant.name}
+            </.badge>
+          </div>
+        </div>
+
+        <.navlist heading="Workspace">
+          <.navlink navigate={~p"/onboarding"}>
+            <.icon name="hero-home" class="size-5 text-foreground-softer group-hover:text-foreground" />
+            Onboarding
+          </.navlink>
+          <.navlink navigate={~p"/agents"}>
+            <.icon
+              name="hero-users"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Agents
+          </.navlink>
+          <.navlink navigate={~p"/integrations"}>
+            <.icon
+              name="hero-command-line"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Integrations
+          </.navlink>
+          <.navlink navigate={~p"/numbers"}>
+            <.icon
+              name="hero-document-text"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Numbers
+          </.navlink>
+          <.navlink navigate={~p"/calls"}>
+            <.icon
+              name="hero-phone"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Calls
+          </.navlink>
+        </.navlist>
+
+        <.navlist heading="Organization">
+          <.navlink navigate={~p"/settings/members"}>
+            <.icon
+              name="hero-user-group"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Members
+          </.navlink>
+          <.navlink navigate={~p"/users/settings"}>
+            <.icon
+              name="hero-cog-6-tooth"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Settings
+          </.navlink>
+        </.navlist>
+
+        <.navlist class="mt-auto!">
+          <.navlink href={~p"/users/log-out"} method="delete">
+            <.icon
+              name="hero-arrow-right-on-rectangle"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Sign out
+          </.navlink>
+        </.navlist>
+      </.sheet>
+
+      <div class="relative isolate flex min-h-svh w-full max-md:flex-col bg-accent/50">
+        <div class="fixed inset-y-0 left-0 w-64 max-md:hidden">
+          <div class="flex h-full flex-col">
+            <div class="flex flex-1 flex-col overflow-y-auto p-6">
+              <div class="flex shrink-0 items-center mb-8 gap-2">
+                <img src={~p"/images/logo.svg"} alt="Swati" class="h-6 w-auto" />
+                <div class="min-w-0">
+                  <span class="block text-xl font-extrabold text-foreground">Swati</span>
+                  <.badge :if={tenant} color="primary" variant="soft" class="mt-1">
+                    {tenant.name}
+                  </.badge>
+                </div>
+              </div>
+
+              <.navlist heading="Workspace">
+                <.navlink navigate={~p"/onboarding"}>
+                  <.icon name="hero-home" class="size-5" /> Onboarding
+                </.navlink>
+                <.navlink navigate={~p"/agents"}>
+                  <.icon name="hero-users" class="size-5" /> Agents
+                </.navlink>
+                <.navlink navigate={~p"/integrations"}>
+                  <.icon name="hero-command-line" class="size-5" /> Integrations
+                </.navlink>
+                <.navlink navigate={~p"/numbers"}>
+                  <.icon name="hero-document-text" class="size-5" /> Numbers
+                </.navlink>
+                <.navlink navigate={~p"/calls"}>
+                  <.icon name="hero-phone" class="size-5" /> Calls
+                </.navlink>
+              </.navlist>
+
+              <.navlist heading="Organization">
+                <.navlink navigate={~p"/settings/members"}>
+                  <.icon name="hero-user-group" class="size-5" /> Members
+                </.navlink>
+                <.navlink navigate={~p"/users/settings"}>
+                  <.icon name="hero-cog-6-tooth" class="size-5" /> Settings
+                </.navlink>
+              </.navlist>
+
+              <.navlist class="mt-auto!">
+                <.navlink href={~p"/users/log-out"} method="delete">
+                  <.icon name="hero-arrow-right-on-rectangle" class="size-5" /> Sign out
+                </.navlink>
+              </.navlist>
+            </div>
+
+            <div class="max-md:hidden flex flex-col border-t border-base p-4">
+              <.dropdown class="w-56">
+                <:toggle class="w-full">
+                  <button class="cursor-default flex w-full items-center gap-3 rounded-base px-2 py-2.5">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <div class="size-10 shrink-0 rounded-base overflow-hidden">
+                        <img class="size-full" src={avatar_url} alt="" />
+                      </div>
+
+                      <div class="min-w-0 text-left">
+                        <span class="block truncate text-sm font-medium text-foreground">
+                          {avatar_text}
+                        </span>
+                        <span class="block truncate text-xs font-normal text-foreground-softer">
+                          {tenant && tenant.name}
+                        </span>
+                      </div>
+                    </div>
+
+                    <.icon
+                      name="hero-chevron-up"
+                      class="size-3 text-foreground-softer group-hover:text-foreground ml-auto"
+                    />
+                  </button>
+                </:toggle>
+
+                <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
+                <.dropdown_link navigate={~p"/settings/members"}>Members</.dropdown_link>
+                <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
+              </.dropdown>
+            </div>
+          </div>
+        </div>
+
+        <header class="flex items-center px-4 md:hidden border-b border-base bg-base">
+          <div class="py-2.5">
+            <span class="relative">
+              <button
+                phx-click={Fluxon.open_dialog("mobile-sidebar-nav")}
+                class="cursor-default relative flex min-w-0 items-center gap-3 rounded-base p-2"
+              >
+                <.icon name="hero-bars-3" class="size-6" />
+              </button>
+            </span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <nav class="flex flex-1 items-center gap-4 py-2.5">
+              <div class="flex items-center gap-3 ml-auto">
+                <.dropdown placement="bottom-end">
+                  <:toggle class="w-full flex items-center">
+                    <button class="cursor-default size-9 rounded-base overflow-hidden">
+                      <img class="size-full" src={avatar_url} alt="" />
+                    </button>
+                  </:toggle>
+
+                  <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
+                  <.dropdown_link navigate={~p"/settings/members"}>Members</.dropdown_link>
+                  <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
+                </.dropdown>
+              </div>
+            </nav>
+          </div>
+        </header>
+        <main class="flex flex-1 flex-col md:min-w-0 md:p-2 md:pl-64">
+          <div class="grow p-6 md:rounded-base md:bg-base md:p-10 md:border md:border-base">
+            {render_slot(@inner_block)}
+          </div>
+        </main>
+      </div>
+    <% else %>
+      <div class="min-h-svh">
         {render_slot(@inner_block)}
       </div>
-    </main>
+    <% end %>
 
     <.flash_group flash={@flash} />
     """

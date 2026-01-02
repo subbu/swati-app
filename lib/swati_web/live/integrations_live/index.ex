@@ -13,7 +13,7 @@ defmodule SwatiWeb.IntegrationsLive.Index do
             <h1 class="text-2xl font-semibold">Integrations</h1>
             <p class="text-sm text-base-content/70">Connect MCP servers and tools.</p>
           </div>
-          <.button navigate={~p"/dashboard/integrations/new"}>New integration</.button>
+          <.button navigate={~p"/integrations/new"}>New integration</.button>
         </div>
 
         <.table>
@@ -29,7 +29,7 @@ defmodule SwatiWeb.IntegrationsLive.Index do
               <:cell class="font-medium">
                 <.link
                   id={"integration-#{integration.id}-link"}
-                  navigate={~p"/dashboard/integrations/#{integration.id}"}
+                  navigate={~p"/integrations/#{integration.id}"}
                   class="underline"
                 >
                   {integration.name}
@@ -49,7 +49,7 @@ defmodule SwatiWeb.IntegrationsLive.Index do
                   </.button>
                   <.link
                     class="text-sm underline"
-                    navigate={~p"/dashboard/integrations/#{integration.id}/edit"}
+                    navigate={~p"/integrations/#{integration.id}/edit"}
                   >
                     Edit
                   </.link>

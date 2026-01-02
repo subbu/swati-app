@@ -15,7 +15,7 @@ defmodule SwatiWeb.CallsLive.Show do
               {assigns.call.from_number} → {assigns.call.to_number}
             </p>
           </div>
-          <.button navigate={~p"/dashboard/calls"} variant="ghost">Back</.button>
+          <.button navigate={~p"/calls"} variant="ghost">Back</.button>
         </div>
 
         <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">

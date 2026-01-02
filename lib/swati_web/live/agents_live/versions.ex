@@ -13,7 +13,7 @@ defmodule SwatiWeb.AgentsLive.Versions do
             <h1 class="text-2xl font-semibold">Agent versions</h1>
             <p class="text-sm text-base-content/70">{assigns.agent.name}</p>
           </div>
-          <.button navigate={~p"/dashboard/agents"} variant="ghost">Back</.button>
+          <.button navigate={~p"/agents"} variant="ghost">Back</.button>
         </div>
 
         <.table>

@@ -6,10 +6,10 @@ defmodule SwatiWeb.UserLive.RegistrationTest do
 
   describe "Registration page" do
     test "renders registration page", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/users/register")
+      {:ok, lv, _html} = live(conn, ~p"/users/register")
 
-      assert html =~ "Register"
-      assert html =~ "Log in"
+      assert has_element?(lv, "h1", "Register for an account")
+      assert has_element?(lv, "a", "Log in")
     end
 
     test "redirects if already logged in", %{conn: conn} do
@@ -70,13 +70,13 @@ defmodule SwatiWeb.UserLive.RegistrationTest do
     test "redirects to login page when the Log in button is clicked", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/register")
 
-      {:ok, _login_live, login_html} =
+      {:ok, login_live, _login_html} =
         lv
-        |> element("main a", "Log in")
+        |> element("a", "Log in")
         |> render_click()
         |> follow_redirect(conn, ~p"/users/log-in")
 
-      assert login_html =~ "Log in"
+      assert has_element?(login_live, "h1", "Welcome back")
     end
   end
 end
