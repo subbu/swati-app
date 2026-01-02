@@ -84,6 +84,7 @@ defmodule SwatiWeb.Router do
       live "/dashboard/integrations", IntegrationsLive.Index, :index
       live "/dashboard/integrations/new", IntegrationsLive.Form, :new
       live "/dashboard/integrations/:id/edit", IntegrationsLive.Form, :edit
+      live "/dashboard/integrations/:id", IntegrationsLive.Show, :show
       live "/dashboard/numbers", PhoneNumbersLive.Index, :index
       live "/dashboard/calls", CallsLive.Index, :index
       live "/dashboard/calls/:id", CallsLive.Show, :show

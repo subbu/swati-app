@@ -26,7 +26,15 @@ defmodule SwatiWeb.IntegrationsLive.Index do
           </.table_head>
           <.table_body>
             <.table_row :for={integration <- @integrations}>
-              <:cell class="font-medium">{integration.name}</:cell>
+              <:cell class="font-medium">
+                <.link
+                  id={"integration-#{integration.id}-link"}
+                  navigate={~p"/dashboard/integrations/#{integration.id}"}
+                  class="underline"
+                >
+                  {integration.name}
+                </.link>
+              </:cell>
               <:cell>{integration.type}</:cell>
               <:cell>
                 <.badge color={status_color(integration.status)} variant="soft">
@@ -68,7 +76,7 @@ defmodule SwatiWeb.IntegrationsLive.Index do
     integration = Integrations.get_integration!(socket.assigns.current_scope.tenant.id, id)
 
     case Integrations.test_integration(integration) do
-      {:ok, _integration} ->
+      {:ok, _integration, _tools} ->
         {:noreply,
          socket
          |> put_flash(:info, "Connection succeeded.")

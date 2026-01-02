@@ -30,7 +30,11 @@ Response example:
     "voice": {"provider": "google", "name": "Fenrir"},
     "llm": {"provider": "google", "model": "models/..."},
     "system_prompt": "...",
-    "tool_policy": {"allow": [], "deny": [], "max_calls_per_turn": 3},
+    "tool_policy": {
+      "allow": ["search", "get_customer"],
+      "deny": [],
+      "max_calls_per_turn": 3
+    },
     "escalation_policy": {"enabled": true}
   },
   "integrations": [
@@ -56,6 +60,10 @@ Response example:
   }
 }
 ```
+
+Notes:
+- `tool_policy.allow` defaults to the union of `allowed_tools` from enabled integrations when the agent allowlist is empty.
+- If the agent allowlist is set, the response filters it to tools present in the enabled integrations.
 
 ### Call lifecycle
 
