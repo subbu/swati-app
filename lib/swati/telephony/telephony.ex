@@ -1,6 +1,8 @@
 defmodule Swati.Telephony do
   import Ecto.Query, warn: false
 
+  require Logger
+
   alias Swati.Audit
   alias Swati.Repo
   alias Swati.Tenancy
@@ -42,36 +44,54 @@ defmodule Swati.Telephony do
     provider = Map.get(attrs, :provider, :plivo)
     e164 = Map.get(attrs, :e164) || Map.get(attrs, "e164")
 
-    with {:ok, provider_meta} <- provider_module(provider).buy_number(e164, attrs),
-         {:ok, phone_number} <-
-           %PhoneNumber{}
-           |> PhoneNumber.changeset(%{
-             tenant_id: tenant_id,
-             provider: provider,
-             e164: e164,
-             country: Map.get(attrs, :country) || Map.get(attrs, "country"),
-             region: Map.get(attrs, :region) || Map.get(attrs, "region"),
-             provider_number_id:
-               Map.get(provider_meta, "id") ||
-                 Map.get(provider_meta, :id) ||
-                 Map.get(provider_meta, "number") ||
-                 Map.get(provider_meta, :number) ||
-                 e164,
-             provider_app_id: Map.get(provider_meta, "app_id") || Map.get(provider_meta, :app_id)
-           })
-           |> Repo.insert() do
-      Audit.log(
-        tenant_id,
-        actor.id,
-        "phone_number.provision",
-        "phone_number",
-        phone_number.id,
-        attrs,
-        %{}
-      )
+    Logger.debug(
+      "provision_phone_number start tenant_id=#{tenant_id} provider=#{provider} e164=#{e164} actor_id=#{Map.get(actor, :id)}"
+    )
 
-      {:ok, phone_number}
+    result =
+      with {:ok, provider_meta} <- provider_module(provider).buy_number(e164, attrs),
+           {:ok, phone_number} <-
+             %PhoneNumber{}
+             |> PhoneNumber.changeset(%{
+               tenant_id: tenant_id,
+               provider: provider,
+               e164: e164,
+               country: Map.get(attrs, :country) || Map.get(attrs, "country"),
+               region: Map.get(attrs, :region) || Map.get(attrs, "region"),
+               provider_number_id:
+                 Map.get(provider_meta, "id") ||
+                   Map.get(provider_meta, :id) ||
+                   Map.get(provider_meta, "number") ||
+                   Map.get(provider_meta, :number) ||
+                   e164,
+               provider_app_id:
+                 Map.get(provider_meta, "app_id") || Map.get(provider_meta, :app_id)
+             })
+             |> Repo.insert() do
+        Audit.log(
+          tenant_id,
+          actor.id,
+          "phone_number.provision",
+          "phone_number",
+          phone_number.id,
+          attrs,
+          %{}
+        )
+
+        {:ok, phone_number}
+      end
+
+    case result do
+      {:ok, phone_number} ->
+        Logger.debug(
+          "provision_phone_number success id=#{phone_number.id} provider_number_id=#{phone_number.provider_number_id}"
+        )
+
+      {:error, reason} ->
+        Logger.warning("provision_phone_number failed reason=#{inspect(reason)}")
     end
+
+    result
   end
 
   def assign_inbound_agent(%PhoneNumber{} = phone_number, agent_id, actor) do

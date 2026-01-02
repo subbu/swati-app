@@ -109,3 +109,72 @@
 }
 
 /* This file is for your main application CSS */
+.confetti-burst {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    top: -16px;
+    left: var(--confetti-left, 0%);
+    width: 8px;
+    height: 14px;
+    border-radius: 2px;
+    opacity: 0;
+    transform: translateY(-20px) rotate(0deg);
+    animation: confetti-fall 1.4s ease-out forwards;
+    animation-delay: var(--confetti-delay, 0ms);
+}
+
+.confetti-amber {
+    background: #f59e0b;
+}
+
+.confetti-sky {
+    background: #0ea5e9;
+}
+
+.confetti-rose {
+    background: #f43f5e;
+}
+
+.confetti-lime {
+    background: #84cc16;
+}
+
+.confetti-violet {
+    background: #8b5cf6;
+}
+
+.confetti-cyan {
+    background: #06b6d4;
+}
+
+.confetti-orange {
+    background: #f97316;
+}
+
+@keyframes confetti-fall {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px) rotate(0deg);
+    }
+    15% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(220px) rotate(280deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .confetti-piece {
+        animation: none;
+        opacity: 0.6;
+        transform: translateY(0) rotate(0deg);
+    }
+}

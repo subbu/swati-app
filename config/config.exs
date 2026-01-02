@@ -28,6 +28,13 @@ config :swati, Swati.Repo,
   migration_primary_key: [type: :binary_id],
   migration_foreign_key: [type: :binary_id]
 
+config :fun_with_flags, :persistence,
+  adapter: FunWithFlags.Store.Persistent.Ecto,
+  repo: Swati.Repo,
+  ecto_primary_key_type: :binary_id
+
+config :fun_with_flags, :cache_bust_notifications, enabled: false
+
 # Configures the endpoint
 config :swati, SwatiWeb.Endpoint,
   url: [host: "localhost"],

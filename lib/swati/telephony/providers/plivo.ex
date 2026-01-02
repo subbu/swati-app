@@ -3,6 +3,8 @@ defmodule Swati.Telephony.Providers.Plivo do
 
   # Verify against Plivo docs before using in production.
 
+  require Logger
+
   @search_params ~w(country_iso type pattern npanxx local_calling_area region services city region_city lata rate_center limit offset compliance_requirement)
   @buy_params ~w(app_id cnam_lookup)
 
@@ -35,6 +37,10 @@ defmodule Swati.Telephony.Providers.Plivo do
 
   defp request(method, url, params) do
     with {:ok, {auth_id, auth_token}} <- credentials() do
+      redacted_url = redact_url(url)
+
+      Logger.debug("plivo request method=#{method} url=#{redacted_url} params=#{inspect(params)}")
+
       req =
         Req.new(
           method: method,
@@ -51,9 +57,24 @@ defmodule Swati.Telephony.Providers.Plivo do
         end
 
       case result do
-        {:ok, %{status: status, body: body}} when status in 200..299 -> {:ok, body}
-        {:ok, %{status: status, body: body}} -> {:error, {status, body}}
-        {:error, error} -> {:error, error}
+        {:ok, %{status: status, body: body}} when status in 200..299 ->
+          Logger.debug(
+            "plivo response status=#{status} url=#{redacted_url} body=#{inspect(summarize_body(body))}"
+          )
+
+          {:ok, body}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.warning(
+            "plivo response error status=#{status} url=#{redacted_url} body=#{inspect(body)}"
+          )
+
+          {:error, {status, body}}
+
+        {:error, error} ->
+          Logger.warning("plivo request error url=#{redacted_url} error=#{inspect(error)}")
+
+          {:error, error}
       end
     end
   end
@@ -67,6 +88,7 @@ defmodule Swati.Telephony.Providers.Plivo do
     if is_binary(auth_id) and is_binary(auth_token) do
       {:ok, {auth_id, auth_token}}
     else
+      Logger.warning("plivo credentials missing")
       {:error, :missing_credentials}
     end
   end
@@ -93,4 +115,15 @@ defmodule Swati.Telephony.Providers.Plivo do
       end
     end)
   end
+
+  defp redact_url(url) when is_binary(url) do
+    Regex.replace(~r{/Account/[^/]+/}, url, "/Account/[redacted]/")
+  end
+
+  defp redact_url(url), do: inspect(url)
+
+  defp summarize_body(body) when is_map(body), do: Map.keys(body)
+  defp summarize_body(body) when is_list(body), do: "list(#{length(body)})"
+  defp summarize_body(body) when is_binary(body), do: "binary(#{byte_size(body)})"
+  defp summarize_body(body), do: body
 end

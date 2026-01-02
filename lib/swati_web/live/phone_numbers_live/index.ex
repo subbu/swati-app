@@ -5,6 +5,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
   alias Swati.Telephony
 
   @default_country_iso "IN"
+  @simulate_flag :simulate_number_purchase
 
   @impl true
   def render(assigns) do
@@ -199,6 +200,14 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
                       >
                         Buy
                       </.button>
+                      <.button
+                        :if={@simulate_enabled}
+                        class="btn btn-ghost btn-sm ml-2"
+                        phx-click="simulate_purchase"
+                        phx-value-number={number.number}
+                      >
+                        Simulate
+                      </.button>
                     </div>
                   </div>
                 </div>
@@ -231,6 +240,88 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
           </div>
         </div>
       </.sheet>
+
+      <.modal
+        id="purchase-success-modal"
+        class="w-full max-w-lg p-0 bg-transparent shadow-none rounded-none"
+        open={@purchase_modal_open}
+        on_close={JS.push("close-purchase-modal")}
+        hide_close_button
+      >
+        <div class="relative overflow-hidden p-6">
+          <div class="confetti-burst" aria-hidden="true">
+            <span
+              class="confetti-piece confetti-amber"
+              style="--confetti-left: 6%; --confetti-delay: 0ms;"
+            >
+            </span>
+            <span
+              class="confetti-piece confetti-sky"
+              style="--confetti-left: 18%; --confetti-delay: 120ms;"
+            >
+            </span>
+            <span
+              class="confetti-piece confetti-rose"
+              style="--confetti-left: 32%; --confetti-delay: 60ms;"
+            >
+            </span>
+            <span
+              class="confetti-piece confetti-lime"
+              style="--confetti-left: 48%; --confetti-delay: 180ms;"
+            >
+            </span>
+            <span
+              class="confetti-piece confetti-violet"
+              style="--confetti-left: 62%; --confetti-delay: 90ms;"
+            >
+            </span>
+            <span
+              class="confetti-piece confetti-cyan"
+              style="--confetti-left: 76%; --confetti-delay: 210ms;"
+            >
+            </span>
+            <span
+              class="confetti-piece confetti-orange"
+              style="--confetti-left: 88%; --confetti-delay: 150ms;"
+            >
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <.icon name="hero-check-circle" class="size-6 text-success" />
+            <h3 class="text-lg font-semibold dark:text-zinc-100">Number ready</h3>
+          </div>
+
+          <p class="text-zinc-500 dark:text-zinc-400 mt-2">
+            {format_number(Map.get(@purchase_summary || %{}, :number))}
+            <%= if Map.get(@purchase_summary || %{}, :region) ||
+                   Map.get(@purchase_summary || %{}, :country) do %>
+              <span>·</span>
+            <% end %>
+            {Map.get(@purchase_summary || %{}, :region, "")}
+            <%= if Map.get(@purchase_summary || %{}, :region) &&
+                   Map.get(@purchase_summary || %{}, :country) do %>
+              <span>·</span>
+            <% end %>
+            {Map.get(@purchase_summary || %{}, :country, "")}
+            <%= if Map.get(@purchase_summary || %{}, :simulated) do %>
+              <span class="text-warning"> (simulation)</span>
+            <% end %>
+          </p>
+
+          <div class="flex justify-end mt-6">
+            <.button
+              variant="solid"
+              color="primary"
+              phx-click={
+                Fluxon.close_dialog("purchase-success-modal") |> JS.push("close-purchase-modal")
+              }
+            >
+              Done
+            </.button>
+          </div>
+        </div>
+      </.modal>
     </Layouts.app>
     """
   end
@@ -260,6 +351,9 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
      |> assign(:available_numbers, [])
      |> assign(:available_meta, nil)
      |> assign(:buy_sheet_open, false)
+     |> assign(:purchase_modal_open, false)
+     |> assign(:purchase_summary, nil)
+     |> assign(:simulate_enabled, FunWithFlags.enabled?(@simulate_flag))
      |> assign(:agent_assign_options, agent_assign_options(agents))
      |> assign(:city_options, city_options())
      |> assign(:search_form, to_form(search_params, as: :search))
@@ -276,6 +370,11 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
   @impl true
   def handle_event("close-buy-sheet", _params, socket) do
     {:noreply, assign(socket, :buy_sheet_open, false)}
+  end
+
+  @impl true
+  def handle_event("close-purchase-modal", _params, socket) do
+    {:noreply, socket |> assign(:purchase_modal_open, false) |> assign(:purchase_summary, nil)}
   end
 
   @impl true
@@ -401,16 +500,46 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
           socket = maybe_activate_number(socket, phone_number, actor)
           socket = maybe_activate_for_assigned_agent(socket, phone_number, actor)
 
+          summary = %{
+            number: phone_number.e164,
+            country: phone_number.country,
+            region: phone_number.region,
+            simulated: false
+          }
+
           {:noreply,
            socket
            |> put_flash(:info, "Number purchased.")
-           |> refresh_data()}
+           |> refresh_data()
+           |> assign(:buy_sheet_open, false)
+           |> assign(:purchase_summary, summary)
+           |> assign(:purchase_modal_open, true)}
 
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, "Purchase failed: #{format_reason(reason)}")}
       end
     else
       {:noreply, put_flash(socket, :error, "Selected number not found.")}
+    end
+  end
+
+  @impl true
+  def handle_event("simulate_purchase", %{"number" => number}, socket) do
+    if FunWithFlags.enabled?(@simulate_flag) do
+      summary = %{
+        number: number,
+        country: Map.get(socket.assigns.search_params, "country_iso", @default_country_iso),
+        region: Map.get(socket.assigns.search_params, "region_city"),
+        simulated: true
+      }
+
+      {:noreply,
+       socket
+       |> assign(:buy_sheet_open, false)
+       |> assign(:purchase_summary, summary)
+       |> assign(:purchase_modal_open, true)}
+    else
+      {:noreply, put_flash(socket, :error, "Simulation unavailable.")}
     end
   end
 
@@ -466,8 +595,9 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
 
   defp maybe_activate_for_assigned_agent(socket, phone_number, actor) do
     agent_id = Map.get(socket.assigns.buy_settings, "agent_id")
+    auto_activate = Map.get(socket.assigns.buy_settings, "auto_activate", false)
 
-    if is_binary(agent_id) and agent_id != "" do
+    if is_binary(agent_id) and agent_id != "" and not auto_activate do
       case Telephony.activate_phone_number(phone_number, actor) do
         {:ok, _} -> socket
         {:error, _} -> put_flash(socket, :error, "Activation failed.")
