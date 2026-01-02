@@ -19,6 +19,14 @@ config :swati,
        :media_gateway_base_url,
        System.get_env("MEDIA_GATEWAY_BASE_URL", "http://localhost:4100")
 
+config :swati,
+       :plivo_auth_id,
+       System.get_env("PLIVO_AUTH_ID")
+
+config :swati,
+       :plivo_auth_token,
+       System.get_env("PLIVO_AUTH_TOKEN")
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
