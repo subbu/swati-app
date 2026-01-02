@@ -4,7 +4,7 @@ defmodule Swati.AccountsTest do
   alias Swati.Accounts
 
   import Swati.AccountsFixtures
-  alias Swati.Accounts.{User, UserToken}
+  alias Swati.Accounts.{Scope, User, UserToken}
 
   describe "get_user_by_email/1" do
     test "does not return the user if the email does not exist" do
@@ -37,7 +37,7 @@ defmodule Swati.AccountsTest do
 
   describe "get_user!/1" do
     test "raises if id is invalid" do
-      assert_raise Ecto.NoResultsError, fn ->
+      assert_raise Ecto.Query.CastError, fn ->
         Accounts.get_user!(-1)
       end
     end
@@ -55,35 +55,115 @@ defmodule Swati.AccountsTest do
       assert %{email: ["can't be blank"]} = errors_on(changeset)
     end
 
+    test "requires tenant name to be set" do
+      {:error, changeset} = Accounts.register_user(%{email: unique_user_email()})
+
+      assert %{tenant_name: ["can't be blank"]} = errors_on(changeset)
+    end
+
     test "validates email when given" do
-      {:error, changeset} = Accounts.register_user(%{email: "not valid"})
+      {:error, changeset} =
+        Accounts.register_user(%{email: "not valid", tenant_name: unique_tenant_name()})
 
       assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
     end
 
     test "validates maximum values for email for security" do
       too_long = String.duplicate("db", 100)
-      {:error, changeset} = Accounts.register_user(%{email: too_long})
+
+      {:error, changeset} =
+        Accounts.register_user(%{email: too_long, tenant_name: unique_tenant_name()})
+
       assert "should be at most 160 character(s)" in errors_on(changeset).email
     end
 
     test "validates email uniqueness" do
       %{email: email} = user_fixture()
-      {:error, changeset} = Accounts.register_user(%{email: email})
+
+      {:error, changeset} =
+        Accounts.register_user(%{email: email, tenant_name: unique_tenant_name()})
+
       assert "has already been taken" in errors_on(changeset).email
 
       # Now try with the uppercased email too, to check that email case is ignored.
-      {:error, changeset} = Accounts.register_user(%{email: String.upcase(email)})
+      {:error, changeset} =
+        Accounts.register_user(%{email: String.upcase(email), tenant_name: unique_tenant_name()})
+
       assert "has already been taken" in errors_on(changeset).email
     end
 
     test "registers users without password" do
       email = unique_user_email()
-      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+      tenant_name = unique_tenant_name()
+
+      {:ok, user} =
+        Accounts.register_user(valid_user_attributes(email: email, tenant_name: tenant_name))
+
+      user = Repo.preload(user, [:membership, :tenant])
+
       assert user.email == email
       assert is_nil(user.hashed_password)
       assert is_nil(user.confirmed_at)
       assert is_nil(user.password)
+      assert user.tenant.name == tenant_name
+      assert user.membership.role == :owner
+    end
+  end
+
+  describe "list_members/1" do
+    test "returns members for the tenant" do
+      scope = user_scope_fixture()
+
+      assert {:ok, members} = Accounts.list_members(scope)
+      assert Enum.any?(members, &(&1.user_id == scope.user.id))
+    end
+
+    test "rejects member role" do
+      owner_scope = user_scope_fixture()
+      email = unique_user_email()
+
+      {:ok, _membership} =
+        Accounts.invite_member(owner_scope, %{"email" => email, "role" => "member"}, & &1)
+
+      member =
+        Accounts.get_user_by_email(email)
+        |> Repo.preload([:membership, :tenant])
+        |> Scope.for_user()
+
+      assert {:error, :unauthorized} = Accounts.list_members(member)
+    end
+  end
+
+  describe "invite_member/3" do
+    test "creates a new user with membership" do
+      owner_scope = user_scope_fixture()
+      email = unique_user_email()
+
+      assert {:ok, membership} =
+               Accounts.invite_member(owner_scope, %{"email" => email, "role" => "admin"}, & &1)
+
+      user = Accounts.get_user_by_email(email)
+      assert membership.user_id == user.id
+      assert membership.tenant_id == owner_scope.tenant.id
+      assert membership.role == :admin
+    end
+
+    test "blocks users in another tenant" do
+      owner_scope = user_scope_fixture()
+      other_owner = user_fixture(%{email: "other@example.com"})
+
+      other_owner =
+        Repo.preload(other_owner, [:membership, :tenant])
+        |> Scope.for_user()
+
+      {:error, changeset} =
+        Accounts.invite_member(
+          owner_scope,
+          %{"email" => other_owner.user.email, "role" => "member"},
+          & &1
+        )
+
+      assert %{email: ["belongs to another tenant"]} = errors_on(changeset)
     end
   end
 
@@ -274,7 +354,7 @@ defmodule Swati.AccountsTest do
     end
 
     test "duplicates the authenticated_at of given user in new token", %{user: user} do
-      user = %{user | authenticated_at: DateTime.add(DateTime.utc_now(:second), -3600)}
+      user = %{user | authenticated_at: DateTime.add(DateTime.utc_now(), -3600)}
       token = Accounts.generate_user_session_token(user)
       assert user_token = Repo.get_by(UserToken, token: token)
       assert user_token.authenticated_at == user.authenticated_at

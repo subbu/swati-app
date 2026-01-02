@@ -6,7 +6,9 @@ defmodule Swati.Accounts do
   import Ecto.Query, warn: false
   alias Swati.Repo
 
-  alias Swati.Accounts.{User, UserToken, UserNotifier}
+  alias Swati.Accounts.{MembershipInvite, Scope, User, UserToken, UserNotifier}
+  alias Swati.Audit
+  alias Swati.Tenancy.{Membership, Tenant}
 
   ## Database getters
 
@@ -75,9 +77,166 @@ defmodule Swati.Accounts do
 
   """
   def register_user(attrs) do
-    %User{}
-    |> User.email_changeset(attrs)
-    |> Repo.insert()
+    tenant_name = Map.get(attrs, "tenant_name") || Map.get(attrs, :tenant_name)
+    user_changeset = User.registration_changeset(%User{}, attrs)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:user, user_changeset)
+    |> Ecto.Multi.insert(:tenant, Tenant.changeset(%Tenant{}, %{name: tenant_name}))
+    |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, user: user} ->
+      Membership.changeset(%Membership{}, %{
+        tenant_id: tenant.id,
+        user_id: user.id,
+        role: :owner
+      })
+    end)
+    |> Ecto.Multi.run(:audit, fn _repo, %{tenant: tenant, user: user} ->
+      Audit.log(tenant.id, user.id, "tenant.create", "tenant", tenant.id, %{}, %{})
+      {:ok, :logged}
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user}} -> {:ok, user}
+      {:error, :tenant, changeset, _} -> {:error, changeset}
+      {:error, :user, changeset, _} -> {:error, changeset}
+      {:error, :membership, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for inviting a member to a tenant.
+  """
+  def change_membership_invite(attrs \\ %{}) do
+    MembershipInvite.changeset(%MembershipInvite{}, attrs)
+  end
+
+  @doc """
+  Returns members for the current tenant.
+  """
+  def list_members(%Scope{} = current_scope) do
+    with :ok <- authorize(current_scope, :manage_members),
+         %Tenant{id: tenant_id} <- current_scope.tenant do
+      members =
+        from(m in Membership,
+          where: m.tenant_id == ^tenant_id,
+          join: u in assoc(m, :user),
+          preload: [user: u],
+          order_by: [asc: u.email]
+        )
+        |> Repo.all()
+
+      {:ok, members}
+    else
+      nil -> {:error, :missing_tenant}
+      {:error, :unauthorized} -> {:error, :unauthorized}
+    end
+  end
+
+  @doc """
+  Invites a member to the current tenant.
+  """
+  def invite_member(%Scope{} = current_scope, attrs, invite_url_fun)
+      when is_function(invite_url_fun, 1) do
+    with :ok <- authorize(current_scope, :manage_members),
+         %Tenant{id: tenant_id} <- current_scope.tenant do
+      changeset = MembershipInvite.changeset(%MembershipInvite{}, attrs)
+
+      if changeset.valid? do
+        email = Ecto.Changeset.get_field(changeset, :email)
+        role = Ecto.Changeset.get_field(changeset, :role)
+
+        case Repo.get_by(User, email: email) |> Repo.preload(:membership) do
+          %User{membership: %Membership{tenant_id: ^tenant_id}} ->
+            {:error, add_email_error(changeset, "is already a member")}
+
+          %User{membership: %Membership{}} ->
+            {:error, add_email_error(changeset, "belongs to another tenant")}
+
+          %User{} = user ->
+            create_membership_for_user(user, tenant_id, role, invite_url_fun, changeset)
+
+          nil ->
+            create_user_and_membership(email, tenant_id, role, invite_url_fun, changeset)
+        end
+      else
+        {:error, changeset}
+      end
+    else
+      nil -> {:error, :missing_tenant}
+      {:error, :unauthorized} -> {:error, :unauthorized}
+    end
+  end
+
+  @doc """
+  Returns whether the current scope is allowed to perform an action.
+  """
+  def authorized?(%Scope{role: role}, :manage_members) when role in [:owner, :admin], do: true
+  def authorized?(nil, _action), do: false
+  def authorized?(_current_scope, _action), do: false
+
+  defp authorize(current_scope, action) do
+    if authorized?(current_scope, action), do: :ok, else: {:error, :unauthorized}
+  end
+
+  defp create_membership_for_user(user, tenant_id, role, invite_url_fun, changeset) do
+    case Repo.insert(
+           Membership.changeset(%Membership{}, %{
+             user_id: user.id,
+             tenant_id: tenant_id,
+             role: role
+           })
+         ) do
+      {:ok, membership} ->
+        deliver_login_instructions(user, invite_url_fun)
+        {:ok, membership}
+
+      {:error, %Ecto.Changeset{} = membership_changeset} ->
+        {:error, merge_membership_errors(changeset, membership_changeset)}
+    end
+  end
+
+  defp create_user_and_membership(email, tenant_id, role, invite_url_fun, changeset) do
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.insert(:user, User.email_changeset(%User{}, %{email: email}))
+      |> Ecto.Multi.insert(:membership, fn %{user: user} ->
+        Membership.changeset(%Membership{}, %{user_id: user.id, tenant_id: tenant_id, role: role})
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, %{user: user, membership: membership}} ->
+        deliver_login_instructions(user, invite_url_fun)
+        {:ok, membership}
+
+      {:error, :user, %Ecto.Changeset{} = user_changeset, _} ->
+        {:error, merge_user_errors(changeset, user_changeset)}
+
+      {:error, :membership, %Ecto.Changeset{} = membership_changeset, _} ->
+        {:error, merge_membership_errors(changeset, membership_changeset)}
+    end
+  end
+
+  defp add_email_error(changeset, message) do
+    Ecto.Changeset.add_error(changeset, :email, message)
+  end
+
+  defp merge_user_errors(changeset, user_changeset) do
+    Enum.reduce(user_changeset.errors, changeset, fn {field, {msg, opts}}, acc ->
+      Ecto.Changeset.add_error(acc, field, msg, opts)
+    end)
+  end
+
+  defp merge_membership_errors(changeset, membership_changeset) do
+    Enum.reduce(membership_changeset.errors, changeset, fn {field, {msg, opts}}, acc ->
+      Ecto.Changeset.add_error(acc, field, msg, opts)
+    end)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for registering a user with a tenant.
+  """
+  def change_user_registration(user, attrs \\ %{}, opts \\ []) do
+    User.registration_changeset(user, attrs, opts)
   end
 
   ## Settings
@@ -185,7 +344,14 @@ defmodule Swati.Accounts do
   """
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
-    Repo.one(query)
+
+    case Repo.one(query) do
+      {user, token_inserted_at} ->
+        {Repo.preload(user, [:membership, :tenant]), token_inserted_at}
+
+      nil ->
+        nil
+    end
   end
 
   @doc """

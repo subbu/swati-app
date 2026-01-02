@@ -7,6 +7,18 @@ config :swati, Swati.Repo,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
 
+config :swati,
+       :vault_key_b64,
+       System.get_env("SWATI_VAULT_KEY_B64", "OAiqAHKorNR69FiO0PiW6dnSuD54quhsTJMQMBSsrR0=")
+
+config :swati,
+       :internal_api_token,
+       System.get_env("SWATI_INTERNAL_API_TOKEN", "dev-internal-token")
+
+config :swati,
+       :media_gateway_base_url,
+       System.get_env("MEDIA_GATEWAY_BASE_URL", "http://localhost:4100")
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #

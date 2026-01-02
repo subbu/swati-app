@@ -13,6 +13,15 @@ config :swati, Swati.Repo,
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 
+config :swati,
+       :vault_key_b64,
+       System.get_env("SWATI_VAULT_KEY_B64", "OAiqAHKorNR69FiO0PiW6dnSuD54quhsTJMQMBSsrR0=")
+
+config :swati, :internal_api_token, "test-internal-token"
+config :swati, :media_gateway_base_url, "http://localhost:4100"
+
+config :swati, Oban, testing: :inline
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :swati, SwatiWeb.Endpoint,

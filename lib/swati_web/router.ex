@@ -11,16 +11,36 @@ defmodule SwatiWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_scope_for_user
+    plug SwatiWeb.Plugs.FetchCurrentTenant
   end
 
   pipeline :api do
     plug :accepts, ["json"]
   end
 
+  pipeline :internal do
+    plug :accepts, ["json"]
+    plug SwatiWeb.Plugs.VerifyInternalToken
+  end
+
   scope "/", SwatiWeb do
     pipe_through :browser
 
     get "/", PageController, :home
+  end
+
+  scope "/api/v1", SwatiWeb do
+    pipe_through :api
+  end
+
+  scope "/internal/v1", SwatiWeb.Internal do
+    pipe_through :internal
+
+    get "/runtime/phone_numbers/:phone_number_id", RuntimeController, :show
+    post "/calls/start", CallsController, :start
+    post "/calls/:call_id/events", CallsController, :events
+    post "/calls/:call_id/end", CallsController, :end_call
+    post "/calls/:call_id/artifacts", CallsController, :artifacts
   end
 
   # Other scopes may use custom stacks.
@@ -54,6 +74,19 @@ defmodule SwatiWeb.Router do
       on_mount: [{SwatiWeb.UserAuth, :require_authenticated}] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+      live "/settings/members", TenantLive.Members, :index
+
+      live "/dashboard/onboarding", OnboardingLive, :index
+      live "/dashboard/agents", AgentsLive.Index, :index
+      live "/dashboard/agents/new", AgentsLive.Form, :new
+      live "/dashboard/agents/:id/edit", AgentsLive.Form, :edit
+      live "/dashboard/agents/:id/versions", AgentsLive.Versions, :index
+      live "/dashboard/integrations", IntegrationsLive.Index, :index
+      live "/dashboard/integrations/new", IntegrationsLive.Form, :new
+      live "/dashboard/integrations/:id/edit", IntegrationsLive.Form, :edit
+      live "/dashboard/numbers", PhoneNumbersLive.Index, :index
+      live "/dashboard/calls", CallsLive.Index, :index
+      live "/dashboard/calls/:id", CallsLive.Show, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

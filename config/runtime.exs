@@ -20,6 +20,35 @@ if System.get_env("PHX_SERVER") do
   config :swati, SwatiWeb.Endpoint, server: true
 end
 
+config :swati, Oban,
+  repo: Swati.Repo,
+  engine: Oban.Engines.Lite,
+  plugins: [Oban.Plugins.Pruner],
+  queues: [default: 10, integrations: 10, telephony: 5, calls: 10]
+
+vault_key_b64 =
+  System.get_env("SWATI_VAULT_KEY_B64") ||
+    Application.get_env(:swati, :vault_key_b64) ||
+    raise "SWATI_VAULT_KEY_B64 is missing."
+
+config :swati, Swati.Vault,
+  ciphers: [
+    default: {
+      Cloak.Ciphers.AES.GCM,
+      tag: "AES.GCM.V1", key: Base.decode64!(vault_key_b64)
+    }
+  ]
+
+config :swati,
+       :internal_api_token,
+       System.get_env("SWATI_INTERNAL_API_TOKEN") ||
+         Application.get_env(:swati, :internal_api_token)
+
+config :swati,
+       :media_gateway_base_url,
+       System.get_env("MEDIA_GATEWAY_BASE_URL") ||
+         Application.get_env(:swati, :media_gateway_base_url)
+
 if config_env() == :prod do
   database_path =
     System.get_env("DATABASE_PATH") ||

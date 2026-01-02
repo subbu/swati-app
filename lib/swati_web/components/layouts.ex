@@ -35,35 +35,60 @@ defmodule SwatiWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
+    <header class="border-b border-base-300 bg-base-100">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div class="flex items-center gap-3">
+          <.link navigate={~p"/"} class="flex items-center gap-2">
+            <img src={~p"/images/logo.svg"} width="32" />
+            <span class="text-lg font-semibold">Swati</span>
+          </.link>
+          <.badge :if={@current_scope && @current_scope.tenant} color="primary" variant="soft">
+            {@current_scope.tenant.name}
+          </.badge>
+        </div>
+        <nav class="flex items-center gap-2">
+          <.link :if={@current_scope} navigate={~p"/dashboard/onboarding"} class="text-sm font-medium">
+            Dashboard
+          </.link>
+          <.link :if={@current_scope} navigate={~p"/dashboard/agents"} class="text-sm font-medium">
+            Agents
+          </.link>
+          <.link
+            :if={@current_scope}
+            navigate={~p"/dashboard/integrations"}
+            class="text-sm font-medium"
+          >
+            Integrations
+          </.link>
+          <.link :if={@current_scope} navigate={~p"/dashboard/numbers"} class="text-sm font-medium">
+            Numbers
+          </.link>
+          <.link :if={@current_scope} navigate={~p"/dashboard/calls"} class="text-sm font-medium">
+            Calls
+          </.link>
+          <.link :if={@current_scope} navigate={~p"/users/settings"} class="text-sm font-medium">
+            Settings
+          </.link>
+          <.link
+            :if={@current_scope}
+            href={~p"/users/log-out"}
+            method="delete"
+            class="text-sm font-medium"
+          >
+            Log out
+          </.link>
+          <.link :if={!@current_scope} navigate={~p"/users/register"} class="text-sm font-medium">
+            Register
+          </.link>
+          <.link :if={!@current_scope} navigate={~p"/users/log-in"} class="text-sm font-medium">
+            Log in
+          </.link>
+        </nav>
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div class="space-y-6">
         {render_slot(@inner_block)}
       </div>
     </main>

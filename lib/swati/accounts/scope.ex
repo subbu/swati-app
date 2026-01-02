@@ -18,7 +18,7 @@ defmodule Swati.Accounts.Scope do
 
   alias Swati.Accounts.User
 
-  defstruct user: nil
+  defstruct user: nil, tenant: nil, role: nil
 
   @doc """
   Creates a scope for the given user.
@@ -26,7 +26,20 @@ defmodule Swati.Accounts.Scope do
   Returns nil if no user is given.
   """
   def for_user(%User{} = user) do
-    %__MODULE__{user: user}
+    tenant =
+      case user.tenant do
+        %Ecto.Association.NotLoaded{} -> nil
+        tenant -> tenant
+      end
+
+    role =
+      case user.membership do
+        %Ecto.Association.NotLoaded{} -> nil
+        nil -> nil
+        membership -> membership.role
+      end
+
+    %__MODULE__{user: user, tenant: tenant, role: role}
   end
 
   def for_user(nil), do: nil

@@ -14,7 +14,7 @@ config :swati, :scopes,
     assign_key: :current_scope,
     access_path: [:user, :id],
     schema_key: :user_id,
-    schema_type: :id,
+    schema_type: :binary_id,
     schema_table: :users,
     test_data_fixture: Swati.AccountsFixtures,
     test_setup_helper: :register_and_log_in_user
@@ -22,7 +22,11 @@ config :swati, :scopes,
 
 config :swati,
   ecto_repos: [Swati.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime_usec, binary_id: true]
+
+config :swati, Swati.Repo,
+  migration_primary_key: [type: :binary_id],
+  migration_foreign_key: [type: :binary_id]
 
 # Configures the endpoint
 config :swati, SwatiWeb.Endpoint,

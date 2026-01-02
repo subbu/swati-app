@@ -10,11 +10,13 @@ defmodule Swati.AccountsFixtures do
   alias Swati.Accounts.Scope
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
+  def unique_tenant_name, do: "Tenant #{System.unique_integer([:positive])}"
   def valid_user_password, do: "hello world!"
 
   def valid_user_attributes(attrs \\ %{}) do
     Enum.into(attrs, %{
-      email: unique_user_email()
+      email: unique_user_email(),
+      tenant_name: unique_tenant_name()
     })
   end
 
@@ -47,7 +49,9 @@ defmodule Swati.AccountsFixtures do
   end
 
   def user_scope_fixture(user) do
-    Scope.for_user(user)
+    user
+    |> Swati.Repo.preload([:membership, :tenant])
+    |> Scope.for_user()
   end
 
   def set_password(user) do
@@ -79,7 +83,7 @@ defmodule Swati.AccountsFixtures do
   end
 
   def offset_user_token(token, amount_to_add, unit) do
-    dt = DateTime.add(DateTime.utc_now(:second), amount_to_add, unit)
+    dt = DateTime.add(DateTime.utc_now(), amount_to_add, unit)
 
     Swati.Repo.update_all(
       from(ut in Accounts.UserToken, where: ut.token == ^token),

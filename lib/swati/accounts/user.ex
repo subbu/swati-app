@@ -1,15 +1,18 @@
 defmodule Swati.Accounts.User do
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Swati.DbSchema
 
   schema "users" do
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
-    field :confirmed_at, :utc_datetime
-    field :authenticated_at, :utc_datetime, virtual: true
+    field :confirmed_at, :utc_datetime_usec
+    field :authenticated_at, :utc_datetime_usec, virtual: true
+    field :tenant_name, :string, virtual: true
 
-    timestamps(type: :utc_datetime)
+    has_one :membership, Swati.Tenancy.Membership
+    has_one :tenant, through: [:membership, :tenant]
+
+    timestamps()
   end
 
   @doc """
@@ -27,6 +30,14 @@ defmodule Swati.Accounts.User do
     user
     |> cast(attrs, [:email])
     |> validate_email(opts)
+  end
+
+  def registration_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email, :tenant_name])
+    |> validate_email(opts)
+    |> validate_required([:tenant_name])
+    |> validate_length(:tenant_name, min: 2, max: 120)
   end
 
   defp validate_email(changeset, opts) do
@@ -110,7 +121,7 @@ defmodule Swati.Accounts.User do
   Confirms the account by setting `confirmed_at`.
   """
   def confirm_changeset(user) do
-    now = DateTime.utc_now(:second)
+    now = DateTime.utc_now()
     change(user, confirmed_at: now)
   end
 

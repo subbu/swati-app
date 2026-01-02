@@ -28,7 +28,7 @@ defmodule SwatiWeb.UserLive.RegistrationTest do
       result =
         lv
         |> element("#registration_form")
-        |> render_change(user: %{"email" => "with spaces"})
+        |> render_change(user: %{"email" => "with spaces", "tenant_name" => "Acme"})
 
       assert result =~ "Register"
       assert result =~ "must have the @ sign and no spaces"
@@ -58,7 +58,7 @@ defmodule SwatiWeb.UserLive.RegistrationTest do
       result =
         lv
         |> form("#registration_form",
-          user: %{"email" => user.email}
+          user: %{"email" => user.email, "tenant_name" => "Acme"}
         )
         |> render_submit()
 

@@ -10,6 +10,7 @@ defmodule Swati.Application do
     children = [
       SwatiWeb.Telemetry,
       Swati.Repo,
+      {Oban, Application.fetch_env!(:swati, Oban)},
       {Ecto.Migrator,
        repos: Application.fetch_env!(:swati, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:swati, :dns_cluster_query) || :ignore},
