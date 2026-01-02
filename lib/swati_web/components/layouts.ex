@@ -43,7 +43,7 @@ defmodule SwatiWeb.Layouts do
 
       <.sheet id="mobile-sidebar-nav" placement="left" class="w-full max-w-xs">
         <div class="flex mb-6 shrink-0 items-center gap-2">
-          <img src={~p"/images/swati_logo.png"} alt="Swati AI" class="h-12 w-auto" />
+          <.logo_with_tiles id="mobile-logo" img_class="h-12 w-auto" class="shrink-0" />
         </div>
 
         <.navlist heading="Workspace">
@@ -107,7 +107,7 @@ defmodule SwatiWeb.Layouts do
           <div class="flex h-full flex-col">
             <div class="flex flex-1 flex-col overflow-y-auto p-6">
               <div class="flex shrink-0 items-center mb-8 gap-2">
-                <img src={~p"/images/swati_logo.png"} alt="Swati AI" class="h-11 w-auto" />
+                <.logo_with_tiles id="sidebar-logo" img_class="h-11 w-auto" class="shrink-0" />
               </div>
 
               <.navlist heading="Workspace">
@@ -262,6 +262,72 @@ defmodule SwatiWeb.Layouts do
         {gettext("Attempting to reconnect")}
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
+    </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :class, :string, default: nil
+  attr :img_class, :string, default: "h-12 w-auto"
+  attr :alt, :string, default: "Swati AI"
+
+  def logo_with_tiles(assigns) do
+    pattern_id = "#{assigns.id}-pattern"
+    fade_id = "#{assigns.id}-fade-gradient"
+    mask_id = "#{assigns.id}-fade-mask"
+
+    assigns =
+      assigns
+      |> assign(:pattern_id, pattern_id)
+      |> assign(:fade_id, fade_id)
+      |> assign(:mask_id, mask_id)
+
+    ~H"""
+    <div class={["relative inline-flex items-center justify-center overflow-visible", @class]}>
+      <div class="absolute -inset-3 rounded-base overflow-hidden">
+        <svg
+          aria-hidden="true"
+          class="absolute inset-0 size-full text-foreground/60"
+          width="100%"
+          height="100%"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <pattern
+              id={@pattern_id}
+              x="0"
+              y="0"
+              width="36"
+              height="36"
+              patternUnits="userSpaceOnUse"
+            >
+              <g fill="none" opacity="0.45">
+                <path d="M36 18L0 18" stroke="currentColor"></path>
+                <path d="M18 0V36" stroke="currentColor"></path>
+              </g>
+              <g opacity="0.18">
+                <rect width="18" height="18" fill="currentColor"></rect>
+                <rect x="18" y="18" width="18" height="18" fill="currentColor"></rect>
+              </g>
+            </pattern>
+
+            <radialGradient id={@fade_id} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+              <stop offset="0%" stop-color="white" stop-opacity="1"></stop>
+              <stop offset="60%" stop-color="white" stop-opacity="0.6"></stop>
+              <stop offset="100%" stop-color="white" stop-opacity="0.1"></stop>
+            </radialGradient>
+
+            <mask id={@mask_id}>
+              <rect width="100%" height="100%" fill={"url(##{@fade_id})"}></rect>
+            </mask>
+          </defs>
+
+          <rect width="100%" height="100%" fill={"url(##{@pattern_id})"} mask={"url(##{@mask_id})"}>
+          </rect>
+        </svg>
+      </div>
+
+      <img src={~p"/images/swati_logo.png"} alt={@alt} class={["relative z-10", @img_class]} />
     </div>
     """
   end
