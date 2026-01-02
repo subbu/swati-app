@@ -13,7 +13,7 @@ defmodule SwatiWeb.AgentsLive.Form do
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-semibold">{@page_title}</h1>
-            <p class="text-sm text-base-content/70">Define prompts, voice, and tools.</p>
+            <p class="text-sm text-base-content/70">Define instructions, voice, and tools.</p>
           </div>
           <div class="flex items-center gap-2">
             <.button :if={@live_action == :edit} phx-click="publish" variant="soft">Publish</.button>
@@ -28,7 +28,11 @@ defmodule SwatiWeb.AgentsLive.Form do
               <div class="grid gap-4 md:grid-cols-2">
                 <.input field={@form[:name]} label="Agent name" required />
                 <.select field={@form[:status]} label="Status" options={@status_options} />
-                <.input field={@form[:language]} label="Language" />
+                <.select
+                  field={@form[:language]}
+                  label="Language"
+                  options={@language_options}
+                />
                 <.input field={@form[:llm_model]} label="LLM model" />
               </div>
             </section>
@@ -37,40 +41,18 @@ defmodule SwatiWeb.AgentsLive.Form do
               <h2 class="text-lg font-semibold">Voice</h2>
               <div class="grid gap-4 md:grid-cols-2">
                 <.input field={@form[:voice_provider]} label="Voice provider" />
-                <.input field={@form[:voice_name]} label="Voice name" />
+                <.select
+                  field={@form[:voice_name]}
+                  label="Voice name"
+                  options={@voice_options}
+                />
                 <.input field={@form[:llm_provider]} label="LLM provider" />
               </div>
             </section>
 
             <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">
-              <h2 class="text-lg font-semibold">Prompt blocks</h2>
-              <div class="grid gap-4">
-                <.textarea
-                  name="agent[prompt_blocks][identity]"
-                  label="Identity"
-                  value={@prompt_blocks["identity"]}
-                />
-                <.textarea
-                  name="agent[prompt_blocks][business_facts]"
-                  label="Business facts"
-                  value={@prompt_blocks["business_facts"]}
-                />
-                <.textarea
-                  name="agent[prompt_blocks][style]"
-                  label="Style"
-                  value={@prompt_blocks["style"]}
-                />
-                <.textarea
-                  name="agent[prompt_blocks][safety]"
-                  label="Safety"
-                  value={@prompt_blocks["safety"]}
-                />
-                <.textarea
-                  name="agent[prompt_blocks][tool_rules]"
-                  label="Tool rules"
-                  value={@prompt_blocks["tool_rules"]}
-                />
-              </div>
+              <h2 class="text-lg font-semibold">Agent instructions</h2>
+              <.textarea field={@form[:instructions]} label="Agent instructions" rows={10} />
             </section>
 
             <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">
@@ -143,6 +125,8 @@ defmodule SwatiWeb.AgentsLive.Form do
     {:ok,
      socket
      |> assign(:status_options, status_options())
+     |> assign(:language_options, language_options())
+     |> assign(:voice_options, voice_options())
      |> assign(:integrations, [])
      |> assign(:integration_states, %{})}
   end
@@ -154,7 +138,7 @@ defmodule SwatiWeb.AgentsLive.Form do
         agent = %Agent{
           status: "draft",
           llm_model: Agent.default_llm_model(),
-          prompt_blocks: Agent.default_prompt_blocks(),
+          instructions: Agent.default_instructions(),
           tool_policy: Agent.default_tool_policy()
         }
 
@@ -263,7 +247,6 @@ defmodule SwatiWeb.AgentsLive.Form do
 
     socket
     |> assign(:form, to_form(changeset, as: :agent))
-    |> assign(:prompt_blocks, Map.get(attrs, :prompt_blocks, Agent.default_prompt_blocks()))
     |> assign(:tool_allowlist, Enum.join(Map.get(tool_policy, "allow", []), "\n"))
     |> assign(:tool_denylist, Enum.join(Map.get(tool_policy, "deny", []), "\n"))
     |> assign(:max_calls_per_turn, Map.get(tool_policy, "max_calls_per_turn", 3))
@@ -273,11 +256,8 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   defp build_agent_attrs(params, agent) do
-    base_prompt_blocks =
-      Agent.default_prompt_blocks()
-      |> Map.merge(agent.prompt_blocks || %{})
-
-    prompt_blocks = Map.merge(base_prompt_blocks, Map.get(params, "prompt_blocks", %{}))
+    instructions =
+      Map.get(params, "instructions") || agent.instructions || Agent.default_instructions()
 
     base_tool_policy = agent.tool_policy || Agent.default_tool_policy()
     allowlist = Map.get(params, "tool_allowlist")
@@ -333,7 +313,7 @@ defmodule SwatiWeb.AgentsLive.Form do
       voice_name: Map.get(params, "voice_name") || agent.voice_name || "Fenrir",
       llm_provider: Map.get(params, "llm_provider") || agent.llm_provider || "google",
       llm_model: Map.get(params, "llm_model") || agent.llm_model || Agent.default_llm_model(),
-      prompt_blocks: prompt_blocks,
+      instructions: instructions,
       tool_policy: tool_policy,
       escalation_policy: escalation_policy,
       escalation_enabled: escalation_enabled,
@@ -380,6 +360,77 @@ defmodule SwatiWeb.AgentsLive.Form do
       {"Draft", "draft"},
       {"Active", "active"},
       {"Archived", "archived"}
+    ]
+  end
+
+  defp language_options do
+    indian =
+      [
+        {"English (India) - en-IN (hi-IN bundle)", "en-IN"},
+        {"Hindi (India) - hi-IN", "hi-IN"},
+        {"Marathi (India) - mr-IN", "mr-IN"},
+        {"Tamil (India) - ta-IN", "ta-IN"},
+        {"Telugu (India) - te-IN", "te-IN"}
+      ]
+
+    other =
+      [
+        {"Arabic (Egyptian) - ar-EG", "ar-EG"},
+        {"Bengali (Bangladesh) - bn-BD", "bn-BD"},
+        {"Dutch (Netherlands) - nl-NL", "nl-NL"},
+        {"English (US) - en-US", "en-US"},
+        {"French (France) - fr-FR", "fr-FR"},
+        {"German (Germany) - de-DE", "de-DE"},
+        {"Indonesian (Indonesia) - id-ID", "id-ID"},
+        {"Italian (Italy) - it-IT", "it-IT"},
+        {"Japanese (Japan) - ja-JP", "ja-JP"},
+        {"Korean (Korea) - ko-KR", "ko-KR"},
+        {"Polish (Poland) - pl-PL", "pl-PL"},
+        {"Portuguese (Brazil) - pt-BR", "pt-BR"},
+        {"Romanian (Romania) - ro-RO", "ro-RO"},
+        {"Russian (Russia) - ru-RU", "ru-RU"},
+        {"Spanish (US) - es-US", "es-US"},
+        {"Thai (Thailand) - th-TH", "th-TH"},
+        {"Turkish (Turkey) - tr-TR", "tr-TR"},
+        {"Ukrainian (Ukraine) - uk-UA", "uk-UA"},
+        {"Vietnamese (Vietnam) - vi-VN", "vi-VN"}
+      ]
+
+    indian ++ other
+  end
+
+  defp voice_options do
+    [
+      {"Zephyr - Bright", "Zephyr"},
+      {"Kore - Firm", "Kore"},
+      {"Orus - Firm", "Orus"},
+      {"Autonoe - Bright", "Autonoe"},
+      {"Umbriel - Easy-going", "Umbriel"},
+      {"Erinome - Clear", "Erinome"},
+      {"Laomedeia - Upbeat", "Laomedeia"},
+      {"Schedar - Even", "Schedar"},
+      {"Achird - Friendly", "Achird"},
+      {"Sadachbia - Lively", "Sadachbia"},
+      {"Puck - Upbeat", "Puck"},
+      {"Fenrir - Excitable", "Fenrir"},
+      {"Aoede - Breezy", "Aoede"},
+      {"Enceladus - Breathy", "Enceladus"},
+      {"Algieba - Smooth", "Algieba"},
+      {"Algenib - Gravelly", "Algenib"},
+      {"Achernar - Soft", "Achernar"},
+      {"Gacrux - Mature", "Gacrux"},
+      {"Zubenelgenubi - Casual", "Zubenelgenubi"},
+      {"Sadaltager - Knowledgeable", "Sadaltager"},
+      {"Charon - Informative", "Charon"},
+      {"Leda - Youthful", "Leda"},
+      {"Callirrhoe - Easy-going", "Callirrhoe"},
+      {"Iapetus - Clear", "Iapetus"},
+      {"Despina - Smooth", "Despina"},
+      {"Rasalgethi - Informative", "Rasalgethi"},
+      {"Alnilam - Firm", "Alnilam"},
+      {"Pulcherrima - Forward", "Pulcherrima"},
+      {"Vindemiatrix - Gentle", "Vindemiatrix"},
+      {"Sulafat - Warm", "Sulafat"}
     ]
   end
 end

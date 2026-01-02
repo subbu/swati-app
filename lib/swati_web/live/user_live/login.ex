@@ -52,7 +52,7 @@ defmodule SwatiWeb.UserLive.Login do
 
           <div class="relative z-10">
             <div class="flex items-center justify-center mb-4">
-              <img src={~p"/images/logo.svg"} alt="Swati" class="h-12" />
+              <img src={~p"/images/swati_logo.png"} alt="Swati AI" class="h-12" />
             </div>
 
             <h1 class="text-center text-2xl/10 font-bold text-foreground">Welcome back</h1>

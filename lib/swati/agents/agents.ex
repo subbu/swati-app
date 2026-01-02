@@ -26,7 +26,7 @@ defmodule Swati.Agents do
       |> Map.new()
       |> Map.put(:tenant_id, tenant_id)
       |> Map.put_new(:llm_model, Agent.default_llm_model())
-      |> Map.put_new(:prompt_blocks, Agent.default_prompt_blocks())
+      |> Map.put_new(:instructions, Agent.default_instructions())
       |> Map.put_new(:tool_policy, Agent.default_tool_policy())
 
     case Repo.insert(Agent.changeset(%Agent{}, attrs)) do

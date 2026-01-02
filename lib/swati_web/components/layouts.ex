@@ -43,13 +43,7 @@ defmodule SwatiWeb.Layouts do
 
       <.sheet id="mobile-sidebar-nav" placement="left" class="w-full max-w-xs">
         <div class="flex mb-6 shrink-0 items-center gap-2">
-          <img src={~p"/images/logo.svg"} alt="Swati" class="h-7 w-auto" />
-          <div class="min-w-0">
-            <span class="block text-xl font-extrabold text-foreground">Swati</span>
-            <.badge :if={tenant} color="primary" variant="soft" class="mt-1">
-              {tenant.name}
-            </.badge>
-          </div>
+          <img src={~p"/images/swati_logo.png"} alt="Swati AI" class="h-12 w-auto" />
         </div>
 
         <.navlist heading="Workspace">
@@ -113,13 +107,7 @@ defmodule SwatiWeb.Layouts do
           <div class="flex h-full flex-col">
             <div class="flex flex-1 flex-col overflow-y-auto p-6">
               <div class="flex shrink-0 items-center mb-8 gap-2">
-                <img src={~p"/images/logo.svg"} alt="Swati" class="h-6 w-auto" />
-                <div class="min-w-0">
-                  <span class="block text-xl font-extrabold text-foreground">Swati</span>
-                  <.badge :if={tenant} color="primary" variant="soft" class="mt-1">
-                    {tenant.name}
-                  </.badge>
-                </div>
+                <img src={~p"/images/swati_logo.png"} alt="Swati AI" class="h-11 w-auto" />
               </div>
 
               <.navlist heading="Workspace">
