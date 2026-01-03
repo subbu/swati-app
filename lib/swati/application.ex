@@ -9,6 +9,7 @@ defmodule Swati.Application do
   def start(_type, _args) do
     children = [
       SwatiWeb.Telemetry,
+      Swati.Vault,
       Swati.Repo,
       {Oban, Application.fetch_env!(:swati, Oban)},
       {Ecto.Migrator,

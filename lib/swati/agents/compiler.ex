@@ -1,5 +1,7 @@
 defmodule Swati.Agents.Compiler do
   alias Swati.Agents.Agent
+  alias Swati.Agents.EscalationPolicy
+  alias Swati.Agents.ToolPolicy
 
   def compile(agent, opts \\ %{}) do
     instructions =
@@ -18,8 +20,8 @@ defmodule Swati.Agents.Compiler do
         "model" => agent.llm_model
       },
       "system_prompt" => instructions,
-      "tool_policy" => agent.tool_policy,
-      "escalation_policy" => agent.escalation_policy
+      "tool_policy" => ToolPolicy.normalize(agent.tool_policy),
+      "escalation_policy" => EscalationPolicy.normalize(agent.escalation_policy)
     }
   end
 end

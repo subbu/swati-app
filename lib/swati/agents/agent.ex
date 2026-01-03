@@ -1,6 +1,8 @@
 defmodule Swati.Agents.Agent do
   use Swati.DbSchema
 
+  alias Swati.Agents.ToolPolicy
+
   @statuses ["draft", "active", "archived"]
   schema "agents" do
     field :name, :string
@@ -62,11 +64,7 @@ defmodule Swati.Agents.Agent do
   end
 
   def default_tool_policy do
-    %{
-      "allow" => [],
-      "deny" => [],
-      "max_calls_per_turn" => 3
-    }
+    ToolPolicy.default()
   end
 
   def default_llm_model do
