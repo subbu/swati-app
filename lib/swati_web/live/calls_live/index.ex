@@ -81,37 +81,137 @@ defmodule SwatiWeb.CallsLive.Index do
                 {label}
               </.dropdown_button>
             </.dropdown>
+
+            <.popover
+              id="columns-popover"
+              placement="bottom-start"
+              class="min-w-52 [&:has(.phx-change-loading)_[data-loading]]:flex"
+            >
+              <.button variant="dashed">
+                <.icon name="hero-view-columns" class="icon" />
+                <span class="hidden lg:inline ml-1">Columns</span>
+              </.button>
+              <:content>
+                <div
+                  class="absolute inset-px bg-base/70 items-center justify-center hidden"
+                  data-loading
+                >
+                  <.loading class="text-foreground-softer" />
+                </div>
+                <h3 class="font-medium">Columns</h3>
+                <.form :let={f} for={@columns_form} phx-change="update_columns">
+                  <div class="flex items-center justify-between mt-3">
+                    <.label for="started_at" class="text-foreground">Started</.label>
+                    <.switch
+                      id="started_at"
+                      field={f[:started_at]}
+                      value={@visible_columns |> Enum.member?("started_at")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
+                    <.label for="from_number" class="text-foreground">From</.label>
+                    <.switch
+                      id="from_number"
+                      field={f[:from_number]}
+                      value={@visible_columns |> Enum.member?("from_number")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
+                    <.label for="to_number" class="text-foreground">To</.label>
+                    <.switch
+                      id="to_number"
+                      field={f[:to_number]}
+                      value={@visible_columns |> Enum.member?("to_number")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
+                    <.label for="duration_seconds" class="text-foreground">Duration</.label>
+                    <.switch
+                      id="duration_seconds"
+                      field={f[:duration_seconds]}
+                      value={@visible_columns |> Enum.member?("duration_seconds")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
+                    <.label for="status" class="text-foreground">Status</.label>
+                    <.switch
+                      id="status"
+                      field={f[:status]}
+                      value={@visible_columns |> Enum.member?("status")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
+                    <.label for="agent_id" class="text-foreground">Agent</.label>
+                    <.switch
+                      id="agent_id"
+                      field={f[:agent_id]}
+                      value={@visible_columns |> Enum.member?("agent_id")}
+                    />
+                  </div>
+                </.form>
+              </:content>
+            </.popover>
           </div>
 
           <div class="overflow-x-auto">
             <.table>
               <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
-                <:col class="py-2" phx-click="sort" phx-value-column="started_at">
+                <:col
+                  :if={"started_at" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="started_at"
+                >
                   <button type="button" class={sort_button_class("started_at", @sort)}>
                     Started <.sort_icon column="started_at" sort={@sort} />
                   </button>
                 </:col>
-                <:col class="py-2" phx-click="sort" phx-value-column="from_number">
+                <:col
+                  :if={"from_number" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="from_number"
+                >
                   <button type="button" class={sort_button_class("from_number", @sort)}>
                     From <.sort_icon column="from_number" sort={@sort} />
                   </button>
                 </:col>
-                <:col class="py-2" phx-click="sort" phx-value-column="to_number">
+                <:col
+                  :if={"to_number" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="to_number"
+                >
                   <button type="button" class={sort_button_class("to_number", @sort)}>
                     To <.sort_icon column="to_number" sort={@sort} />
                   </button>
                 </:col>
-                <:col class="py-2" phx-click="sort" phx-value-column="duration_seconds">
+                <:col
+                  :if={"duration_seconds" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="duration_seconds"
+                >
                   <button type="button" class={sort_button_class("duration_seconds", @sort)}>
                     Duration <.sort_icon column="duration_seconds" sort={@sort} />
                   </button>
                 </:col>
-                <:col class="py-2" phx-click="sort" phx-value-column="status">
+                <:col
+                  :if={"status" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="status"
+                >
                   <button type="button" class={sort_button_class("status", @sort)}>
                     Status <.sort_icon column="status" sort={@sort} />
                   </button>
                 </:col>
-                <:col class="py-2" phx-click="sort" phx-value-column="agent_id">
+                <:col
+                  :if={"agent_id" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="agent_id"
+                >
                   <button type="button" class={sort_button_class("agent_id", @sort)}>
                     Agent <.sort_icon column="agent_id" sort={@sort} />
                   </button>
@@ -123,7 +223,7 @@ defmodule SwatiWeb.CallsLive.Index do
                   :for={call <- @calls}
                   class="[&_td:first-child]:pl-4! [&_td:last-child]:pr-4! hover:bg-accent/50 transition-colors group"
                 >
-                  <:cell class="py-2 align-middle">
+                  <:cell :if={"started_at" in @visible_columns} class="py-2 align-middle">
                     <div class="flex items-center">
                       <span class="text-foreground">{format_datetime(call.started_at)}</span>
                       <.icon
@@ -132,23 +232,23 @@ defmodule SwatiWeb.CallsLive.Index do
                       />
                     </div>
                   </:cell>
-                  <:cell class="py-2 align-middle">
+                  <:cell :if={"from_number" in @visible_columns} class="py-2 align-middle">
                     <span class="font-medium text-foreground">{format_phone(call.from_number)}</span>
                   </:cell>
-                  <:cell class="py-2 align-middle">
+                  <:cell :if={"to_number" in @visible_columns} class="py-2 align-middle">
                     <span class="font-medium text-foreground">{format_phone(call.to_number)}</span>
                   </:cell>
-                  <:cell class="py-2 align-middle">
+                  <:cell :if={"duration_seconds" in @visible_columns} class="py-2 align-middle">
                     {format_duration(call)}
                   </:cell>
-                  <:cell class="py-2 align-middle">
+                  <:cell :if={"status" in @visible_columns} class="py-2 align-middle">
                     <% status_info = status_display(call.status) %>
                     <div class="flex items-center gap-x-2">
                       <.icon name={status_info.icon_name} class={"size-5 #{status_info.icon_class}"} />
                       <span>{status_info.label}</span>
                     </div>
                   </:cell>
-                  <:cell class="py-2 align-middle">
+                  <:cell :if={"agent_id" in @visible_columns} class="py-2 align-middle">
                     <% agent = agent_display(call.agent_id, @agents) %>
                     <div class="flex items-center gap-2">
                       <div class={"size-6 rounded-full text-xs font-semibold flex items-center justify-center #{agent.color}"}>
@@ -178,6 +278,7 @@ defmodule SwatiWeb.CallsLive.Index do
     agents = Agents.list_agents(tenant.id)
     filters = %{"status" => "", "agent_id" => "", "query" => ""}
     sort = %{column: "started_at", direction: "desc"}
+    visible_columns = ~w(started_at from_number to_number duration_seconds status agent_id)
     calls = Calls.list_calls(tenant.id, Map.put(filters, "sort", sort))
 
     {:ok,
@@ -185,6 +286,18 @@ defmodule SwatiWeb.CallsLive.Index do
      |> assign(:agents, agents)
      |> assign(:calls, calls)
      |> assign(:filters, filters)
+     |> assign(:visible_columns, visible_columns)
+     |> assign(
+       :columns_form,
+       to_form(%{
+         "started_at" => true,
+         "from_number" => true,
+         "to_number" => true,
+         "duration_seconds" => true,
+         "status" => true,
+         "agent_id" => true
+       })
+     )
      |> assign(:sort, sort)
      |> assign(:filter_form, to_form(filters, as: :filters))
      |> assign(:status_options, status_options())
@@ -214,6 +327,16 @@ defmodule SwatiWeb.CallsLive.Index do
      socket
      |> assign(:calls, calls)
      |> assign(:sort, sort)}
+  end
+
+  @impl true
+  def handle_event("update_columns", columns, socket) do
+    visible_columns =
+      columns
+      |> Map.keys()
+      |> Enum.filter(&Phoenix.HTML.Form.normalize_value("checkbox", columns[&1]))
+
+    {:noreply, assign(socket, columns_form: to_form(columns), visible_columns: visible_columns)}
   end
 
   defp status_options do
