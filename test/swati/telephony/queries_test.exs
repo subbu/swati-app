@@ -43,4 +43,20 @@ defmodule Swati.Telephony.QueriesTest do
     results = Queries.list_phone_numbers(scope.tenant.id, %{"status" => ""})
     assert length(results) == 2
   end
+
+  test "get_phone_number_by_e164! normalizes input", %{scope: scope} do
+    {:ok, phone_number} =
+      %PhoneNumber{}
+      |> PhoneNumber.changeset(%{
+        tenant_id: scope.tenant.id,
+        provider: :plivo,
+        e164: "918035739111",
+        country: "IN",
+        status: :active
+      })
+      |> Repo.insert()
+
+    result = Queries.get_phone_number_by_e164!("+91 80357-39111")
+    assert result.id == phone_number.id
+  end
 end

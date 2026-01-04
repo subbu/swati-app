@@ -4,6 +4,7 @@ defmodule Swati.Telephony.Commands do
   alias Swati.Audit
   alias Swati.Repo
   alias Swati.Telephony.AnswerUrl
+  alias Swati.Telephony.E164
   alias Swati.Telephony.PhoneNumber
   alias Swati.Telephony.PhoneNumberStatusTransitions
   alias Swati.Telephony.Providers.Plivo
@@ -15,6 +16,7 @@ defmodule Swati.Telephony.Commands do
   def provision_phone_number(tenant_id, attrs, actor) do
     provider = Map.get(attrs, :provider, :plivo)
     e164 = Map.get(attrs, :e164) || Map.get(attrs, "e164")
+    e164 = if is_binary(e164), do: E164.normalize(e164).normalized, else: e164
 
     Logger.debug(
       "provision_phone_number start tenant_id=#{tenant_id} provider=#{provider} e164=#{e164} actor_id=#{Map.get(actor, :id)}"

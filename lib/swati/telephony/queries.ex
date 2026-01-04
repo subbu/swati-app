@@ -2,6 +2,7 @@ defmodule Swati.Telephony.Queries do
   import Ecto.Query, warn: false
 
   alias Swati.Repo
+  alias Swati.Telephony.E164
   alias Swati.Telephony.PhoneNumber
   alias Swati.Tenancy
 
@@ -32,7 +33,19 @@ defmodule Swati.Telephony.Queries do
   def get_phone_number!(id), do: Repo.get!(PhoneNumber, id)
 
   def get_phone_number_by_e164!(e164) when is_binary(e164) do
-    Repo.get_by!(PhoneNumber, e164: e164)
+    %{normalized: normalized, digits: digits} = E164.normalize(e164)
+
+    Repo.get_by(PhoneNumber, e164: normalized) ||
+      Repo.get_by(PhoneNumber, e164: e164) ||
+      Repo.one!(
+        from(number in PhoneNumber,
+          where:
+            fragment(
+              "replace(replace(replace(replace(replace(replace(?, '+', ''), '-', ''), '(', ''), ')', ''), ' ', ''), '.', '')",
+              number.e164
+            ) == ^digits
+        )
+      )
   end
 
   defp normalize_filters(filters) do
