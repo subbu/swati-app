@@ -3,6 +3,7 @@ defmodule SwatiWeb.CallsLive.Index do
 
   alias Swati.Agents
   alias Swati.Calls
+  alias Swati.Telephony
 
   @impl true
   def render(assigns) do
@@ -25,7 +26,7 @@ defmodule SwatiWeb.CallsLive.Index do
           </div>
         </header>
 
-        <section class="rounded-base border border-base bg-base overflow-hidden">
+        <section class="rounded-base bg-base overflow-hidden">
           <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-base">
             <.form
               for={@filter_form}
@@ -101,6 +102,14 @@ defmodule SwatiWeb.CallsLive.Index do
                 <h3 class="font-medium">Columns</h3>
                 <.form :let={f} for={@columns_form} phx-change="update_columns">
                   <div class="flex items-center justify-between mt-3">
+                    <.label for="direction" class="text-foreground">Direction</.label>
+                    <.switch
+                      id="direction"
+                      field={f[:direction]}
+                      value={@visible_columns |> Enum.member?("direction")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
                     <.label for="started_at" class="text-foreground">Started</.label>
                     <.switch
                       id="started_at"
@@ -156,6 +165,7 @@ defmodule SwatiWeb.CallsLive.Index do
           <div class="overflow-x-auto">
             <.table>
               <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
+                <:col :if={"direction" in @visible_columns} class="py-2">Direction</:col>
                 <:col
                   :if={"started_at" in @visible_columns}
                   class="py-2"
@@ -223,6 +233,13 @@ defmodule SwatiWeb.CallsLive.Index do
                   :for={call <- @calls}
                   class="[&_td:first-child]:pl-4! [&_td:last-child]:pr-4! hover:bg-accent/50 transition-colors group"
                 >
+                  <:cell :if={"direction" in @visible_columns} class="py-2 align-middle">
+                    <% direction = direction_display(call, @phone_number_e164s) %>
+                    <span class="inline-flex items-center">
+                      <.icon name={direction.icon_name} class={"size-4 #{direction.icon_class}"} />
+                      <span class="sr-only">{direction.label}</span>
+                    </span>
+                  </:cell>
                   <:cell :if={"started_at" in @visible_columns} class="py-2 align-middle">
                     <div class="flex items-center">
                       <span class="text-foreground">{format_datetime(call.started_at)}</span>
@@ -276,20 +293,27 @@ defmodule SwatiWeb.CallsLive.Index do
   def mount(_params, _session, socket) do
     tenant = socket.assigns.current_scope.tenant
     agents = Agents.list_agents(tenant.id)
+    phone_numbers = Telephony.list_phone_numbers(tenant.id)
+    phone_number_e164s = MapSet.new(Enum.map(phone_numbers, & &1.e164))
     filters = %{"status" => "", "agent_id" => "", "query" => ""}
     sort = %{column: "started_at", direction: "desc"}
-    visible_columns = ~w(started_at from_number to_number duration_seconds status agent_id)
+
+    visible_columns =
+      ~w(direction started_at from_number to_number duration_seconds status agent_id)
+
     calls = Calls.list_calls(tenant.id, Map.put(filters, "sort", sort))
 
     {:ok,
      socket
      |> assign(:agents, agents)
+     |> assign(:phone_number_e164s, phone_number_e164s)
      |> assign(:calls, calls)
      |> assign(:filters, filters)
      |> assign(:visible_columns, visible_columns)
      |> assign(
        :columns_form,
        to_form(%{
+         "direction" => true,
          "started_at" => true,
          "from_number" => true,
          "to_number" => true,
@@ -387,6 +411,28 @@ defmodule SwatiWeb.CallsLive.Index do
   end
 
   defp call_duration_seconds(_call), do: nil
+
+  defp direction_display(call, phone_number_e164s) do
+    case call_direction(call, phone_number_e164s) do
+      :incoming ->
+        %{label: "Incoming", icon_name: "hero-arrow-down-left", icon_class: "text-emerald-500"}
+
+      :outgoing ->
+        %{label: "Outgoing", icon_name: "hero-arrow-up-right", icon_class: "text-sky-500"}
+
+      _ ->
+        %{label: "Unknown", icon_name: "hero-minus-small", icon_class: "text-zinc-400"}
+    end
+  end
+
+  defp call_direction(%{to_number: to_number, from_number: from_number}, phone_number_e164s) do
+    cond do
+      is_nil(to_number) or is_nil(from_number) -> :unknown
+      MapSet.member?(phone_number_e164s, to_number) -> :incoming
+      MapSet.member?(phone_number_e164s, from_number) -> :outgoing
+      true -> :unknown
+    end
+  end
 
   defp agent_display(agent_id, agents) do
     case Enum.find(agents, &(&1.id == agent_id)) do
