@@ -56,6 +56,7 @@ defmodule Swati.Calls do
     Call
     |> Tenancy.scope(tenant_id)
     |> apply_filters(filters)
+    |> apply_sort(filters)
     |> Repo.all()
   end
 
@@ -68,8 +69,59 @@ defmodule Swati.Calls do
 
   defp apply_filters(query, filters) do
     query
+    |> maybe_filter_search(filters)
     |> maybe_filter(:status, filters)
     |> maybe_filter(:agent_id, filters)
+  end
+
+  defp apply_sort(query, filters) do
+    {column, direction} = normalize_sort(filters)
+
+    if is_nil(column) do
+      query
+    else
+      from(call in query, order_by: [{^direction, field(call, ^column)}])
+    end
+  end
+
+  defp normalize_sort(filters) do
+    sort = Map.get(filters, :sort) || Map.get(filters, "sort") || %{}
+    column = Map.get(sort, :column) || Map.get(sort, "column")
+    direction = Map.get(sort, :direction) || Map.get(sort, "direction")
+
+    column =
+      case column do
+        "started_at" -> :started_at
+        "from_number" -> :from_number
+        "to_number" -> :to_number
+        "duration_seconds" -> :duration_seconds
+        "status" -> :status
+        "agent_id" -> :agent_id
+        _ -> nil
+      end
+
+    direction =
+      case direction do
+        "asc" -> :asc
+        "desc" -> :desc
+        _ -> :desc
+      end
+
+    {column, direction}
+  end
+
+  defp maybe_filter_search(query, filters) do
+    term = Map.get(filters, :query) || Map.get(filters, "query")
+
+    if is_nil(term) or String.trim(term) == "" do
+      query
+    else
+      like = "%#{String.trim(term)}%"
+
+      from(call in query,
+        where: ilike(call.from_number, ^like) or ilike(call.to_number, ^like)
+      )
+    end
   end
 
   defp maybe_filter(query, key, filters) do
