@@ -14,7 +14,7 @@
 
 ### Resolve runtime config
 
-`GET /internal/v1/runtime/phone_numbers/:phone_number_id`
+`GET /internal/v1/runtime/phone_numbers/:phone_number`
 
 Response example:
 

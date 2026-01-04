@@ -31,6 +31,10 @@ defmodule Swati.Telephony.Queries do
 
   def get_phone_number!(id), do: Repo.get!(PhoneNumber, id)
 
+  def get_phone_number_by_e164!(e164) when is_binary(e164) do
+    Repo.get_by!(PhoneNumber, e164: e164)
+  end
+
   defp normalize_filters(filters) do
     filters
     |> Enum.map(fn {key, value} -> {to_string(key), value} end)

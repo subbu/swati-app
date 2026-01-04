@@ -36,7 +36,7 @@ defmodule SwatiWeb.Router do
   scope "/internal/v1", SwatiWeb.Internal do
     pipe_through :internal
 
-    get "/runtime/phone_numbers/:phone_number_id", RuntimeController, :show
+    get "/runtime/phone_numbers/:phone_number", RuntimeController, :show
     post "/calls/start", CallsController, :start
     post "/calls/:call_id/events", CallsController, :events
     post "/calls/:call_id/end", CallsController, :end_call

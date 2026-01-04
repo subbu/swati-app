@@ -3,8 +3,8 @@ defmodule SwatiWeb.Internal.RuntimeController do
 
   alias Swati.Runtime
 
-  def show(conn, %{"phone_number_id" => phone_number_id}) do
-    case Runtime.runtime_config_for_phone_number(phone_number_id) do
+  def show(conn, %{"phone_number" => phone_number}) do
+    case Runtime.runtime_config_for_phone_number(phone_number) do
       {:ok, payload} ->
         json(conn, payload)
 

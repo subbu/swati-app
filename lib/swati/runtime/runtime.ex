@@ -10,8 +10,8 @@ defmodule Swati.Runtime do
 
   @spec runtime_config_for_phone_number(binary()) ::
           {:ok, map()} | {:error, :phone_number_missing_agent | :agent_not_published}
-  def runtime_config_for_phone_number(phone_number_id) when is_binary(phone_number_id) do
-    phone_number = Telephony.get_phone_number!(phone_number_id)
+  def runtime_config_for_phone_number(phone_number) when is_binary(phone_number) do
+    phone_number = Telephony.get_phone_number_by_e164!(phone_number)
     tenant = Tenancy.get_tenant!(phone_number.tenant_id)
 
     case phone_number.inbound_agent_id do

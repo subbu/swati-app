@@ -19,6 +19,10 @@ defmodule Swati.Telephony do
     Queries.get_phone_number!(id)
   end
 
+  def get_phone_number_by_e164!(e164) when is_binary(e164) do
+    Queries.get_phone_number_by_e164!(e164)
+  end
+
   def search_available_numbers(params, provider \\ :plivo) when is_map(params) do
     Commands.search_available_numbers(params, provider)
   end
