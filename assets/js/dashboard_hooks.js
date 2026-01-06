@@ -36,10 +36,10 @@ const glowPlugin = {
   },
 };
 
-// Shared chart defaults for dark theme consistency
+// Shared chart defaults for light theme (matching dashboard CSS)
 const chartDefaults = {
-  color: "rgba(255, 255, 255, 0.7)",
-  borderColor: "rgba(255, 255, 255, 0.1)",
+  color: "rgba(60, 60, 70, 0.7)",
+  borderColor: "rgba(60, 60, 70, 0.1)",
   font: {
     family: "'Instrument Sans', sans-serif",
     weight: 400,
@@ -90,9 +90,15 @@ Chart.defaults.font.family = chartDefaults.font.family;
 
 // KPI Sparkline Mini Chart
 export const KPISparkline = {
-  mounted() {
+  async mounted() {
+    await waitForDimensions(this.el);
     this.chart = this.createChart();
     this.handleEvent("update_sparkline", (data) => this.updateChart(data));
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.chart) this.chart.resize();
+    });
+    this.resizeObserver.observe(this.el.parentElement);
   },
 
   createChart() {
@@ -137,6 +143,7 @@ export const KPISparkline = {
   },
 
   destroyed() {
+    this.resizeObserver?.disconnect();
     this.chart?.destroy();
   },
 };
@@ -195,9 +202,9 @@ export const CallsTrendChart = {
             },
           },
           tooltip: {
-            backgroundColor: "rgba(17, 17, 27, 0.95)",
-            titleColor: "rgba(255, 255, 255, 0.9)",
-            bodyColor: "rgba(255, 255, 255, 0.7)",
+            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            titleColor: "rgba(255, 255, 255, 0.95)",
+            bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
             borderWidth: 1,
             padding: 12,
@@ -217,7 +224,7 @@ export const CallsTrendChart = {
           y: {
             beginAtZero: true,
             grid: {
-              color: "rgba(255, 255, 255, 0.05)",
+              color: "rgba(0, 0, 0, 0.06)",
               drawTicks: false,
             },
             border: { display: false },
@@ -297,9 +304,9 @@ export const StatusFunnelChart = {
             },
           },
           tooltip: {
-            backgroundColor: "rgba(17, 17, 27, 0.95)",
-            titleColor: "rgba(255, 255, 255, 0.9)",
-            bodyColor: "rgba(255, 255, 255, 0.7)",
+            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            titleColor: "rgba(255, 255, 255, 0.95)",
+            bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
             borderWidth: 1,
             padding: 12,
@@ -371,19 +378,26 @@ export const PeakHoursHeatmap = {
             backgroundColor: (ctx) => {
               const val = ctx.raw?.v || 0;
               const intensity = val / maxVal;
-              if (intensity === 0) return "rgba(99, 102, 241, 0.05)";
-              const alpha = 0.2 + intensity * 0.8;
+              if (intensity === 0) return "rgba(99, 102, 241, 0.08)";
+              // Use a gradient from light to saturated
+              const alpha = 0.25 + intensity * 0.75;
               return `rgba(99, 102, 241, ${alpha})`;
             },
-            borderWidth: 0,
+            borderWidth: 1,
+            borderColor: (ctx) => {
+              const val = ctx.raw?.v || 0;
+              const intensity = val / maxVal;
+              if (intensity === 0) return "rgba(99, 102, 241, 0.1)";
+              return `rgba(99, 102, 241, ${0.3 + intensity * 0.5})`;
+            },
             pointRadius: (ctx) => {
               const chartArea = ctx.chart.chartArea;
-              if (!chartArea) return 12;
+              if (!chartArea) return 10;
               const cellWidth = (chartArea.right - chartArea.left) / 24;
               const cellHeight = (chartArea.bottom - chartArea.top) / 7;
-              return Math.min(cellWidth, cellHeight) / 2 - 2;
+              return Math.min(cellWidth, cellHeight) / 2.2;
             },
-            pointStyle: "rectRounded",
+            pointStyle: "rect",
           },
         ],
       },
@@ -393,9 +407,9 @@ export const PeakHoursHeatmap = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(17, 17, 27, 0.95)",
-            titleColor: "rgba(255, 255, 255, 0.9)",
-            bodyColor: "rgba(255, 255, 255, 0.7)",
+            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            titleColor: "rgba(255, 255, 255, 0.95)",
+            bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
             borderWidth: 1,
             padding: 12,
@@ -456,22 +470,35 @@ export const PeakHoursHeatmap = {
     this.chart.data.datasets[0].backgroundColor = (ctx) => {
       const val = ctx.raw?.v || 0;
       const intensity = val / maxVal;
-      if (intensity === 0) return "rgba(99, 102, 241, 0.05)";
-      return `rgba(99, 102, 241, ${0.2 + intensity * 0.8})`;
+      if (intensity === 0) return "rgba(99, 102, 241, 0.08)";
+      return `rgba(99, 102, 241, ${0.25 + intensity * 0.75})`;
+    };
+    this.chart.data.datasets[0].borderColor = (ctx) => {
+      const val = ctx.raw?.v || 0;
+      const intensity = val / maxVal;
+      if (intensity === 0) return "rgba(99, 102, 241, 0.1)";
+      return `rgba(99, 102, 241, ${0.3 + intensity * 0.5})`;
     };
     this.chart.update();
   },
 
   destroyed() {
+    this.resizeObserver?.disconnect();
     this.chart?.destroy();
   },
 };
 
 // Duration Buckets Bar Chart
 export const DurationBucketsChart = {
-  mounted() {
+  async mounted() {
+    await waitForDimensions(this.el);
     this.chart = this.createChart();
     this.handleEvent("update_buckets", (data) => this.updateChart(data));
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.chart) this.chart.resize();
+    });
+    this.resizeObserver.observe(this.el.parentElement);
   },
 
   createChart() {
@@ -499,9 +526,9 @@ export const DurationBucketsChart = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(17, 17, 27, 0.95)",
-            titleColor: "rgba(255, 255, 255, 0.9)",
-            bodyColor: "rgba(255, 255, 255, 0.7)",
+            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            titleColor: "rgba(255, 255, 255, 0.95)",
+            bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
             borderWidth: 1,
             padding: 12,
@@ -520,7 +547,7 @@ export const DurationBucketsChart = {
           y: {
             beginAtZero: true,
             grid: {
-              color: "rgba(255, 255, 255, 0.05)",
+              color: "rgba(0, 0, 0, 0.06)",
               drawTicks: false,
             },
             border: { display: false },
@@ -538,15 +565,22 @@ export const DurationBucketsChart = {
   },
 
   destroyed() {
+    this.resizeObserver?.disconnect();
     this.chart?.destroy();
   },
 };
 
 // Popular Times (Google Maps style)
 export const PopularTimesChart = {
-  mounted() {
+  async mounted() {
+    await waitForDimensions(this.el);
     this.chart = this.createChart();
     this.handleEvent("update_popular_times", (data) => this.updateChart(data));
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.chart) this.chart.resize();
+    });
+    this.resizeObserver.observe(this.el.parentElement);
   },
 
   createChart() {
@@ -581,9 +615,9 @@ export const PopularTimesChart = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(17, 17, 27, 0.95)",
-            titleColor: "rgba(255, 255, 255, 0.9)",
-            bodyColor: "rgba(255, 255, 255, 0.7)",
+            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            titleColor: "rgba(255, 255, 255, 0.95)",
+            bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
             borderWidth: 1,
             padding: 12,
@@ -636,15 +670,22 @@ export const PopularTimesChart = {
   },
 
   destroyed() {
+    this.resizeObserver?.disconnect();
     this.chart?.destroy();
   },
 };
 
 // Agent Leaderboard Horizontal Bar
 export const AgentLeaderboardChart = {
-  mounted() {
+  async mounted() {
+    await waitForDimensions(this.el);
     this.chart = this.createChart();
     this.handleEvent("update_leaderboard", (data) => this.updateChart(data));
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.chart) this.chart.resize();
+    });
+    this.resizeObserver.observe(this.el.parentElement);
   },
 
   createChart() {
@@ -673,9 +714,9 @@ export const AgentLeaderboardChart = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(17, 17, 27, 0.95)",
-            titleColor: "rgba(255, 255, 255, 0.9)",
-            bodyColor: "rgba(255, 255, 255, 0.7)",
+            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            titleColor: "rgba(255, 255, 255, 0.95)",
+            bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
             borderWidth: 1,
             padding: 12,
@@ -686,7 +727,7 @@ export const AgentLeaderboardChart = {
           x: {
             beginAtZero: true,
             grid: {
-              color: "rgba(255, 255, 255, 0.05)",
+              color: "rgba(0, 0, 0, 0.06)",
               drawTicks: false,
             },
             border: { display: false },
@@ -709,6 +750,7 @@ export const AgentLeaderboardChart = {
   },
 
   destroyed() {
+    this.resizeObserver?.disconnect();
     this.chart?.destroy();
   },
 };

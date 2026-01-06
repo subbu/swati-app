@@ -990,12 +990,30 @@
         padding: var(--dash-space-md);
     }
 
+    /* CRITICAL: Explicit dimensions for mobile charts */
     .dashboard-card__chart {
-        height: 180px;
+        height: 200px !important;
+        min-height: 200px !important;
+        position: relative;
+        width: 100%;
     }
 
     .dashboard-card__chart--sm {
-        height: 120px;
+        height: 160px !important;
+        min-height: 160px !important;
+    }
+
+    .dashboard-card__chart--lg {
+        height: 220px !important;
+        min-height: 220px !important;
+    }
+
+    .dashboard-card__chart canvas {
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
     }
 
     /* Horizontal scroll for tables */
