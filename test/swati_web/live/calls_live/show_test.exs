@@ -51,11 +51,16 @@ defmodule SwatiWeb.CallsLive.ShowTest do
       response: %{content: [%{text: "ok"}]}
     })
 
-    Calls.append_call_event(call.id, "live_config_final", DateTime.add(started_at, 15, :second), %{
-      model: "models/test",
-      system_prompt: "You are a helpful assistant.",
-      mcp: %{endpoint: "https://example.com"}
-    })
+    Calls.append_call_event(
+      call.id,
+      "live_config_final",
+      DateTime.add(started_at, 15, :second),
+      %{
+        model: "models/test",
+        system_prompt: "You are a helpful assistant.",
+        mcp: %{endpoint: "https://example.com"}
+      }
+    )
 
     {:ok, call: call}
   end

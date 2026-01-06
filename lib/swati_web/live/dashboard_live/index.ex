@@ -16,18 +16,29 @@ defmodule SwatiWeb.DashboardLive.Index do
               <.icon name="hero-chart-bar-square" class="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 class="text-2xl font-bold tracking-tight" style="color: var(--dash-text-primary)">Dashboard</h1>
-              <p class="text-sm" style="color: var(--dash-text-tertiary)">Analytics and insights for your calls</p>
+              <h1 class="text-2xl font-bold tracking-tight" style="color: var(--dash-text-primary)">
+                Dashboard
+              </h1>
+              <p class="text-sm" style="color: var(--dash-text-tertiary)">
+                Analytics and insights for your calls
+              </p>
             </div>
           </div>
 
           <div class="sm:ml-auto flex items-center gap-3">
             <.dropdown placement="bottom-end">
               <:toggle>
-                <button class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:shadow-md" style="background: var(--dash-surface-1); border: 1px solid var(--dash-border); color: var(--dash-text-secondary)">
+                <button
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:shadow-md"
+                  style="background: var(--dash-surface-1); border: 1px solid var(--dash-border); color: var(--dash-text-secondary)"
+                >
                   <.icon name="hero-calendar" class="w-4 h-4" style="color: var(--dash-text-muted)" />
                   <span>{date_range_label(@date_range)}</span>
-                  <.icon name="hero-chevron-down" class="w-3.5 h-3.5" style="color: var(--dash-text-muted)" />
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-3.5 h-3.5"
+                    style="color: var(--dash-text-muted)"
+                  />
                 </button>
               </:toggle>
               <.dropdown_button phx-click={JS.push("set_date_range", value: %{range: "7d"})}>
@@ -46,16 +57,30 @@ defmodule SwatiWeb.DashboardLive.Index do
 
             <.dropdown placement="bottom-end">
               <:toggle>
-                <button class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:shadow-md" style="background: var(--dash-surface-1); border: 1px solid var(--dash-border); color: var(--dash-text-secondary)">
-                  <.icon name="hero-user-circle" class="w-4 h-4" style="color: var(--dash-text-muted)" />
+                <button
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:shadow-md"
+                  style="background: var(--dash-surface-1); border: 1px solid var(--dash-border); color: var(--dash-text-secondary)"
+                >
+                  <.icon
+                    name="hero-user-circle"
+                    class="w-4 h-4"
+                    style="color: var(--dash-text-muted)"
+                  />
                   <span>{agent_filter_label(@selected_agent_id, @agents)}</span>
-                  <.icon name="hero-chevron-down" class="w-3.5 h-3.5" style="color: var(--dash-text-muted)" />
+                  <.icon
+                    name="hero-chevron-down"
+                    class="w-3.5 h-3.5"
+                    style="color: var(--dash-text-muted)"
+                  />
                 </button>
               </:toggle>
               <.dropdown_button phx-click={JS.push("filter", value: %{agent_id: ""})}>
                 All agents
               </.dropdown_button>
-              <.dropdown_button :for={agent <- @agents} phx-click={JS.push("filter", value: %{agent_id: agent.id})}>
+              <.dropdown_button
+                :for={agent <- @agents}
+                phx-click={JS.push("filter", value: %{agent_id: agent.id})}
+              >
                 {agent.name}
               </.dropdown_button>
             </.dropdown>
@@ -269,10 +294,26 @@ defmodule SwatiWeb.DashboardLive.Index do
               </div>
             </div>
             <div class="space-y-4">
-              <.coverage_bar label="Recording" value={@stats.coverage.recording.percent} count={@stats.coverage.recording.count} />
-              <.coverage_bar label="Transcript" value={@stats.coverage.transcript.percent} count={@stats.coverage.transcript.count} />
-              <.coverage_bar label="Summary" value={@stats.coverage.summary.percent} count={@stats.coverage.summary.count} />
-              <.coverage_bar label="Disposition" value={@stats.coverage.disposition.percent} count={@stats.coverage.disposition.count} />
+              <.coverage_bar
+                label="Recording"
+                value={@stats.coverage.recording.percent}
+                count={@stats.coverage.recording.count}
+              />
+              <.coverage_bar
+                label="Transcript"
+                value={@stats.coverage.transcript.percent}
+                count={@stats.coverage.transcript.count}
+              />
+              <.coverage_bar
+                label="Summary"
+                value={@stats.coverage.summary.percent}
+                count={@stats.coverage.summary.count}
+              />
+              <.coverage_bar
+                label="Disposition"
+                value={@stats.coverage.disposition.percent}
+                count={@stats.coverage.disposition.count}
+              />
             </div>
           </div>
         </div>
@@ -311,7 +352,11 @@ defmodule SwatiWeb.DashboardLive.Index do
                       </div>
                       <div>
                         <span class="dashboard-table__cell--primary">{agent.agent_name}</span>
-                        <span :if={is_nil(agent.agent_id)} class="ml-2 text-xs px-1.5 py-0.5 rounded-full" style="background: var(--dash-accent-amber-soft); color: var(--dash-accent-amber)">
+                        <span
+                          :if={is_nil(agent.agent_id)}
+                          class="ml-2 text-xs px-1.5 py-0.5 rounded-full"
+                          style="background: var(--dash-accent-amber-soft); color: var(--dash-accent-amber)"
+                        >
                           unassigned
                         </span>
                       </div>
@@ -319,10 +364,18 @@ defmodule SwatiWeb.DashboardLive.Index do
                   </td>
                   <td class="text-right dashboard-table__cell--mono">{agent.total_calls}</td>
                   <td class="text-right dashboard-table__cell--mono">{agent.completed_calls}</td>
-                  <td class={"text-right #{rate_class(agent.completion_rate)}"}>{agent.completion_rate}%</td>
-                  <td class="text-right dashboard-table__cell--mono hidden sm:table-cell">{format_duration_short(agent.avg_duration)}</td>
-                  <td class="text-right dashboard-table__cell--mono hidden md:table-cell">{format_duration_short(agent.max_duration)}</td>
-                  <td class="text-right dashboard-table__cell--mono hidden lg:table-cell">{format_duration_long(agent.total_talk_time)}</td>
+                  <td class={"text-right #{rate_class(agent.completion_rate)}"}>
+                    {agent.completion_rate}%
+                  </td>
+                  <td class="text-right dashboard-table__cell--mono hidden sm:table-cell">
+                    {format_duration_short(agent.avg_duration)}
+                  </td>
+                  <td class="text-right dashboard-table__cell--mono hidden md:table-cell">
+                    {format_duration_short(agent.max_duration)}
+                  </td>
+                  <td class="text-right dashboard-table__cell--mono hidden lg:table-cell">
+                    {format_duration_long(agent.total_talk_time)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -338,7 +391,11 @@ defmodule SwatiWeb.DashboardLive.Index do
           <div class="outlier-card" data-animate>
             <div class="outlier-card__header">
               <h2 class="outlier-card__title">Longest Calls</h2>
-              <.icon name="hero-arrow-trending-up" class="w-4 h-4" style="color: var(--dash-text-muted)" />
+              <.icon
+                name="hero-arrow-trending-up"
+                class="w-4 h-4"
+                style="color: var(--dash-text-muted)"
+              />
             </div>
             <div>
               <.link
@@ -347,7 +404,9 @@ defmodule SwatiWeb.DashboardLive.Index do
                 class="outlier-card__item"
               >
                 <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
-                <span class="outlier-card__item-value">{format_duration_long(call.duration_seconds)}</span>
+                <span class="outlier-card__item-value">
+                  {format_duration_long(call.duration_seconds)}
+                </span>
               </.link>
               <div :if={@stats.outliers.longest_calls == []} class="data-list__empty">
                 No data yet
@@ -393,7 +452,9 @@ defmodule SwatiWeb.DashboardLive.Index do
                 class="outlier-card__item"
               >
                 <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
-                <span class="outlier-card__item-value" style="color: var(--dash-accent-red)">{stuck_duration(call)}</span>
+                <span class="outlier-card__item-value" style="color: var(--dash-accent-red)">
+                  {stuck_duration(call)}
+                </span>
               </.link>
               <div :if={@stats.outliers.stuck_in_progress == []} class="outlier-card__empty">
                 None found
@@ -603,7 +664,15 @@ defmodule SwatiWeb.DashboardLive.Index do
   defp rate_class(_rate), do: "dashboard-table__cell--danger"
 
   defp agent_avatar_class(name) do
-    colors = ["agent-avatar--blue", "agent-avatar--green", "agent-avatar--amber", "agent-avatar--red", "agent-avatar--purple", "agent-avatar--cyan"]
+    colors = [
+      "agent-avatar--blue",
+      "agent-avatar--green",
+      "agent-avatar--amber",
+      "agent-avatar--red",
+      "agent-avatar--purple",
+      "agent-avatar--cyan"
+    ]
+
     index = :erlang.phash2(name) |> rem(length(colors))
     Enum.at(colors, index)
   end

@@ -70,7 +70,9 @@ defmodule Swati.Calls.Dashboard do
       |> Enum.filter(&(&1.duration_seconds && &1.duration_seconds > 0))
       |> Enum.map(& &1.duration_seconds)
 
-    avg_duration = if length(durations) > 0, do: Enum.sum(durations) / length(durations), else: 0.0
+    avg_duration =
+      if length(durations) > 0, do: Enum.sum(durations) / length(durations), else: 0.0
+
     median_duration = calculate_median(durations)
     total_talk_time = Enum.sum(durations)
 
@@ -315,13 +317,21 @@ defmodule Swati.Calls.Dashboard do
     with_recording = Enum.count(calls, &(&1.recording && map_size(&1.recording) > 0))
     with_transcript = Enum.count(calls, &(&1.transcript && map_size(&1.transcript) > 0))
     with_summary = Enum.count(calls, &(&1.summary && String.length(&1.summary || "") > 0))
-    with_disposition = Enum.count(calls, &(&1.disposition && String.length(&1.disposition || "") > 0))
+
+    with_disposition =
+      Enum.count(calls, &(&1.disposition && String.length(&1.disposition || "") > 0))
 
     %{
       recording: %{count: with_recording, percent: Float.round(with_recording / total * 100, 1)},
-      transcript: %{count: with_transcript, percent: Float.round(with_transcript / total * 100, 1)},
+      transcript: %{
+        count: with_transcript,
+        percent: Float.round(with_transcript / total * 100, 1)
+      },
       summary: %{count: with_summary, percent: Float.round(with_summary / total * 100, 1)},
-      disposition: %{count: with_disposition, percent: Float.round(with_disposition / total * 100, 1)},
+      disposition: %{
+        count: with_disposition,
+        percent: Float.round(with_disposition / total * 100, 1)
+      },
       missing_recording: total - with_recording,
       missing_transcript: total - with_transcript,
       missing_summary: total - with_summary,
@@ -343,7 +353,9 @@ defmodule Swati.Calls.Dashboard do
 
     zero_duration_ended =
       calls
-      |> Enum.filter(&(&1.status == :ended && (&1.duration_seconds == 0 || is_nil(&1.duration_seconds))))
+      |> Enum.filter(
+        &(&1.status == :ended && (&1.duration_seconds == 0 || is_nil(&1.duration_seconds)))
+      )
       |> Enum.take(10)
 
     # Calls stuck in_progress for more than 30 minutes
@@ -392,7 +404,9 @@ defmodule Swati.Calls.Dashboard do
           |> Enum.filter(&(&1.duration_seconds && &1.duration_seconds > 0))
           |> Enum.map(& &1.duration_seconds)
 
-        avg_duration = if length(durations) > 0, do: Enum.sum(durations) / length(durations), else: 0
+        avg_duration =
+          if length(durations) > 0, do: Enum.sum(durations) / length(durations), else: 0
+
         max_duration = if length(durations) > 0, do: Enum.max(durations), else: 0
 
         %{

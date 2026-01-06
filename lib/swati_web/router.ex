@@ -88,7 +88,7 @@ defmodule SwatiWeb.Router do
       live "/integrations/:id", IntegrationsLive.Show, :show
       live "/numbers", PhoneNumbersLive.Index, :index
       live "/calls", CallsLive.Index, :index
-      live "/calls/:id", CallsLive.Show, :show
+      live "/calls/:id", CallsLive.Index, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

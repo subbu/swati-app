@@ -7,7 +7,38 @@ defmodule SwatiWeb.CallsLive.Show do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div id="call-detail" class="space-y-8 font-['Instrument_Sans']">
+      <.call_detail
+        call={@call}
+        events={@events}
+        active_tab={@active_tab}
+        primary_audio_url={@primary_audio_url}
+        agent_name={@agent_name}
+        status_badge={@status_badge}
+        summary_text={@summary_text}
+        metadata={@metadata}
+        client_data={@client_data}
+        transcript_items={@transcript_items}
+        back_patch={~p"/calls"}
+      />
+    </Layouts.app>
+    """
+  end
+
+  attr :call, :map, required: true
+  attr :events, :list, required: true
+  attr :active_tab, :string, required: true
+  attr :primary_audio_url, :string, default: nil
+  attr :agent_name, :string, required: true
+  attr :status_badge, :map, required: true
+  attr :summary_text, :string, required: true
+  attr :metadata, :map, required: true
+  attr :client_data, :map, required: true
+  attr :transcript_items, :list, required: true
+  attr :back_patch, :string, default: nil
+
+  def call_detail(assigns) do
+    ~H"""
+    <div id="call-detail" class="space-y-8 font-['Instrument_Sans']">
         <header class="flex flex-wrap items-start gap-4">
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-3">
@@ -25,7 +56,7 @@ defmodule SwatiWeb.CallsLive.Show do
             </div>
           </div>
           <div class="ml-auto flex items-center gap-2">
-            <.button navigate={~p"/calls"} variant="ghost" size="sm">
+            <.button :if={@back_patch} patch={@back_patch} variant="ghost" size="sm">
               <.icon name="hero-arrow-left" class="icon" /> Back
             </.button>
           </div>
@@ -105,7 +136,8 @@ defmodule SwatiWeb.CallsLive.Show do
                   </div>
                 </div>
 
-                <audio id="call-audio" preload="metadata" src={@primary_audio_url} class="hidden"></audio>
+                <audio id="call-audio" preload="metadata" src={@primary_audio_url} class="hidden">
+                </audio>
               <% else %>
                 <div class="text-sm text-foreground-soft">No audio recording available.</div>
               <% end %>
@@ -767,7 +799,8 @@ defmodule SwatiWeb.CallsLive.Show do
                           <.table_row :for={{label, url} <- recording_links(@call)}>
                             <:cell>{label}</:cell>
                             <:cell>
-                              <audio controls src={url} class="w-full max-w-xs" preload="none"></audio>
+                              <audio controls src={url} class="w-full max-w-xs" preload="none">
+                              </audio>
                             </:cell>
                             <:cell class="text-right">
                               <.button
@@ -799,20 +832,16 @@ defmodule SwatiWeb.CallsLive.Show do
                     <% else %>
                       <div :for={item <- @transcript_items} id={item_dom_id(item)}>
                         <%= if item.type == :message do %>
-                          <div
-                            class={[
-                              "flex gap-3",
-                              item.role == :caller && "justify-end"
-                            ]}
-                          >
-                            <div
-                              class={[
-                                "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
-                                item.role == :caller &&
-                                  "bg-base-100 border border-base-300 text-foreground",
-                                item.role == :agent && "bg-base-200/80 text-foreground"
-                              ]}
-                            >
+                          <div class={[
+                            "flex gap-3",
+                            item.role == :caller && "justify-end"
+                          ]}>
+                            <div class={[
+                              "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
+                              item.role == :caller &&
+                                "bg-base-100 border border-base-300 text-foreground",
+                              item.role == :agent && "bg-base-200/80 text-foreground"
+                            ]}>
                               <p class="text-sm leading-relaxed">{item.text}</p>
                               <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
                                 <span class="uppercase tracking-wide">{item.label}</span>
@@ -825,7 +854,10 @@ defmodule SwatiWeb.CallsLive.Show do
                           <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm space-y-3">
                             <div class="flex flex-wrap items-center justify-between gap-3">
                               <div class="flex items-center gap-2">
-                                <.icon name="hero-wrench-screwdriver" class="size-4 text-foreground-softer" />
+                                <.icon
+                                  name="hero-wrench-screwdriver"
+                                  class="size-4 text-foreground-softer"
+                                />
                                 <p class="text-sm font-semibold text-foreground">
                                   Tool {item.status}: {item.name}
                                 </p>
@@ -837,7 +869,10 @@ defmodule SwatiWeb.CallsLive.Show do
                               </div>
                             </div>
 
-                            <.accordion id={"tool-accordion-#{item.id}"} class="rounded-2xl border border-base-200">
+                            <.accordion
+                              id={"tool-accordion-#{item.id}"}
+                              class="rounded-2xl border border-base-200"
+                            >
                               <.accordion_item>
                                 <:header class="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
                                   <span>Mcp call</span>
@@ -866,7 +901,9 @@ defmodule SwatiWeb.CallsLive.Show do
 
                                     <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
                                       <div class="flex items-center justify-between">
-                                        <p class="text-xs uppercase tracking-wide text-foreground-softer">Response</p>
+                                        <p class="text-xs uppercase tracking-wide text-foreground-softer">
+                                          Response
+                                        </p>
                                         <.button variant="ghost" size="icon-xs">
                                           <.icon name="hero-clipboard" class="icon" />
                                         </.button>
@@ -917,7 +954,10 @@ defmodule SwatiWeb.CallsLive.Show do
             </section>
           </div>
 
-          <aside id="metadata-panel" class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-6">
+          <aside
+            id="metadata-panel"
+            class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-6"
+          >
             <div class="flex items-start justify-between gap-3">
               <h3 class="text-lg font-semibold text-foreground">Metadata</h3>
               <.button size="icon-sm" variant="ghost">
@@ -949,34 +989,39 @@ defmodule SwatiWeb.CallsLive.Show do
           </aside>
         </div>
       </div>
-    </Layouts.app>
     """
   end
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     call = Calls.get_call!(socket.assigns.current_scope.tenant.id, id)
-    events = call.events || []
-    agent_label = agent_name(call)
-    status_badge = status_badge(call.status)
 
     {:ok,
-     socket
-     |> assign(:call, call)
-     |> assign(:events, events)
-     |> assign(:active_tab, "overview")
-     |> assign(:primary_audio_url, primary_audio_url(call))
-     |> assign(:agent_name, agent_label)
-     |> assign(:status_badge, status_badge)
-     |> assign(:summary_text, call.summary || "No summary has been generated yet.")
-     |> assign(:metadata, build_metadata(call))
-     |> assign(:client_data, extract_client_data(events))
-     |> assign(:transcript_items, build_transcript_items(events, call.started_at, agent_label))}
+     assign(socket, detail_assigns(call))}
   end
 
   @impl true
   def handle_event("set_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  def detail_assigns(call) do
+    events = call.events || []
+    agent_label = agent_name(call)
+    status_badge = status_badge(call.status)
+
+    %{
+      call: call,
+      events: events,
+      active_tab: "overview",
+      primary_audio_url: primary_audio_url(call),
+      agent_name: agent_label,
+      status_badge: status_badge,
+      summary_text: call.summary || "No summary has been generated yet.",
+      metadata: build_metadata(call),
+      client_data: extract_client_data(events),
+      transcript_items: build_transcript_items(events, call.started_at, agent_label)
+    }
   end
 
   defp primary_audio_url(call) do

@@ -52,8 +52,10 @@ defmodule SwatiWeb.Layouts do
             Onboarding
           </.navlink>
           <.navlink navigate={~p"/dashboard"}>
-            <.icon name="hero-chart-bar" class="size-5 text-foreground-softer group-hover:text-foreground" />
-            Dashboard
+            <.icon
+              name="hero-chart-bar"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Dashboard
           </.navlink>
           <.navlink navigate={~p"/agents"}>
             <.icon
