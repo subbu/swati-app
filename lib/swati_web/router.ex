@@ -77,6 +77,7 @@ defmodule SwatiWeb.Router do
       live "/settings/members", TenantLive.Members, :index
 
       live "/onboarding", OnboardingLive, :index
+      live "/dashboard", DashboardLive.Index, :index
       live "/agents", AgentsLive.Index, :index
       live "/agents/new", AgentsLive.Form, :new
       live "/agents/:id/edit", AgentsLive.Form, :edit

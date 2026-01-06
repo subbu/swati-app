@@ -24,6 +24,7 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import { Hooks as FluxonHooks, DOM as FluxonDOM } from "fluxon";
 import { hooks as colocatedHooks } from "phoenix-colocated/swati";
+import { DashboardHooks } from "./dashboard_hooks";
 import topbar from "../vendor/topbar";
 
 const csrfToken = document
@@ -32,7 +33,7 @@ const csrfToken = document
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...FluxonHooks, ...colocatedHooks },
+  hooks: { ...FluxonHooks, ...colocatedHooks, ...DashboardHooks },
   dom: {
     onBeforeElUpdated(from, to) {
       FluxonDOM.onBeforeElUpdated(from, to);

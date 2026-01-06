@@ -51,6 +51,10 @@ defmodule SwatiWeb.Layouts do
             <.icon name="hero-home" class="size-5 text-foreground-softer group-hover:text-foreground" />
             Onboarding
           </.navlink>
+          <.navlink navigate={~p"/dashboard"}>
+            <.icon name="hero-chart-bar" class="size-5 text-foreground-softer group-hover:text-foreground" />
+            Dashboard
+          </.navlink>
           <.navlink navigate={~p"/agents"}>
             <.icon
               name="hero-users"
@@ -113,6 +117,9 @@ defmodule SwatiWeb.Layouts do
               <.navlist heading="Workspace">
                 <.navlink navigate={~p"/onboarding"}>
                   <.icon name="hero-home" class="size-5" /> Onboarding
+                </.navlink>
+                <.navlink navigate={~p"/dashboard"}>
+                  <.icon name="hero-chart-bar" class="size-5" /> Dashboard
                 </.navlink>
                 <.navlink navigate={~p"/agents"}>
                   <.icon name="hero-users" class="size-5" /> Agents
