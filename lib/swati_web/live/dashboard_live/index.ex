@@ -401,12 +401,20 @@ defmodule SwatiWeb.DashboardLive.Index do
               <.link
                 :for={call <- @stats.outliers.longest_calls}
                 navigate={~p"/calls/#{call.id}"}
-                class="outlier-card__item"
+                class="outlier-card__item outlier-card__item--with-bar"
               >
-                <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
-                <span class="outlier-card__item-value">
-                  {format_duration_long(call.duration_seconds)}
-                </span>
+                <div class="outlier-card__item-content">
+                  <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
+                  <span class="outlier-card__item-value">
+                    {format_duration_long(call.duration_seconds)}
+                  </span>
+                </div>
+                <div class="outlier-card__duration-bar">
+                  <div
+                    class="outlier-card__duration-fill"
+                    style={"width: #{duration_percentage(call.duration_seconds, @stats.outliers.longest_calls)}%"}
+                  />
+                </div>
               </.link>
               <div :if={@stats.outliers.longest_calls == []} class="data-list__empty">
                 No data yet
@@ -684,4 +692,20 @@ defmodule SwatiWeb.DashboardLive.Index do
   defp sparkline_color("cyan"), do: "oklch(70% 0.14 200)"
   defp sparkline_color("purple"), do: "oklch(60% 0.2 295)"
   defp sparkline_color(_), do: "oklch(62% 0.19 255)"
+
+  defp duration_percentage(duration, calls) when is_list(calls) and length(calls) > 0 do
+    max_duration =
+      calls
+      |> Enum.map(& &1.duration_seconds)
+      |> Enum.filter(&(&1 && &1 > 0))
+      |> Enum.max(fn -> 1 end)
+
+    if max_duration > 0 do
+      Float.round((duration || 0) / max_duration * 100, 1)
+    else
+      0
+    end
+  end
+
+  defp duration_percentage(_, _), do: 0
 end

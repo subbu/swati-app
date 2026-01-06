@@ -93,12 +93,23 @@ export const KPISparkline = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_sparkline", (data) => this.updateChart(data));
+    this.handleEvent("update_sparkline", (data) => this.recreateChart());
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {
@@ -153,13 +164,25 @@ export const CallsTrendChart = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_trend", (data) => this.updateChart(data));
+    this.handleEvent("update_trend", (data) => this.recreateChart());
 
     // Handle resize
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    // Destroy and recreate chart to handle data structure changes
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {
@@ -261,12 +284,23 @@ export const StatusFunnelChart = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_funnel", (data) => this.updateChart(data));
+    this.handleEvent("update_funnel", (data) => this.recreateChart());
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {
@@ -337,12 +371,23 @@ export const PeakHoursHeatmap = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_heatmap", (data) => this.updateChart(data));
+    this.handleEvent("update_heatmap", (data) => this.recreateChart());
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {
@@ -432,9 +477,17 @@ export const PeakHoursHeatmap = {
             grid: { display: false },
             border: { display: false },
             ticks: {
-              stepSize: 3,
-              callback: (v) => hours[v] || "",
-              padding: 4,
+              stepSize: 4,
+              callback: (v) => {
+                const hour = Math.round(v);
+                if (hour === 0) return "12a";
+                if (hour === 12) return "12p";
+                if (hour < 12) return `${hour}a`;
+                return `${hour - 12}p`;
+              },
+              padding: 8,
+              font: { size: 10, weight: 500 },
+              color: "rgba(60, 60, 70, 0.6)",
             },
           },
           y: {
@@ -446,8 +499,13 @@ export const PeakHoursHeatmap = {
             border: { display: false },
             ticks: {
               stepSize: 1,
-              callback: (v) => days[v] || "",
-              padding: 4,
+              callback: (v) => {
+                const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                return dayNames[Math.round(v)] || "";
+              },
+              padding: 8,
+              font: { size: 10, weight: 500 },
+              color: "rgba(60, 60, 70, 0.6)",
             },
           },
         },
@@ -493,12 +551,23 @@ export const DurationBucketsChart = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_buckets", (data) => this.updateChart(data));
+    this.handleEvent("update_buckets", (data) => this.recreateChart());
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {
@@ -575,12 +644,23 @@ export const PopularTimesChart = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_popular_times", (data) => this.updateChart(data));
+    this.handleEvent("update_popular_times", (data) => this.recreateChart());
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {
@@ -680,12 +760,23 @@ export const AgentLeaderboardChart = {
   async mounted() {
     await waitForDimensions(this.el);
     this.chart = this.createChart();
-    this.handleEvent("update_leaderboard", (data) => this.updateChart(data));
+    this.handleEvent("update_leaderboard", (data) => this.recreateChart());
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.chart) this.chart.resize();
     });
     this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  recreateChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.chart = this.createChart();
   },
 
   createChart() {

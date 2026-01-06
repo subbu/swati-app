@@ -886,6 +886,36 @@
     font-weight: 500;
 }
 
+/* Duration bar for Longest Calls */
+.outlier-card__item--with-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--dash-space-xs);
+}
+
+.outlier-card__item-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.outlier-card__duration-bar {
+    height: 4px;
+    background: var(--dash-surface-2);
+    border-radius: 100px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.outlier-card__duration-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--dash-accent-purple), var(--dash-accent-blue));
+    border-radius: 100px;
+    transition: width 0.5s var(--dash-ease-out);
+    min-width: 4px;
+}
+
 /* ============================================================================
    ANIMATIONS - Smooth, purposeful motion
    ============================================================================ */
