@@ -1,6 +1,8 @@
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
 
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:opsz@8..64&display=swap");
+
 @import "tailwindcss" source(none);
 @source "../css";
 @source "../js";
@@ -155,6 +157,50 @@
 
 .confetti-orange {
     background: #f97316;
+}
+
+.call-wave {
+    background-image:
+        repeating-linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--color-base-content) 18%, transparent) 0 2px,
+            transparent 2px 10px
+        ),
+        linear-gradient(
+            0deg,
+            transparent 0 45%,
+            color-mix(in srgb, var(--color-base-content) 12%, transparent) 45% 55%,
+            transparent 55% 100%
+        );
+    background-size: 12px 100%, 100% 100%;
+    background-position: 0 50%, 0 50%;
+    mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+/* REPOMARK:SCOPE: 1 - Add a real waveform container for the call audio player (canvas-based, matches screenshot density + fade edges, supports pointer dragging) */
+.call-waveform {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    touch-action: none;
+
+    /* Use computed colors so canvas can read them (color-mix resolves to rgb()) */
+    --waveform-color: color-mix(in srgb, var(--color-base-content) 18%, transparent);
+    --waveform-color-played: color-mix(in srgb, var(--color-base-content) 40%, transparent);
+
+    /* Fade at the edges like the screenshot */
+    mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.call-waveform:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+    outline-offset: 2px;
+}
+
+.call-waveform-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 @keyframes confetti-fall {
