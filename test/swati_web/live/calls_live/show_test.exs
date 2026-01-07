@@ -1,12 +1,15 @@
 defmodule SwatiWeb.CallsLive.ShowTest do
   use SwatiWeb.ConnCase
 
+  import Phoenix.LiveViewTest
   import Swati.AccountsFixtures
-
   alias Swati.Agents
   alias Swati.Calls
 
-  setup :register_and_log_in_user
+  setup %{conn: conn} do
+    scope = user_scope_fixture()
+    {:ok, conn: log_in_user(conn, scope.user), scope: scope}
+  end
 
   setup %{scope: scope} do
     {:ok, agent} = Agents.create_agent(scope.tenant.id, %{name: "Parking assistant"}, scope.user)
@@ -69,33 +72,14 @@ defmodule SwatiWeb.CallsLive.ShowTest do
     {:ok, view, _html} = live(conn, ~p"/calls/#{call.id}")
 
     assert has_element?(view, "#call-detail")
-    assert has_element?(view, "#call-tabs")
-    assert has_element?(view, "#metadata-panel")
+    assert has_element?(view, "#transcription-panel")
 
     # New audio UI (waveform + colocated hook binding)
-    assert has_element?(view, "#call-audio-panel[phx-hook='.CallAudioPlayer']")
+    assert has_element?(view, "#call-audio-panel")
     assert has_element?(view, "#call-waveform-container")
     assert has_element?(view, "#call-waveform")
 
     assert has_element?(view, "#call-audio")
     assert has_element?(view, "#transcript-list")
-  end
-
-  test "switches tabs", %{conn: conn, call: call} do
-    {:ok, view, _html} = live(conn, ~p"/calls/#{call.id}")
-
-    assert has_element?(view, "#overview-panel:not([hidden])")
-
-    view
-    |> element("#tab-transcription")
-    |> render_click()
-
-    assert has_element?(view, "#transcription-panel:not([hidden])")
-
-    view
-    |> element("#tab-client-data")
-    |> render_click()
-
-    assert has_element?(view, "#client-data-panel:not([hidden])")
   end
 end

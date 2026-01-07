@@ -315,14 +315,9 @@ defmodule SwatiWeb.CallsLive.Index do
         <%= if @call do %>
           <CallsShow.call_detail
             call={@call}
-            events={@events}
-            active_tab={@active_tab}
             primary_audio_url={@primary_audio_url}
             agent_name={@agent_name}
             status_badge={@status_badge}
-            summary_text={@summary_text}
-            metadata={@metadata}
-            client_data={@client_data}
             transcript_items={@transcript_items}
             back_patch={~p"/calls"}
           />
@@ -443,10 +438,5 @@ defmodule SwatiWeb.CallsLive.Index do
   @impl true
   def handle_event("close-call-sheet", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/calls")}
-  end
-
-  @impl true
-  def handle_event("set_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, tab)}
   end
 end

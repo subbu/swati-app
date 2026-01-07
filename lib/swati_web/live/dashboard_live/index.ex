@@ -32,12 +32,14 @@ defmodule SwatiWeb.DashboardLive.Index do
                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:shadow-md"
                   style="background: var(--dash-surface-1); border: 1px solid var(--dash-border); color: var(--dash-text-secondary)"
                 >
-                  <.icon name="hero-calendar" class="w-4 h-4" style="color: var(--dash-text-muted)" />
+                  <.icon
+                    name="hero-calendar"
+                    class="w-4 h-4 text-[color:var(--dash-text-muted)]"
+                  />
                   <span>{date_range_label(@date_range)}</span>
                   <.icon
                     name="hero-chevron-down"
-                    class="w-3.5 h-3.5"
-                    style="color: var(--dash-text-muted)"
+                    class="w-3.5 h-3.5 text-[color:var(--dash-text-muted)]"
                   />
                 </button>
               </:toggle>
@@ -63,14 +65,12 @@ defmodule SwatiWeb.DashboardLive.Index do
                 >
                   <.icon
                     name="hero-user-circle"
-                    class="w-4 h-4"
-                    style="color: var(--dash-text-muted)"
+                    class="w-4 h-4 text-[color:var(--dash-text-muted)]"
                   />
                   <span>{agent_filter_label(@selected_agent_id, @agents)}</span>
                   <.icon
                     name="hero-chevron-down"
-                    class="w-3.5 h-3.5"
-                    style="color: var(--dash-text-muted)"
+                    class="w-3.5 h-3.5 text-[color:var(--dash-text-muted)]"
                   />
                 </button>
               </:toggle>
@@ -393,8 +393,7 @@ defmodule SwatiWeb.DashboardLive.Index do
               <h2 class="outlier-card__title">Longest Calls</h2>
               <.icon
                 name="hero-arrow-trending-up"
-                class="w-4 h-4"
-                style="color: var(--dash-text-muted)"
+                class="w-4 h-4 text-[color:var(--dash-text-muted)]"
               />
             </div>
             <div>

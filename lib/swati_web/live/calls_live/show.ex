@@ -9,14 +9,9 @@ defmodule SwatiWeb.CallsLive.Show do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <.call_detail
         call={@call}
-        events={@events}
-        active_tab={@active_tab}
         primary_audio_url={@primary_audio_url}
         agent_name={@agent_name}
         status_badge={@status_badge}
-        summary_text={@summary_text}
-        metadata={@metadata}
-        client_data={@client_data}
         transcript_items={@transcript_items}
         back_patch={~p"/calls"}
       />
@@ -25,14 +20,9 @@ defmodule SwatiWeb.CallsLive.Show do
   end
 
   attr :call, :map, required: true
-  attr :events, :list, required: true
-  attr :active_tab, :string, required: true
   attr :primary_audio_url, :string, default: nil
   attr :agent_name, :string, required: true
   attr :status_badge, :map, required: true
-  attr :summary_text, :string, required: true
-  attr :metadata, :map, required: true
-  attr :client_data, :map, required: true
   attr :transcript_items, :list, required: true
   attr :back_patch, :string, default: nil
 
@@ -62,7 +52,7 @@ defmodule SwatiWeb.CallsLive.Show do
         </div>
       </header>
 
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div class="space-y-6">
         <div class="space-y-6">
           <section
             id="call-audio-panel"
@@ -672,320 +662,106 @@ defmodule SwatiWeb.CallsLive.Show do
           </section>
 
           <section class="space-y-4">
-            <.tabs id="call-tabs">
-              <.tabs_list
-                active_tab={@active_tab}
-                variant="ghost"
-                size="sm"
-                class="border-b border-base-300"
-              >
-                <:tab
-                  name="overview"
-                  id="tab-overview"
-                  phx-click={JS.push("set_tab", value: %{tab: "overview"})}
-                >
-                  Overview
-                </:tab>
-                <:tab
-                  name="transcription"
-                  id="tab-transcription"
-                  phx-click={JS.push("set_tab", value: %{tab: "transcription"})}
-                >
-                  Transcription
-                </:tab>
-                <:tab
-                  name="client_data"
-                  id="tab-client-data"
-                  phx-click={JS.push("set_tab", value: %{tab: "client_data"})}
-                >
-                  Client data
-                </:tab>
-              </.tabs_list>
-
-              <.tabs_panel
-                name="overview"
-                active={@active_tab == "overview"}
-                id="overview-panel"
-                class="pt-6 space-y-6"
-              >
-                <section class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-4">
-                  <div class="flex items-center justify-between gap-3">
-                    <h3 class="text-lg font-semibold text-foreground">Summary</h3>
-                    <.badge variant="surface" color={@status_badge.color}>
-                      {@status_badge.label}
-                    </.badge>
-                  </div>
-                  <p class="text-base text-foreground-soft">{@summary_text}</p>
-                  <div class="grid gap-4 sm:grid-cols-3">
-                    <div class="rounded-2xl border border-base-200 bg-base-200/60 p-4">
-                      <p class="text-xs uppercase tracking-wide text-foreground-softer">
-                        Call status
-                      </p>
-                      <p class="mt-2 text-sm font-medium text-foreground">
-                        {@metadata.status_label}
-                      </p>
-                    </div>
-                    <div class="rounded-2xl border border-base-200 bg-base-200/60 p-4">
-                      <p class="text-xs uppercase tracking-wide text-foreground-softer">
-                        How the call ended
-                      </p>
-                      <p class="mt-2 text-sm font-medium text-foreground">
-                        {@metadata.ended_reason}
-                      </p>
-                    </div>
-                    <div class="rounded-2xl border border-base-200 bg-base-200/60 p-4">
-                      <p class="text-xs uppercase tracking-wide text-foreground-softer">
-                        User ID
-                      </p>
-                      <p class="mt-2 text-sm font-medium text-foreground">
-                        {@metadata.user_id}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-4">
-                  <div class="flex items-center justify-between gap-3">
-                    <h3 class="text-lg font-semibold text-foreground">Artifacts</h3>
-                    <span class="text-xs text-foreground-softer">
-                      {Enum.count(artifact_links(@call))} items
-                    </span>
-                  </div>
-                  <%= if artifact_links(@call) == [] do %>
-                    <p class="text-sm text-foreground-soft">No artifacts available.</p>
-                  <% else %>
-                    <.table>
-                      <.table_head>
-                        <:col>Artifact</:col>
-                        <:col class="text-right">Link</:col>
-                      </.table_head>
-                      <.table_body>
-                        <.table_row :for={{label, url} <- artifact_links(@call)}>
-                          <:cell>{label}</:cell>
-                          <:cell class="text-right">
-                            <.button
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              variant="ghost"
-                              size="xs"
-                            >
-                              Open
-                            </.button>
-                          </:cell>
-                        </.table_row>
-                      </.table_body>
-                    </.table>
-                  <% end %>
-                </section>
-
-                <section class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-4">
-                  <div class="flex items-center justify-between gap-3">
-                    <h3 class="text-lg font-semibold text-foreground">Recording tracks</h3>
-                    <span class="text-xs text-foreground-softer">
-                      {Enum.count(recording_links(@call))} tracks
-                    </span>
-                  </div>
-                  <%= if recording_links(@call) == [] do %>
-                    <p class="text-sm text-foreground-soft">No recordings available.</p>
-                  <% else %>
-                    <.table>
-                      <.table_head>
-                        <:col>Track</:col>
-                        <:col>Preview</:col>
-                        <:col class="text-right">Link</:col>
-                      </.table_head>
-                      <.table_body>
-                        <.table_row :for={{label, url} <- recording_links(@call)}>
-                          <:cell>{label}</:cell>
-                          <:cell>
-                            <audio controls src={url} class="w-full max-w-xs" preload="none"></audio>
-                          </:cell>
-                          <:cell class="text-right">
-                            <.button
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              variant="ghost"
-                              size="xs"
-                            >
-                              Open
-                            </.button>
-                          </:cell>
-                        </.table_row>
-                      </.table_body>
-                    </.table>
-                  <% end %>
-                </section>
-              </.tabs_panel>
-
-              <.tabs_panel
-                name="transcription"
-                active={@active_tab == "transcription"}
-                id="transcription-panel"
-                class="pt-6 space-y-6"
-              >
-                <div id="transcript-list" class="space-y-6">
-                  <%= if @transcript_items == [] do %>
-                    <p class="text-sm text-foreground-soft">No transcription events yet.</p>
-                  <% else %>
-                    <div :for={item <- @transcript_items} id={item_dom_id(item)}>
-                      <%= if item.type == :message do %>
+            <div id="transcription-panel" class="pt-6 space-y-6">
+              <div id="transcript-list" class="space-y-6">
+                <%= if @transcript_items == [] do %>
+                  <p class="text-sm text-foreground-soft">No transcription events yet.</p>
+                <% else %>
+                  <div :for={item <- @transcript_items} id={item_dom_id(item)}>
+                    <%= if item.type == :message do %>
+                      <div class={[
+                        "flex gap-3",
+                        item.role == :caller && "justify-end"
+                      ]}>
                         <div class={[
-                          "flex gap-3",
-                          item.role == :caller && "justify-end"
+                          "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
+                          item.role == :caller &&
+                            "bg-base-100 border border-base-300 text-foreground",
+                          item.role == :agent && "bg-base-200/80 text-foreground"
                         ]}>
-                          <div class={[
-                            "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
-                            item.role == :caller &&
-                              "bg-base-100 border border-base-300 text-foreground",
-                            item.role == :agent && "bg-base-200/80 text-foreground"
-                          ]}>
-                            <p class="text-sm leading-relaxed">{item.text}</p>
-                            <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
-                              <span class="uppercase tracking-wide">{item.label}</span>
-                              <span>·</span>
-                              <span>{item.offset}</span>
-                            </div>
+                          <p class="text-sm leading-relaxed">{item.text}</p>
+                          <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
+                            <span class="uppercase tracking-wide">{item.label}</span>
+                            <span>·</span>
+                            <span>{item.offset}</span>
                           </div>
                         </div>
-                      <% else %>
-                        <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm space-y-3">
-                          <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex items-center gap-2">
-                              <.icon
-                                name="hero-wrench-screwdriver"
-                                class="size-4 text-foreground-softer"
-                              />
-                              <p class="text-sm font-semibold text-foreground">
-                                Tool {item.status}: {item.name}
-                              </p>
-                            </div>
-                            <div class="flex items-center gap-2 text-xs text-foreground-softer">
-                              <span>{item.offset}</span>
-                              <span>·</span>
-                              <span>Result {item.duration_ms} ms</span>
-                            </div>
+                      </div>
+                    <% else %>
+                      <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                          <div class="flex items-center gap-2">
+                            <.icon
+                              name="hero-wrench-screwdriver"
+                              class="size-4 text-foreground-softer"
+                            />
+                            <p class="text-sm font-semibold text-foreground">
+                              Tool {item.status}: {item.name}
+                            </p>
                           </div>
+                          <div class="flex items-center gap-2 text-xs text-foreground-softer">
+                            <span>{item.offset}</span>
+                            <span>·</span>
+                            <span>Result {item.duration_ms} ms</span>
+                          </div>
+                        </div>
 
-                          <.accordion
-                            id={"tool-accordion-#{item.id}"}
-                            class="rounded-2xl border border-base-200"
-                          >
-                            <.accordion_item>
-                              <:header class="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
-                                <span>Mcp call</span>
-                                <.icon name="hero-chevron-down" class="icon text-foreground-softer" />
-                              </:header>
-                              <:panel>
-                                <div class="space-y-4 text-xs text-foreground-soft">
-                                  <div class="flex items-center justify-between">
-                                    <span class="uppercase tracking-wide text-foreground-softer">
-                                      MCP server information
-                                    </span>
-                                    <.badge size="xs" variant="surface">
-                                      {item.mcp_server}
-                                    </.badge>
-                                  </div>
-
-                                  <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
-                                    <p class="text-xs uppercase tracking-wide text-foreground-softer">
-                                      Parameters extracted by LLM
-                                    </p>
-                                    <pre
-                                      phx-no-curly-interpolation
-                                      class="text-[11px] whitespace-pre-wrap text-foreground"
-                                    >{item.args}</pre>
-                                  </div>
-
-                                  <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
-                                    <div class="flex items-center justify-between">
-                                      <p class="text-xs uppercase tracking-wide text-foreground-softer">
-                                        Response
-                                      </p>
-                                      <.button variant="ghost" size="icon-xs">
-                                        <.icon name="hero-clipboard" class="icon" />
-                                      </.button>
-                                    </div>
-                                    <pre
-                                      phx-no-curly-interpolation
-                                      class="text-[11px] whitespace-pre-wrap text-foreground"
-                                    >{item.response}</pre>
-                                  </div>
+                        <.accordion
+                          id={"tool-accordion-#{item.id}"}
+                          class="rounded-2xl border border-base-200"
+                        >
+                          <.accordion_item>
+                            <:header class="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
+                              <span>Mcp call</span>
+                              <.icon name="hero-chevron-down" class="icon text-foreground-softer" />
+                            </:header>
+                            <:panel>
+                              <div class="space-y-4 text-xs text-foreground-soft">
+                                <div class="flex items-center justify-between">
+                                  <span class="uppercase tracking-wide text-foreground-softer">
+                                    MCP server information
+                                  </span>
+                                  <.badge size="xs" variant="surface">
+                                    {item.mcp_server}
+                                  </.badge>
                                 </div>
-                              </:panel>
-                            </.accordion_item>
-                          </.accordion>
-                        </div>
-                      <% end %>
-                    </div>
-                  <% end %>
-                </div>
-              </.tabs_panel>
 
-              <.tabs_panel
-                name="client_data"
-                active={@active_tab == "client_data"}
-                id="client-data-panel"
-                class="pt-6 space-y-6"
-              >
-                <section class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-4">
-                  <h3 class="text-lg font-semibold text-foreground">Custom LLM extra body</h3>
-                  <div class="rounded-2xl border border-base-200 bg-base-200/60 p-4">
-                    <pre
-                      phx-no-curly-interpolation
-                      class="text-sm whitespace-pre-wrap text-foreground"
-                    >{client_data_prompt(@client_data)}</pre>
+                                <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
+                                  <p class="text-xs uppercase tracking-wide text-foreground-softer">
+                                    Parameters extracted by LLM
+                                  </p>
+                                  <pre
+                                    phx-no-curly-interpolation
+                                    class="text-[11px] whitespace-pre-wrap text-foreground"
+                                  >{item.args}</pre>
+                                </div>
+
+                                <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
+                                  <div class="flex items-center justify-between">
+                                    <p class="text-xs uppercase tracking-wide text-foreground-softer">
+                                      Response
+                                    </p>
+                                    <.button variant="ghost" size="icon-xs">
+                                      <.icon name="hero-clipboard" class="icon" />
+                                    </.button>
+                                  </div>
+                                  <pre
+                                    phx-no-curly-interpolation
+                                    class="text-[11px] whitespace-pre-wrap text-foreground"
+                                  >{item.response}</pre>
+                                </div>
+                              </div>
+                            </:panel>
+                          </.accordion_item>
+                        </.accordion>
+                      </div>
+                    <% end %>
                   </div>
-                </section>
-
-                <section class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-4">
-                  <h3 class="text-lg font-semibold text-foreground">Configuration</h3>
-                  <.list>
-                    <:item title="Model">{@client_data.model || "—"}</:item>
-                    <:item title="MCP endpoint">{@client_data.mcp_endpoint || "—"}</:item>
-                    <:item title="Phone number">{@client_data.phone_number || "—"}</:item>
-                    <:item title="Recording">{@client_data.recording || "—"}</:item>
-                  </.list>
-                </section>
-              </.tabs_panel>
-            </.tabs>
+                <% end %>
+              </div>
+            </div>
           </section>
         </div>
-
-        <aside
-          id="metadata-panel"
-          class="rounded-3xl border border-base-300 bg-base-100 p-6 space-y-6"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <h3 class="text-lg font-semibold text-foreground">Metadata</h3>
-            <.button size="icon-sm" variant="ghost">
-              <.icon name="hero-x-mark" class="icon" />
-            </.button>
-          </div>
-          <div class="space-y-4 text-sm">
-            <div class="flex items-center justify-between border-b border-base-200 pb-3">
-              <span class="text-foreground-soft">Date</span>
-              <span class="font-medium text-foreground">{@metadata.date_label}</span>
-            </div>
-            <div class="flex items-center justify-between border-b border-base-200 pb-3">
-              <span class="text-foreground-soft">Connection duration</span>
-              <span class="font-medium text-foreground">{@metadata.duration_label}</span>
-            </div>
-            <div class="flex items-center justify-between border-b border-base-200 pb-3">
-              <span class="text-foreground-soft">Call cost</span>
-              <span class="font-medium text-foreground">{@metadata.call_cost}</span>
-            </div>
-            <div class="flex items-center justify-between border-b border-base-200 pb-3">
-              <span class="text-foreground-soft">Credits (LLM)</span>
-              <span class="font-medium text-foreground">{@metadata.credits}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-foreground-soft">LLM cost</span>
-              <span class="font-medium text-foreground">{@metadata.llm_cost}</span>
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
     """
@@ -998,11 +774,6 @@ defmodule SwatiWeb.CallsLive.Show do
     {:ok, assign(socket, detail_assigns(call))}
   end
 
-  @impl true
-  def handle_event("set_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, tab)}
-  end
-
   def detail_assigns(call) do
     events = call.events || []
     agent_label = agent_name(call)
@@ -1010,14 +781,9 @@ defmodule SwatiWeb.CallsLive.Show do
 
     %{
       call: call,
-      events: events,
-      active_tab: "overview",
       primary_audio_url: primary_audio_url(call),
       agent_name: agent_label,
       status_badge: status_badge,
-      summary_text: call.summary || "No summary has been generated yet.",
-      metadata: build_metadata(call),
-      client_data: extract_client_data(events),
       transcript_items: build_transcript_items(events, call.started_at, agent_label)
     }
   end
@@ -1027,32 +793,9 @@ defmodule SwatiWeb.CallsLive.Show do
     map_value(recording, "stereo_url", :stereo_url)
   end
 
-  defp recording_links(call) do
-    recording = call.recording || %{}
-
-    [
-      {"Stereo mix", map_value(recording, "stereo_url", :stereo_url)},
-      {"Caller track", map_value(recording, "caller_url", :caller_url)},
-      {"Agent track", map_value(recording, "agent_url", :agent_url)}
-    ]
-    |> Enum.filter(&present_url?/1)
-  end
-
-  defp artifact_links(call) do
-    transcript = call.transcript || %{}
-
-    [
-      {"Transcript text", map_value(transcript, "text_url", :text_url)},
-      {"Transcript jsonl", map_value(transcript, "jsonl_url", :jsonl_url)}
-    ]
-    |> Enum.filter(&present_url?/1)
-  end
-
   defp map_value(map, string_key, atom_key) when is_map(map) do
     Map.get(map, string_key) || Map.get(map, atom_key)
   end
-
-  defp present_url?({_label, url}), do: url not in [nil, ""]
 
   defp status_badge(status) do
     case normalize_string(status) do
@@ -1072,50 +815,10 @@ defmodule SwatiWeb.CallsLive.Show do
     end
   end
 
-  defp build_metadata(call) do
-    %{
-      date_label: format_short_datetime(call.started_at),
-      duration_label: format_duration(call.duration_seconds),
-      call_cost: "—",
-      credits: "—",
-      llm_cost: "—",
-      status_label: status_label(call.status),
-      ended_reason: ended_reason(call.status),
-      user_id: "No user ID"
-    }
-  end
-
-  defp status_label(status) do
-    case normalize_string(status) do
-      "ended" -> "Successful"
-      "cancelled" -> "Cancelled"
-      "error" -> "Failed"
-      "failed" -> "Failed"
-      "started" -> "In progress"
-      _ -> "Unknown"
-    end
-  end
-
-  defp ended_reason(status) do
-    case normalize_string(status) do
-      "ended" -> "Client ended call"
-      "cancelled" -> "Cancelled by system"
-      "error" -> "Call failed"
-      "failed" -> "Call failed"
-      _ -> "—"
-    end
-  end
-
   defp format_long_datetime(nil), do: "—"
 
   defp format_long_datetime(%DateTime{} = dt) do
     Calendar.strftime(dt, "%b %-d, %Y • %I:%M %p")
-  end
-
-  defp format_short_datetime(nil), do: "—"
-
-  defp format_short_datetime(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%b %-d, %I:%M %p")
   end
 
   defp format_duration(nil), do: "0:00"
@@ -1126,52 +829,8 @@ defmodule SwatiWeb.CallsLive.Show do
     "#{minutes}:#{String.pad_leading(Integer.to_string(remaining), 2, "0")}"
   end
 
-  defp extract_client_data(events) do
-    config_event = Enum.find(events, &(&1.type == "live_config_final"))
-    payload = if config_event, do: config_event.payload || %{}, else: %{}
-    mcp = map_value(payload, "mcp", :mcp) || %{}
-    recording = map_value(payload, "recording", :recording) || %{}
-
-    %{
-      model: map_value(payload, "model", :model),
-      mcp_endpoint: map_value(mcp, "endpoint", :endpoint),
-      mcp_origin: map_value(mcp, "origin", :origin),
-      phone_number: map_value(payload, "phone_number", :phone_number),
-      system_prompt: map_value(payload, "system_prompt", :system_prompt),
-      recording: recording_label(recording)
-    }
-  end
-
-  defp recording_label(recording) when map_size(recording) == 0, do: "—"
-
-  defp recording_label(recording) do
-    enabled = map_value(recording, "enabled", :enabled)
-    stereo = map_value(recording, "generate_stereo", :generate_stereo)
-    agent = map_value(recording, "record_agent", :record_agent)
-    caller = map_value(recording, "record_caller", :record_caller)
-
-    label =
-      [
-        enabled && "enabled",
-        stereo && "stereo",
-        agent && "agent",
-        caller && "caller"
-      ]
-      |> Enum.filter(& &1)
-      |> Enum.join(", ")
-
-    if label == "" do
-      "—"
-    else
-      label
-    end
-  end
-
-  defp client_data_prompt(%{system_prompt: prompt}) when is_binary(prompt), do: prompt
-  defp client_data_prompt(_), do: "No system instructions captured."
-
   defp build_transcript_items(events, started_at, agent_label) do
-    {items, current, tool_calls} =
+    {items, current, _tool_calls} =
       Enum.reduce(events, {[], nil, %{}}, fn event, {items, current, tool_calls} ->
         case event.type do
           "transcript" ->
