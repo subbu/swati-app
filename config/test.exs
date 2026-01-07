@@ -9,7 +9,10 @@ config :bcrypt_elixir, :log_rounds, 1
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :swati, Swati.Repo,
-  database: Path.expand("../swati_test.db", __DIR__),
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  database: "swati_test",
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 

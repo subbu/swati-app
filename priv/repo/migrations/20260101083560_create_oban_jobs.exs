@@ -2,10 +2,10 @@ defmodule Swati.Repo.Migrations.CreateObanJobs do
   use Ecto.Migration
 
   def up do
-    Oban.Migrations.SQLite.up([])
+    Oban.Migrations.up([])
   end
 
   def down do
-    Oban.Migrations.SQLite.down([])
+    Oban.Migrations.down([])
   end
 end

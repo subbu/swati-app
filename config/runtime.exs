@@ -22,7 +22,7 @@ end
 
 config :swati, Oban,
   repo: Swati.Repo,
-  engine: Oban.Engines.Lite,
+  engine: Oban.Engines.Basic,
   plugins: [Oban.Plugins.Pruner],
   queues: [default: 10, integrations: 10, telephony: 5, calls: 10]
 
@@ -50,15 +50,15 @@ config :swati,
          Application.get_env(:swati, :media_gateway_base_url)
 
 if config_env() == :prod do
-  database_path =
-    System.get_env("DATABASE_PATH") ||
+  database_url =
+    System.get_env("DATABASE_URL") ||
       raise """
-      environment variable DATABASE_PATH is missing.
-      For example: /etc/swati/swati.db
+      environment variable DATABASE_URL is missing.
+      For example: ecto://USER:PASS@HOST/DATABASE
       """
 
   config :swati, Swati.Repo,
-    database: database_path,
+    url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
 
   # The secret key base is used to sign/encrypt cookies and other secrets.

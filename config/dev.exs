@@ -2,7 +2,10 @@ import Config
 
 # Configure your database
 config :swati, Swati.Repo,
-  database: Path.expand("../swati_dev.db", __DIR__),
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  database: "swati_dev",
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -17,7 +20,7 @@ config :swati,
 
 config :swati,
        :media_gateway_base_url,
-       System.get_env("MEDIA_GATEWAY_BASE_URL", "http://localhost:4100")
+       System.get_env("MEDIA_GATEWAY_BASE_URL", "http://localhost:6000")
 
 config :swati,
        :plivo_auth_id,
