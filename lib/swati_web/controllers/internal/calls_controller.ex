@@ -49,6 +49,19 @@ defmodule SwatiWeb.Internal.CallsController do
     end
   end
 
+  def timeline(conn, %{"call_id" => call_id, "timeline" => timeline})
+      when is_map(timeline) do
+    case Ingestion.set_timeline(call_id, timeline) do
+      :ok ->
+        json(conn, %{call_id: call_id})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: reason})
+    end
+  end
+
   defp render_changeset(conn, %Ecto.Changeset{} = changeset) do
     errors =
       Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->

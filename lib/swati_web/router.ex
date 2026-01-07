@@ -41,6 +41,7 @@ defmodule SwatiWeb.Router do
     post "/calls/:call_id/events", CallsController, :events
     post "/calls/:call_id/end", CallsController, :end_call
     post "/calls/:call_id/artifacts", CallsController, :artifacts
+    post "/calls/:call_id/timeline", CallsController, :timeline
   end
 
   # Other scopes may use custom stacks.

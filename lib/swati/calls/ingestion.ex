@@ -2,6 +2,7 @@ defmodule Swati.Calls.Ingestion do
   alias Swati.Calls
   alias Swati.Calls.CallStatusTransitions
   alias Swati.Calls.Events
+  alias Swati.Calls.Timeline
   alias Swati.Telephony
 
   @spec start(map()) ::
@@ -66,5 +67,10 @@ defmodule Swati.Calls.Ingestion do
     transcript = Map.get(params, "transcript") || Map.get(params, :transcript)
 
     Calls.set_call_artifacts(call_id, recording, transcript)
+  end
+
+  @spec set_timeline(binary(), map()) :: :ok | {:error, term()}
+  def set_timeline(call_id, timeline) when is_map(timeline) do
+    Timeline.upsert(call_id, timeline)
   end
 end

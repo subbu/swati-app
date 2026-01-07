@@ -404,7 +404,9 @@ defmodule SwatiWeb.DashboardLive.Index do
                 class="outlier-card__item outlier-card__item--with-bar"
               >
                 <div class="outlier-card__item-content">
-                  <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
+                  <span class="outlier-card__item-date">
+                    {format_datetime_short(call.started_at)}
+                  </span>
                   <span class="outlier-card__item-value">
                     {format_duration_long(call.duration_seconds)}
                   </span>
