@@ -13,6 +13,8 @@ defmodule SwatiWeb.CallsLive.Show do
         agent_name={@agent_name}
         status_badge={@status_badge}
         transcript_items={@transcript_items}
+        waveform_context_json={@waveform_context_json}
+        waveform_duration_ms={@waveform_duration_ms}
         back_patch={~p"/calls"}
       />
     </Layouts.app>
@@ -24,11 +26,28 @@ defmodule SwatiWeb.CallsLive.Show do
   attr :agent_name, :string, required: true
   attr :status_badge, :map, required: true
   attr :transcript_items, :list, required: true
+  attr :waveform_context_json, :string, required: true
+  attr :waveform_duration_ms, :integer, required: true
   attr :back_patch, :string, default: nil
 
   def call_detail(assigns) do
     ~H"""
     <div id="call-detail" class="space-y-8 font-['Instrument_Sans']">
+      <style>
+        .swati-active-transcript {
+          outline: 2px solid rgb(59 130 246 / 0.55);
+          outline-offset: 2px;
+          border-radius: 1rem;
+        }
+        #call-waveform-tooltip {
+          max-width: min(460px, 92vw);
+        }
+        #call-waveform-tooltip .swati-tooltip-scroll {
+          max-height: 220px;
+          overflow: auto;
+        }
+      </style>
+
       <header class="flex flex-wrap items-start gap-4">
         <div class="space-y-2">
           <div class="flex flex-wrap items-center gap-3">
@@ -59,6 +78,9 @@ defmodule SwatiWeb.CallsLive.Show do
             phx-hook=".CallAudioPlayer"
             data-audio-url={@primary_audio_url || ""}
             data-duration={@call.duration_seconds || 0}
+            data-duration-ms={@waveform_duration_ms || 0}
+            data-agent-label={@agent_name}
+            data-waveform-context={@waveform_context_json}
             data-seed={@call.id}
             class="rounded-3xl border border-base-300 bg-base-100 p-6 shadow-sm space-y-4"
           >
@@ -82,18 +104,41 @@ defmodule SwatiWeb.CallsLive.Show do
             </div>
 
             <%= if @primary_audio_url do %>
-              <div
-                id="call-waveform-container"
-                class="call-waveform h-12 rounded-full bg-base-200/70"
-                phx-update="ignore"
-                role="slider"
-                tabindex="0"
-                aria-label="Audio seek bar"
-                aria-valuemin="0"
-                aria-valuemax={@call.duration_seconds || 0}
-                aria-valuenow="0"
-              >
-                <canvas id="call-waveform" class="call-waveform-canvas"></canvas>
+              <div class="flex items-center justify-between gap-4 text-xs text-foreground-softer">
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-block h-1 w-4 rounded-full bg-primary"></span>
+                    <span class="uppercase tracking-wide font-semibold text-primary">Agent</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-block h-1 w-4 rounded-full bg-secondary"></span>
+                    <span class="uppercase tracking-wide font-semibold text-secondary">Customer</span>
+                  </div>
+                </div>
+                <span class="hidden md:block">Click & Drag to analyze a segment</span>
+              </div>
+
+              <div id="call-waveform-wrap" class="relative">
+                <div
+                  id="call-waveform-container"
+                  class="call-waveform h-12 rounded-full bg-base-200/70 overflow-hidden"
+                  phx-update="ignore"
+                  role="slider"
+                  tabindex="0"
+                  aria-label="Audio seek bar"
+                  aria-valuemin="0"
+                  aria-valuemax={@call.duration_seconds || 0}
+                  aria-valuenow="0"
+                  style="--waveform-color: rgba(148,163,184,0.72); --waveform-color-played: rgba(37,99,235,0.95); --waveform-agent-bg: rgba(37,99,235,0.08); --waveform-customer-bg: rgba(168,85,247,0.08); --waveform-selection-bg: rgba(37,99,235,0.16); --waveform-selection-border: rgba(37,99,235,0.55); --waveform-hover-line: rgba(15,23,42,0.14);"
+                >
+                  <canvas id="call-waveform" class="call-waveform-canvas"></canvas>
+                </div>
+
+                <div
+                  id="call-waveform-tooltip"
+                  class="hidden absolute z-20 rounded-2xl border border-base-300 bg-base-100 px-4 py-3 shadow-lg text-foreground text-xs pointer-events-auto"
+                >
+                </div>
               </div>
 
               <div class="flex flex-wrap items-center gap-4">
@@ -135,9 +180,36 @@ defmodule SwatiWeb.CallsLive.Show do
             <script :type={Phoenix.LiveView.ColocatedHook} name=".CallAudioPlayer">
               const RATES = [1.0, 1.25, 1.5, 2.0];
               const SEEK_STEP_SECONDS = 10;
+              const DRAG_SELECT_THRESHOLD_PX = 6;
+              const MIN_SELECTION_SECONDS = 0.20;
 
               function clamp(n, min, max) {
                 return Math.min(Math.max(n, min), max);
+              }
+
+              function safeJsonParse(str, fallback) {
+                try {
+                  if (!str || String(str).trim() === "") return fallback;
+                  return JSON.parse(str);
+                } catch (_e) {
+                  return fallback;
+                }
+              }
+
+              function escapeHtml(s) {
+                const str = (s ?? "").toString();
+                return str
+                  .replaceAll("&", "&amp;")
+                  .replaceAll("<", "&lt;")
+                  .replaceAll(">", "&gt;")
+                  .replaceAll("\"", "&quot;")
+                  .replaceAll("'", "&#039;");
+              }
+
+              function truncateText(s, maxLen = 220) {
+                const str = (s ?? "").toString().trim();
+                if (str.length <= maxLen) return str;
+                return str.slice(0, Math.max(0, maxLen - 1)) + "…";
               }
 
               function formatTime(totalSeconds) {
@@ -149,13 +221,19 @@ defmodule SwatiWeb.CallsLive.Show do
               }
 
               function formatRate(rate) {
-                // Match screenshot style: 1.0x, 1.25x, 1.5x, 2.0x
                 if (rate === 1 || rate === 1.5 || rate === 2) return `${rate.toFixed(1)}x`;
                 return `${rate.toFixed(2)}x`;
               }
 
+              function normalizeSpeaker(value) {
+                const v = (value ?? "").toString().toLowerCase();
+                if (v === "agent" || v === "assistant" || v === "bot") return "agent";
+                if (v === "caller" || v === "customer" || v === "user") return "customer";
+                if (v === "tool") return "tool";
+                return v || "agent";
+              }
+
               function hashStringToUint32(str) {
-                // FNV-1a
                 let h = 2166136261;
                 for (let i = 0; i < str.length; i++) {
                   h ^= str.charCodeAt(i);
@@ -180,13 +258,12 @@ defmodule SwatiWeb.CallsLive.Show do
 
                 for (let i = 0; i < count; i++) {
                   const next = rand();
-                  // Slight smoothing so it looks like a real waveform, not pure noise
-                  const smooth = prev * 0.65 + next * 0.35;
+                  const smooth = prev * 0.58 + next * 0.42;
                   prev = smooth;
 
-                  // Add occasional quieter regions
-                  let amp = Math.pow(smooth, 1.6) * 0.95 + 0.05;
-                  if (rand() < 0.08) amp *= 0.25;
+                  // Higher contrast to feel more "oscillatory"
+                  let amp = Math.pow(smooth, 2.15) * 0.92 + 0.08;
+                  if (rand() < 0.10) amp *= 0.22; // occasional quieter gaps
                   peaks[i] = clamp(amp, 0.02, 1.0);
                 }
 
@@ -194,7 +271,7 @@ defmodule SwatiWeb.CallsLive.Show do
               }
 
               function resamplePeaksMax(peaks, targetCount) {
-                if (!Array.isArray(peaks) || peaks.length === 0) return new Array(targetCount).fill(0.1);
+                if (!Array.isArray(peaks) || peaks.length === 0) return new Array(targetCount).fill(0.12);
                 if (peaks.length === targetCount) return peaks;
 
                 const out = new Array(targetCount);
@@ -282,6 +359,7 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.audioEl = this.el.querySelector("#call-audio");
                   this.waveformEl = this.el.querySelector("#call-waveform-container");
                   this.canvasEl = this.el.querySelector("#call-waveform");
+                  this.tooltipEl = this.el.querySelector("#call-waveform-tooltip");
 
                   this.playBtn = this.el.querySelector("#call-audio-play");
                   this.rateBtn = this.el.querySelector("#call-audio-rate");
@@ -295,19 +373,55 @@ defmodule SwatiWeb.CallsLive.Show do
 
                   this.audioUrl = (this.el.dataset.audioUrl || "").trim() || this.audioEl.getAttribute("src") || "";
                   this.datasetDuration = Number(this.el.dataset.duration || 0) || 0;
+                  this.datasetDurationMs = Number(this.el.dataset.durationMs || 0) || 0;
                   this.seed = (this.el.dataset.seed || "").toString() || this.audioUrl || "call-waveform";
 
+                  // Timeline/speaker context for tooltips + speaker overlays
+                  const context = safeJsonParse(this.el.dataset.waveformContext, {});
+                  this.agentLabel = (context.agent_label || this.el.dataset.agentLabel || "Agent").toString();
+                  this.customerLabel = (context.customer_label || "Customer").toString();
+                  this.timelineDurationMs = Number(context.duration_ms || 0) || 0;
+
+                  this.speakerSegments = Array.isArray(context.speaker_segments) ? context.speaker_segments : [];
+                  this.utterances = Array.isArray(context.utterances) ? context.utterances : [];
+                  this.toolCalls = Array.isArray(context.tool_calls) ? context.tool_calls : [];
+                  this.markers = Array.isArray(context.markers) ? context.markers : [];
+
+                  this.maxContextMs = 0;
+                  const bumpMax = (n) => { if (Number.isFinite(n) && n > this.maxContextMs) this.maxContextMs = n; };
+                  for (const s of this.speakerSegments) bumpMax(Number(s?.end_ms || 0));
+                  for (const u of this.utterances) bumpMax(Number(u?.end_ms || 0));
+                  for (const t of this.toolCalls) bumpMax(Number(t?.end_ms || 0));
+
                   this.ctx = this.canvasEl.getContext("2d");
-                  this.baseColor = cssVar(this.waveformEl, "--waveform-color", "rgba(0,0,0,0.18)");
-                  this.playedColor = cssVar(this.waveformEl, "--waveform-color-played", "rgba(0,0,0,0.34)");
+                  this.baseColor = cssVar(this.waveformEl, "--waveform-color", "rgba(148,163,184,0.72)");
+                  this.playedColor = cssVar(this.waveformEl, "--waveform-color-played", "rgba(37,99,235,0.95)");
+                  this.agentBg = cssVar(this.waveformEl, "--waveform-agent-bg", "rgba(37,99,235,0.08)");
+                  this.customerBg = cssVar(this.waveformEl, "--waveform-customer-bg", "rgba(168,85,247,0.08)");
+                  this.selectionBg = cssVar(this.waveformEl, "--waveform-selection-bg", "rgba(37,99,235,0.16)");
+                  this.selectionBorder = cssVar(this.waveformEl, "--waveform-selection-border", "rgba(37,99,235,0.55)");
+                  this.hoverLineColor = cssVar(this.waveformEl, "--waveform-hover-line", "rgba(0,0,0,0.12)");
 
                   // Start with a placeholder waveform (fast + no CORS needed)
-                  this.rawPeaks = buildPlaceholderPeaks(900, this.seed);
+                  this.rawPeaks = buildPlaceholderPeaks(1050, this.seed);
 
                   // Playback rate
                   this.rateIndex = 0;
                   this.audioEl.playbackRate = RATES[this.rateIndex];
                   if (this.rateBtn) this.rateBtn.textContent = formatRate(RATES[this.rateIndex]);
+
+                  // Transcript elements for playback highlighting
+                  this.transcriptRoot = document.getElementById("transcript-list");
+                  this.transcriptEls = Array.from(this.transcriptRoot?.querySelectorAll("[data-transcript-item]") || []);
+                  this.activeTranscriptEl = null;
+
+                  // Hover/selection state
+                  this.hoverRatio = null;
+                  this.isHovering = false;
+                  this.isSelecting = false;
+                  this.didDrag = false;
+                  this.pointerDownX = 0;
+                  this.selection = null; // { startRatio, endRatio, startMs, endMs }
 
                   // Resize handling
                   this.resizeObserver = new ResizeObserver(() => this.draw());
@@ -317,15 +431,21 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.onLoadedMetadata = () => {
                     this.updateDurationUI();
                     this.updateTimeUI();
+                    this.updateActiveTranscript();
                     this.draw();
                   };
 
                   this.onTimeUpdate = () => {
                     this.updateTimeUI();
+                    this.updateActiveTranscript();
                     this.draw();
                   };
 
-                  this.onPlayPause = () => this.updatePlayUI();
+                  this.onPlayPause = () => {
+                    this.updatePlayUI();
+                    this.updateActiveTranscript();
+                    this.draw();
+                  };
 
                   this.audioEl.addEventListener("loadedmetadata", this.onLoadedMetadata);
                   this.audioEl.addEventListener("timeupdate", this.onTimeUpdate);
@@ -341,9 +461,7 @@ defmodule SwatiWeb.CallsLive.Show do
                       } else {
                         this.audioEl.pause();
                       }
-                    } catch (_e) {
-                      // Ignore autoplay/user-gesture restrictions
-                    }
+                    } catch (_e) {}
                   };
 
                   this.onRateClick = () => {
@@ -361,44 +479,296 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (this.rewindBtn) this.rewindBtn.addEventListener("click", this.onRewindClick);
                   if (this.forwardBtn) this.forwardBtn.addEventListener("click", this.onForwardClick);
 
-                  // Waveform seek (click/drag)
-                  this.isSeeking = false;
-
-                  this.seekFromPointerEvent = (e) => {
+                  // Pointer interactions: hover tooltip + drag selection (click = seek)
+                  this.ratioFromClientX = (clientX) => {
                     const rect = this.waveformEl.getBoundingClientRect();
-                    if (rect.width <= 0) return;
+                    if (rect.width <= 0) return 0;
+                    return clamp((clientX - rect.left) / rect.width, 0, 1);
+                  };
 
-                    const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-                    const duration = this.getDuration();
-                    const nextTime = ratio * duration;
+                  this.durationMs = () => {
+                    const d = this.audioEl?.duration;
+                    if (Number.isFinite(d) && d > 0) return d * 1000;
 
-                    this.seekTo(nextTime);
+                    if (this.datasetDuration > 0) return this.datasetDuration * 1000;
+                    if (this.datasetDurationMs > 0) return this.datasetDurationMs;
+                    if (this.timelineDurationMs > 0) return this.timelineDurationMs;
+                    if (this.maxContextMs > 0) return this.maxContextMs;
+
+                    return 0;
+                  };
+
+                  this.speakerForMs = (ms) => {
+                    const t = Number(ms || 0);
+                    for (const seg of this.speakerSegments) {
+                      const s = Number(seg?.start_ms ?? -1);
+                      const e = Number(seg?.end_ms ?? -1);
+                      if (s >= 0 && e >= 0 && t >= s && t <= e) return normalizeSpeaker(seg?.speaker);
+                    }
+                    // fallback: infer from utterance
+                    for (const u of this.utterances) {
+                      const s = Number(u?.start_ms ?? -1);
+                      const e = Number(u?.end_ms ?? -1);
+                      if (s >= 0 && e >= 0 && t >= s && t <= e) return normalizeSpeaker(u?.speaker);
+                    }
+                    return "agent";
+                  };
+
+                  this.labelForSpeaker = (speaker) => {
+                    const sp = normalizeSpeaker(speaker);
+                    if (sp === "customer") return this.customerLabel;
+                    if (sp === "agent") return this.agentLabel;
+                    return sp;
+                  };
+
+                  this.findUtterancesInRange = (startMs, endMs, limit = 8) => {
+                    const a = Number(startMs || 0);
+                    const b = Number(endMs || 0);
+                    const lo = Math.min(a, b);
+                    const hi = Math.max(a, b);
+
+                    const out = [];
+                    for (const u of this.utterances) {
+                      const s = Number(u?.start_ms ?? -1);
+                      const e = Number(u?.end_ms ?? -1);
+                      if (s < 0 || e < 0) continue;
+                      const overlaps = s <= hi && e >= lo;
+                      if (!overlaps) continue;
+
+                      out.push(u);
+                      if (out.length >= limit) break;
+                    }
+                    return out;
+                  };
+
+                  this.findToolCallsInRange = (startMs, endMs, limit = 6) => {
+                    const a = Number(startMs || 0);
+                    const b = Number(endMs || 0);
+                    const lo = Math.min(a, b);
+                    const hi = Math.max(a, b);
+
+                    const out = [];
+                    for (const t of this.toolCalls) {
+                      const s = Number(t?.start_ms ?? -1);
+                      const e = Number(t?.end_ms ?? -1);
+                      if (s < 0 || e < 0) continue;
+                      const overlaps = s <= hi && e >= lo;
+                      if (!overlaps) continue;
+
+                      out.push(t);
+                      if (out.length >= limit) break;
+                    }
+                    return out;
+                  };
+
+                  this.updateTooltip = ({ mode, clientX, startMs, endMs }) => {
+                    if (!this.tooltipEl) return;
+
+                    const rect = this.waveformEl.getBoundingClientRect();
+                    const x = clamp(clientX - rect.left, 14, rect.width - 14);
+
+                    const durationMs = this.durationMs();
+                    const safeStart = clamp(Number(startMs || 0), 0, durationMs || Number.MAX_SAFE_INTEGER);
+                    const safeEnd = clamp(Number(endMs || safeStart), 0, durationMs || Number.MAX_SAFE_INTEGER);
+
+                    const headerTime =
+                      mode === "selection"
+                        ? `${formatTime(safeStart / 1000)} – ${formatTime(safeEnd / 1000)}`
+                        : formatTime(safeStart / 1000);
+
+                    const speaker = this.speakerForMs(safeStart);
+                    const speakerLabel = this.labelForSpeaker(speaker);
+
+                    const utterances =
+                      mode === "selection"
+                        ? this.findUtterancesInRange(safeStart, safeEnd, 10)
+                        : this.findUtterancesInRange(safeStart, safeStart, 1);
+
+                    const tools =
+                      mode === "selection"
+                        ? this.findToolCallsInRange(safeStart, safeEnd, 10)
+                        : this.findToolCallsInRange(safeStart, safeStart, 6);
+
+                    const utterHtml =
+                      utterances.length === 0
+                        ? `<div class="text-foreground-soft">No transcript around this point.</div>`
+                        : (mode === "selection"
+                            ? `<div class="swati-tooltip-scroll space-y-2">` +
+                              utterances
+                                .map((u) => {
+                                  const sp = this.labelForSpeaker(u?.speaker);
+                                  return `<div class="space-y-1">
+                                      <div class="text-[11px] uppercase tracking-wide text-foreground-softer">${escapeHtml(sp)}</div>
+                                      <div class="text-sm leading-relaxed">${escapeHtml(truncateText(u?.text, 260))}</div>
+                                    </div>`;
+                                })
+                                .join("") +
+                              `</div>`
+                            : `<div class="text-sm leading-relaxed">${escapeHtml(truncateText(utterances[0]?.text, 260))}</div>`);
+
+                    const toolHtml =
+                      tools.length === 0
+                        ? ""
+                        : `<div class="mt-3 space-y-2">
+                            <div class="text-[11px] uppercase tracking-wide text-foreground-softer">Tool calls</div>
+                            <div class="space-y-1">
+                              ${tools
+                                .map((t) => {
+                                  const name = escapeHtml((t?.name ?? "tool").toString());
+                                  const status = escapeHtml((t?.status ?? "succeeded").toString());
+                                  return `<div class="flex items-center justify-between gap-3">
+                                            <div class="text-xs text-foreground">${name}</div>
+                                            <div class="text-[11px] text-foreground-softer uppercase tracking-wide">${status}</div>
+                                          </div>`;
+                                })
+                                .join("")}
+                            </div>
+                          </div>`;
+
+                    const title =
+                      mode === "selection"
+                        ? `<div class="text-[11px] uppercase tracking-wide text-foreground-softer">Selected segment</div>`
+                        : `<div class="text-[11px] uppercase tracking-wide text-foreground-softer">Hover</div>`;
+
+                    this.tooltipEl.innerHTML = `
+                      <div class="space-y-2">
+                        ${title}
+                        <div class="flex items-center justify-between gap-3">
+                          <div class="text-xs font-semibold text-foreground">${escapeHtml(speakerLabel)}</div>
+                          <div class="text-xs font-mono text-foreground-softer">${escapeHtml(headerTime)}</div>
+                        </div>
+                        ${utterHtml}
+                        ${toolHtml}
+                      </div>
+                    `;
+
+                    this.tooltipEl.style.left = `${x}px`;
+                    this.tooltipEl.style.top = `-6px`;
+                    this.tooltipEl.style.transform = `translate(-50%, -100%)`;
+                    this.tooltipEl.classList.remove("hidden");
+                  };
+
+                  this.hideTooltip = () => {
+                    if (!this.tooltipEl) return;
+                    if (this.selection) return; // keep visible for selection
+                    this.tooltipEl.classList.add("hidden");
+                  };
+
+                  this.onPointerEnter = () => {
+                    this.isHovering = true;
+                  };
+
+                  this.onPointerLeave = () => {
+                    this.isHovering = false;
+                    this.hoverRatio = null;
+                    this.hideTooltip();
+                    this.draw();
                   };
 
                   this.onPointerDown = (e) => {
                     if (e.button != null && e.button !== 0) return;
-                    this.isSeeking = true;
+                    this.isSelecting = true;
+                    this.didDrag = false;
+                    this.pointerDownX = e.clientX;
+
+                    const r = this.ratioFromClientX(e.clientX);
+                    this.hoverRatio = r;
+
+                    this.selection = {
+                      startRatio: r,
+                      endRatio: r,
+                      startMs: (this.durationMs() || 0) * r,
+                      endMs: (this.durationMs() || 0) * r
+                    };
+
                     this.waveformEl.setPointerCapture?.(e.pointerId);
-                    this.seekFromPointerEvent(e);
+                    this.updateTooltip({ mode: "selection", clientX: e.clientX, startMs: this.selection.startMs, endMs: this.selection.endMs });
+                    this.draw();
                   };
 
                   this.onPointerMove = (e) => {
-                    if (!this.isSeeking) return;
-                    this.seekFromPointerEvent(e);
+                    const r = this.ratioFromClientX(e.clientX);
+                    this.hoverRatio = r;
+
+                    const durationMs = this.durationMs() || 0;
+                    const ms = durationMs * r;
+
+                    if (this.isSelecting && this.selection) {
+                      if (Math.abs(e.clientX - this.pointerDownX) > DRAG_SELECT_THRESHOLD_PX) this.didDrag = true;
+
+                      this.selection.endRatio = r;
+                      this.selection.endMs = ms;
+
+                      this.updateTooltip({ mode: "selection", clientX: e.clientX, startMs: this.selection.startMs, endMs: this.selection.endMs });
+                      this.draw();
+                      return;
+                    }
+
+                    // Hover tooltip (only when no selection is pinned)
+                    if (!this.selection && this.isHovering) {
+                      this.updateTooltip({ mode: "hover", clientX: e.clientX, startMs: ms, endMs: ms });
+                    } else if (this.selection && this.isHovering) {
+                      // Keep selection tooltip anchored near cursor
+                      this.updateTooltip({ mode: "selection", clientX: e.clientX, startMs: this.selection.startMs, endMs: this.selection.endMs });
+                    }
+
+                    this.draw();
                   };
 
                   this.onPointerUp = (e) => {
-                    this.isSeeking = false;
+                    if (!this.isSelecting) return;
+
+                    this.isSelecting = false;
                     this.waveformEl.releasePointerCapture?.(e.pointerId);
+
+                    const durationMs = this.durationMs() || 0;
+                    const r = this.ratioFromClientX(e.clientX);
+                    const ms = durationMs * r;
+
+                    if (!this.selection) {
+                      this.draw();
+                      return;
+                    }
+
+                    const startMs = Math.min(this.selection.startMs, this.selection.endMs);
+                    const endMs = Math.max(this.selection.startMs, this.selection.endMs);
+                    const selectionSeconds = (endMs - startMs) / 1000;
+
+                    if (!this.didDrag || selectionSeconds < MIN_SELECTION_SECONDS) {
+                      // Treat as click: seek + clear selection
+                      this.selection = null;
+                      this.hideTooltip();
+                      this.seekTo(ms / 1000);
+                      this.draw();
+                      return;
+                    }
+
+                    // Keep selection pinned
+                    this.selection.startMs = startMs;
+                    this.selection.endMs = endMs;
+                    this.selection.startRatio = startMs / (durationMs || 1);
+                    this.selection.endRatio = endMs / (durationMs || 1);
+
+                    this.updateTooltip({ mode: "selection", clientX: e.clientX, startMs: startMs, endMs: endMs });
+                    this.draw();
                   };
 
+                  this.waveformEl.addEventListener("pointerenter", this.onPointerEnter);
+                  this.waveformEl.addEventListener("pointerleave", this.onPointerLeave);
                   this.waveformEl.addEventListener("pointerdown", this.onPointerDown);
                   this.waveformEl.addEventListener("pointermove", this.onPointerMove);
                   this.waveformEl.addEventListener("pointerup", this.onPointerUp);
                   this.waveformEl.addEventListener("pointercancel", this.onPointerUp);
 
-                  // Keyboard seek (optional but useful)
+                  // Keyboard seek + selection clear
                   this.onKeyDown = (e) => {
+                    if (e.key === "Escape") {
+                      this.selection = null;
+                      this.hideTooltip();
+                      this.draw();
+                      return;
+                    }
+
                     if (e.key === "ArrowLeft") {
                       e.preventDefault();
                       this.seekBy(-5);
@@ -416,10 +786,10 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.updateDurationUI();
                   this.updateTimeUI();
                   this.updatePlayUI();
+                  this.updateActiveTranscript();
                   this.draw();
 
-                  // Best-effort: download into a Blob URL so seeking is reliable even when the remote host doesn't support range requests well.
-                  // This also enables a real waveform (if decode succeeds).
+                  // Best-effort: download into a Blob URL so seeking is reliable + enables real waveform (if decode succeeds)
                   this.abortController = new AbortController();
                   this.enhanceFromRemote().catch(() => {});
                 },
@@ -430,9 +800,7 @@ defmodule SwatiWeb.CallsLive.Show do
                   } catch (_e) {}
 
                   if (this.abortController) {
-                    try {
-                      this.abortController.abort();
-                    } catch (_e) {}
+                    try { this.abortController.abort(); } catch (_e) {}
                   }
 
                   if (this.audioEl) {
@@ -449,6 +817,8 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (this.forwardBtn) this.forwardBtn.removeEventListener("click", this.onForwardClick);
 
                   if (this.waveformEl) {
+                    this.waveformEl.removeEventListener("pointerenter", this.onPointerEnter);
+                    this.waveformEl.removeEventListener("pointerleave", this.onPointerLeave);
                     this.waveformEl.removeEventListener("pointerdown", this.onPointerDown);
                     this.waveformEl.removeEventListener("pointermove", this.onPointerMove);
                     this.waveformEl.removeEventListener("pointerup", this.onPointerUp);
@@ -457,9 +827,7 @@ defmodule SwatiWeb.CallsLive.Show do
                   }
 
                   if (this.objectUrl) {
-                    try {
-                      URL.revokeObjectURL(this.objectUrl);
-                    } catch (_e) {}
+                    try { URL.revokeObjectURL(this.objectUrl); } catch (_e) {}
                     this.objectUrl = null;
                   }
                 },
@@ -467,7 +835,13 @@ defmodule SwatiWeb.CallsLive.Show do
                 getDuration() {
                   const d = this.audioEl?.duration;
                   if (Number.isFinite(d) && d > 0) return d;
-                  return Math.max(0, this.datasetDuration || 0);
+
+                  if (this.datasetDuration > 0) return this.datasetDuration;
+                  if (this.datasetDurationMs > 0) return this.datasetDurationMs / 1000;
+                  if (this.timelineDurationMs > 0) return this.timelineDurationMs / 1000;
+                  if (this.maxContextMs > 0) return this.maxContextMs / 1000;
+
+                  return 0;
                 },
 
                 updateDurationUI() {
@@ -491,20 +865,41 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (pauseIcon) pauseIcon.classList.toggle("hidden", !isPlaying);
                 },
 
+                updateActiveTranscript() {
+                  if (!this.transcriptEls || this.transcriptEls.length === 0) return;
+
+                  const isPlaying = this.audioEl && !this.audioEl.paused && !this.audioEl.ended;
+                  if (!isPlaying) return;
+
+                  const currentMs = (this.audioEl?.currentTime || 0) * 1000;
+                  let next = null;
+
+                  for (const el of this.transcriptEls) {
+                    const start = Number(el.dataset.startMs || 0);
+                    const end = Number(el.dataset.endMs || start);
+                    if (currentMs >= start && currentMs <= end) { next = el; break; }
+                  }
+
+                  if (next === this.activeTranscriptEl) return;
+
+                  if (this.activeTranscriptEl) this.activeTranscriptEl.classList.remove("swati-active-transcript");
+                  this.activeTranscriptEl = next;
+
+                  if (this.activeTranscriptEl) {
+                    this.activeTranscriptEl.classList.add("swati-active-transcript");
+                  }
+                },
+
                 async seekTo(timeSeconds) {
                   const duration = this.getDuration();
                   const next = clamp(timeSeconds, 0, duration);
 
                   try {
                     this.audioEl.currentTime = next;
-                  } catch (_e) {
-                    // Ignore
-                  }
+                  } catch (_e) {}
 
-                  // If the remote host is not seekable, some browsers will refuse to move currentTime.
-                  // We opportunistically swap to a Blob URL (if possible) in enhanceFromRemote().
-                  // Here, we just keep UI responsive while the audio seeks.
                   this.updateTimeUI();
+                  this.updateActiveTranscript();
                   this.draw();
                 },
 
@@ -515,7 +910,7 @@ defmodule SwatiWeb.CallsLive.Show do
 
                 async enhanceFromRemote() {
                   if (!this.audioUrl) return;
-                  if (this.objectUrl) return; // already enhanced
+                  if (this.objectUrl) return;
 
                   let res;
                   try {
@@ -524,7 +919,6 @@ defmodule SwatiWeb.CallsLive.Show do
                       credentials: "omit",
                     });
                   } catch (e) {
-                    // Likely CORS (common with S3-like storage). We keep placeholder waveform and default streaming.
                     console.warn("[CallAudioPlayer] Unable to fetch audio for waveform/seek enhancement:", e);
                     return;
                   }
@@ -535,25 +929,16 @@ defmodule SwatiWeb.CallsLive.Show do
                   const mime = guessMimeType(this.audioUrl, headerType);
 
                   let arrayBuffer;
-                  try {
-                    arrayBuffer = await res.arrayBuffer();
-                  } catch (_e) {
-                    return;
-                  }
-
+                  try { arrayBuffer = await res.arrayBuffer(); } catch (_e) { return; }
                   if (this.abortController.signal.aborted) return;
 
-                  // Swap audio to Blob URL (reliable seeking even without byte-range support)
                   const blob = new Blob([arrayBuffer], { type: mime });
                   const objectUrl = URL.createObjectURL(blob);
 
                   const keepTime = this.audioEl.currentTime || 0;
                   const wasPlaying = !this.audioEl.paused && !this.audioEl.ended;
 
-                  // Pause and swap source; preserve time + play state
-                  try {
-                    this.audioEl.pause();
-                  } catch (_e) {}
+                  try { this.audioEl.pause(); } catch (_e) {}
 
                   this.audioEl.src = objectUrl;
                   this.audioEl.load();
@@ -566,33 +951,28 @@ defmodule SwatiWeb.CallsLive.Show do
                   } catch (_e) {}
 
                   if (wasPlaying) {
-                    try {
-                      await this.audioEl.play();
-                    } catch (_e) {}
+                    try { await this.audioEl.play(); } catch (_e) {}
                   }
 
                   this.objectUrl = objectUrl;
                   this.updateDurationUI();
                   this.updateTimeUI();
+                  this.updateActiveTranscript();
 
-                  // Try to decode audio for a real waveform (best-effort)
                   try {
                     const AudioCtx = window.AudioContext || window.webkitAudioContext;
                     if (!AudioCtx) throw new Error("AudioContext not available");
 
                     const ctx = new AudioCtx();
                     const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
-                    try {
-                      await ctx.close();
-                    } catch (_e) {}
+                    try { await ctx.close(); } catch (_e) {}
 
-                    const peaks = computePeaksFromAudioBuffer(decoded, 1200);
+                    const peaks = computePeaksFromAudioBuffer(decoded, 1400);
                     if (peaks && peaks.length > 0) {
                       this.rawPeaks = peaks;
                       this.draw();
                     }
                   } catch (e) {
-                    // Decoding might fail for some codecs/browsers; placeholder waveform is fine.
                     console.warn("[CallAudioPlayer] Unable to decode audio for waveform:", e);
                   }
                 },
@@ -617,26 +997,66 @@ defmodule SwatiWeb.CallsLive.Show do
                   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                   ctx.clearRect(0, 0, width, height);
 
-                  const barGap = 3; // px between bars (matches screenshot density)
+                  const durationMs = this.durationMs() || 0;
+                  const duration = durationMs > 0 ? durationMs / 1000 : this.getDuration();
+                  const progress = duration > 0 ? clamp((this.audioEl.currentTime || 0) / duration, 0, 1) : 0;
+
+                  // Speaker background overlays
+                  if (durationMs > 0 && Array.isArray(this.speakerSegments) && this.speakerSegments.length > 0) {
+                    for (const seg of this.speakerSegments) {
+                      const s = Number(seg?.start_ms ?? -1);
+                      const e = Number(seg?.end_ms ?? -1);
+                      if (s < 0 || e < 0 || e <= s) continue;
+
+                      const speaker = normalizeSpeaker(seg?.speaker);
+                      const x0 = clamp((s / durationMs) * width, 0, width);
+                      const x1 = clamp((e / durationMs) * width, 0, width);
+                      const w = Math.max(0, x1 - x0);
+
+                      ctx.fillStyle = speaker === "customer" ? this.customerBg : this.agentBg;
+                      ctx.fillRect(x0, 0, w, height);
+                    }
+                  }
+
+                  // Selection overlay
+                  if (this.selection && durationMs > 0) {
+                    const s = Number(this.selection.startMs || 0);
+                    const e = Number(this.selection.endMs || 0);
+                    const x0 = clamp((s / durationMs) * width, 0, width);
+                    const x1 = clamp((e / durationMs) * width, 0, width);
+                    const w = Math.max(0, x1 - x0);
+
+                    ctx.fillStyle = this.selectionBg;
+                    ctx.fillRect(x0, 0, w, height);
+
+                    ctx.strokeStyle = this.selectionBorder;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x0 + 0.5, 0.5, Math.max(0, w - 1), height - 1);
+                  }
+
+                  // Waveform bars
+                  const barGap = 3; // dense + screenshot-like
                   const barCount = Math.max(1, Math.floor(width / barGap));
                   const peaks = resamplePeaksMax(this.rawPeaks, barCount);
 
-                  const centerY = height / 2;
-                  const maxBar = (height / 2) * 0.9;
+                  const topPad = 2;
+                  const bottomPad = 8; // leaves room for dots
+                  const usableHeight = Math.max(1, height - topPad - bottomPad);
+                  const centerY = topPad + usableHeight / 2;
+                  const maxBar = (usableHeight / 2) * 0.98;
 
-                  const duration = this.getDuration();
-                  const progress = duration > 0 ? clamp((this.audioEl.currentTime || 0) / duration, 0, 1) : 0;
                   const playedBars = Math.floor(progress * barCount);
 
                   ctx.lineCap = "round";
-                  ctx.lineWidth = 1;
+                  ctx.lineWidth = 2;
 
-                  // Unplayed/base waveform
+                  // Base waveform
                   ctx.strokeStyle = this.baseColor;
                   ctx.beginPath();
                   for (let i = 0; i < barCount; i++) {
                     const x = i * barGap + barGap / 2;
-                    const amp = Math.max(0.03, Math.pow(peaks[i] || 0, 0.75));
+                    const p = clamp(peaks[i] || 0, 0, 1);
+                    const amp = Math.max(0.02, Math.pow(p, 1.15)); // more pronounced oscillations
                     const h = amp * maxBar;
                     ctx.moveTo(x, centerY - h);
                     ctx.lineTo(x, centerY + h);
@@ -649,11 +1069,55 @@ defmodule SwatiWeb.CallsLive.Show do
                     ctx.beginPath();
                     for (let i = 0; i < playedBars; i++) {
                       const x = i * barGap + barGap / 2;
-                      const amp = Math.max(0.03, Math.pow(peaks[i] || 0, 0.75));
+                      const p = clamp(peaks[i] || 0, 0, 1);
+                      const amp = Math.max(0.02, Math.pow(p, 1.15));
                       const h = amp * maxBar;
                       ctx.moveTo(x, centerY - h);
                       ctx.lineTo(x, centerY + h);
                     }
+                    ctx.stroke();
+                  }
+
+                  // Progress line (matches screenshot feel)
+                  if (duration > 0) {
+                    const x = clamp(progress * width, 0, width);
+                    ctx.strokeStyle = this.playedColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                  }
+
+                  // Tool call dots along bottom (subtle)
+                  if (durationMs > 0 && Array.isArray(this.toolCalls) && this.toolCalls.length > 0) {
+                    const y = height - 3;
+                    for (const t of this.toolCalls) {
+                      const s = Number(t?.start_ms ?? -1);
+                      if (s < 0) continue;
+                      const x = clamp((s / durationMs) * width, 0, width);
+
+                      const status = (t?.status ?? "").toString().toLowerCase();
+                      if (status.includes("fail") || status.includes("error")) {
+                        ctx.fillStyle = "rgba(239,68,68,0.85)";
+                      } else {
+                        ctx.fillStyle = "rgba(34,197,94,0.85)";
+                      }
+
+                      ctx.beginPath();
+                      ctx.arc(x, y, 2, 0, Math.PI * 2);
+                      ctx.fill();
+                    }
+                  }
+
+                  // Hover line (only if no selection pinned)
+                  if (!this.selection && this.isHovering && this.hoverRatio != null) {
+                    const x = clamp(this.hoverRatio * width, 0, width);
+                    ctx.strokeStyle = this.hoverLineColor;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
                     ctx.stroke();
                   }
                 },
@@ -673,12 +1137,18 @@ defmodule SwatiWeb.CallsLive.Show do
                         "flex gap-3",
                         item.role == :caller && "justify-end"
                       ]}>
-                        <div class={[
-                          "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
-                          item.role == :caller &&
-                            "bg-base-100 border border-base-300 text-foreground",
-                          item.role == :agent && "bg-base-200/80 text-foreground"
-                        ]}>
+                        <div
+                          data-transcript-item="message"
+                          data-start-ms={item.start_ms || 0}
+                          data-end-ms={item.end_ms || item.start_ms || 0}
+                          data-speaker={if(item.role == :caller, do: "customer", else: "agent")}
+                          class={[
+                            "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
+                            item.role == :caller &&
+                              "bg-base-100 border border-base-300 text-foreground",
+                            item.role == :agent && "bg-base-200/80 text-foreground"
+                          ]}
+                        >
                           <p class="text-sm leading-relaxed">{item.text}</p>
                           <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
                             <span class="uppercase tracking-wide">{item.label}</span>
@@ -688,7 +1158,13 @@ defmodule SwatiWeb.CallsLive.Show do
                         </div>
                       </div>
                     <% else %>
-                      <div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm space-y-3">
+                      <div
+                        data-transcript-item="tool"
+                        data-start-ms={item.start_ms || 0}
+                        data-end-ms={item.end_ms || item.start_ms || 0}
+                        data-speaker="tool"
+                        class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm space-y-3"
+                      >
                         <div class="flex flex-wrap items-center justify-between gap-3">
                           <div class="flex items-center gap-2">
                             <.icon
@@ -769,22 +1245,35 @@ defmodule SwatiWeb.CallsLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    call = Calls.get_call!(socket.assigns.current_scope.tenant.id, id)
+    tenant_id = socket.assigns.current_scope.tenant.id
+    call = Calls.get_call!(tenant_id, id)
+    timeline = Calls.get_call_timeline(tenant_id, id)
 
-    {:ok, assign(socket, detail_assigns(call))}
+    {:ok, assign(socket, detail_assigns(call, timeline))}
   end
 
-  def detail_assigns(call) do
+  def detail_assigns(call, timeline) do
     events = call.events || []
     agent_label = agent_name(call)
     status_badge = status_badge(call.status)
+
+    transcript_items =
+      if timeline_present?(timeline) do
+        build_transcript_items_from_timeline(timeline, agent_label)
+      else
+        build_transcript_items(events, call.started_at, agent_label)
+      end
+
+    waveform_context = build_waveform_context(call, timeline, transcript_items, agent_label)
 
     %{
       call: call,
       primary_audio_url: primary_audio_url(call),
       agent_name: agent_label,
       status_badge: status_badge,
-      transcript_items: build_transcript_items(events, call.started_at, agent_label)
+      transcript_items: transcript_items,
+      waveform_context_json: Jason.encode!(waveform_context),
+      waveform_duration_ms: waveform_context.duration_ms
     }
   end
 
@@ -829,6 +1318,229 @@ defmodule SwatiWeb.CallsLive.Show do
     "#{minutes}:#{String.pad_leading(Integer.to_string(remaining), 2, "0")}"
   end
 
+  defp timeline_present?(%{utterances: u, speaker_segments: s, tool_calls: t})
+       when is_list(u) and is_list(s) and is_list(t) do
+    u != [] or s != [] or t != []
+  end
+
+  defp timeline_present?(_), do: false
+
+  defp normalize_speaker(nil), do: "agent"
+
+  defp normalize_speaker(value) do
+    v = value |> to_string() |> String.downcase()
+
+    cond do
+      v in ["agent", "assistant", "bot"] -> "agent"
+      v in ["caller", "customer", "user"] -> "customer"
+      true -> v
+    end
+  end
+
+  defp truncate_text(text, max) do
+    str = to_string(text || "")
+
+    if String.length(str) <= max do
+      str
+    else
+      String.slice(str, 0, max - 1) <> "…"
+    end
+  end
+
+  defp build_transcript_items_from_timeline(timeline, agent_label) do
+    utterances = Map.get(timeline, :utterances) || []
+    tool_calls = Map.get(timeline, :tool_calls) || []
+
+    utter_items =
+      Enum.map(utterances, fn u ->
+        role =
+          case normalize_speaker(u.speaker) do
+            "customer" -> :caller
+            _ -> :agent
+          end
+
+        start_ms = u.start_ms || 0
+        end_ms = u.end_ms || start_ms
+
+        %{
+          id: "utt-#{u.id}",
+          type: :message,
+          role: role,
+          label: if(role == :caller, do: "Customer", else: agent_label),
+          text: String.trim(to_string(u.text || "")),
+          offset: format_duration(div(start_ms, 1000)),
+          start_ms: start_ms,
+          end_ms: max(end_ms, start_ms)
+        }
+      end)
+
+    tool_items =
+      Enum.map(tool_calls, fn t ->
+        start_ms = t.start_ms || 0
+        end_ms = t.end_ms || start_ms
+        duration_ms = t.latency_ms || max(end_ms - start_ms, 0)
+
+        %{
+          id: "tool-#{t.id}",
+          type: :tool,
+          name: to_string(t.name || "tool"),
+          status: to_string(t.status || "succeeded"),
+          duration_ms: duration_ms,
+          args: inspect(t.args || %{}, pretty: true, limit: 50),
+          response: truncate_text(t.response_summary || "", 800),
+          offset: format_duration(div(start_ms, 1000)),
+          start_ms: start_ms,
+          end_ms: max(end_ms, start_ms),
+          mcp_server: to_string(t.mcp_endpoint || "mcp_server")
+        }
+      end)
+
+    (utter_items ++ tool_items)
+    |> Enum.sort_by(& &1.start_ms, :asc)
+    |> Enum.with_index()
+    |> Enum.map(fn {item, index} -> Map.put(item, :dom_index, index) end)
+  end
+
+  defp build_waveform_context(call, timeline, transcript_items, agent_label) do
+    duration_ms =
+      cond do
+        timeline_present?(timeline) &&
+          is_map(timeline) &&
+          is_map(Map.get(timeline, :meta)) &&
+          is_integer(timeline.meta.duration_ms) &&
+            timeline.meta.duration_ms > 0 ->
+          timeline.meta.duration_ms
+
+        is_integer(call.duration_seconds) && call.duration_seconds > 0 ->
+          call.duration_seconds * 1000
+
+        true ->
+          transcript_items
+          |> Enum.map(&Map.get(&1, :end_ms, 0))
+          |> Enum.max(fn -> 0 end)
+      end
+
+    speaker_segments =
+      cond do
+        timeline_present?(timeline) && is_list(timeline.speaker_segments) &&
+            timeline.speaker_segments != [] ->
+          Enum.map(timeline.speaker_segments, fn s ->
+            %{
+              speaker: normalize_speaker(s.speaker),
+              start_ms: s.start_ms || 0,
+              end_ms: s.end_ms || (s.start_ms || 0)
+            }
+          end)
+
+        true ->
+          derive_speaker_segments_from_items(transcript_items)
+      end
+
+    utterances =
+      cond do
+        timeline_present?(timeline) && is_list(timeline.utterances) && timeline.utterances != [] ->
+          Enum.map(timeline.utterances, fn u ->
+            %{
+              speaker: normalize_speaker(u.speaker),
+              start_ms: u.start_ms || 0,
+              end_ms: u.end_ms || (u.start_ms || 0),
+              text: truncate_text(u.text || "", 600)
+            }
+          end)
+
+        true ->
+          transcript_items
+          |> Enum.filter(&(&1.type == :message))
+          |> Enum.map(fn item ->
+            %{
+              speaker: if(item.role == :caller, do: "customer", else: "agent"),
+              start_ms: Map.get(item, :start_ms, 0),
+              end_ms: Map.get(item, :end_ms, Map.get(item, :start_ms, 0)),
+              text: truncate_text(Map.get(item, :text, ""), 600)
+            }
+          end)
+      end
+
+    tool_calls =
+      cond do
+        timeline_present?(timeline) && is_list(timeline.tool_calls) && timeline.tool_calls != [] ->
+          Enum.map(timeline.tool_calls, fn t ->
+            %{
+              name: to_string(t.name || "tool"),
+              status: to_string(t.status || "succeeded"),
+              start_ms: t.start_ms || 0,
+              end_ms: t.end_ms || (t.start_ms || 0),
+              latency_ms: t.latency_ms || 0,
+              response_summary: truncate_text(t.response_summary || "", 420)
+            }
+          end)
+
+        true ->
+          transcript_items
+          |> Enum.filter(&(&1.type == :tool))
+          |> Enum.map(fn item ->
+            %{
+              name: to_string(Map.get(item, :name, "tool")),
+              status: to_string(Map.get(item, :status, "succeeded")),
+              start_ms: Map.get(item, :start_ms, 0),
+              end_ms: Map.get(item, :end_ms, Map.get(item, :start_ms, 0)),
+              latency_ms: Map.get(item, :duration_ms, 0),
+              response_summary: truncate_text(Map.get(item, :response, ""), 420)
+            }
+          end)
+      end
+
+    markers =
+      if timeline_present?(timeline) && is_list(timeline.markers) do
+        Enum.map(timeline.markers, fn m ->
+          %{
+            kind: to_string(m.kind || "marker"),
+            offset_ms: m.offset_ms || 0,
+            payload: m.payload || %{}
+          }
+        end)
+      else
+        []
+      end
+
+    %{
+      duration_ms: duration_ms,
+      agent_label: agent_label,
+      customer_label: "Customer",
+      speaker_segments: speaker_segments,
+      utterances: utterances,
+      tool_calls: tool_calls,
+      markers: markers
+    }
+  end
+
+  defp derive_speaker_segments_from_items(items) do
+    items
+    |> Enum.filter(&(&1.type == :message))
+    |> Enum.sort_by(&Map.get(&1, :start_ms, 0), :asc)
+    |> Enum.reduce([], fn item, acc ->
+      speaker = if item.role == :caller, do: "customer", else: "agent"
+      start_ms = Map.get(item, :start_ms, 0)
+      end_ms = Map.get(item, :end_ms, start_ms)
+
+      case acc do
+        [%{speaker: ^speaker, end_ms: prev_end} = last | rest] when start_ms <= prev_end + 300 ->
+          [%{last | end_ms: max(prev_end, end_ms)} | rest]
+
+        _ ->
+          [%{speaker: speaker, start_ms: start_ms, end_ms: end_ms} | acc]
+      end
+    end)
+    |> Enum.reverse()
+  end
+
+  defp diff_ms(nil, _ts), do: 0
+  defp diff_ms(_start, nil), do: 0
+
+  defp diff_ms(%DateTime{} = start, %DateTime{} = ts) do
+    max(DateTime.diff(ts, start, :millisecond), 0)
+  end
+
   defp build_transcript_items(events, started_at, agent_label) do
     {items, current, _tool_calls} =
       Enum.reduce(events, {[], nil, %{}}, fn event, {items, current, tool_calls} ->
@@ -843,17 +1555,22 @@ defmodule SwatiWeb.CallsLive.Show do
             else
               case current do
                 %{tag: ^tag} = entry ->
-                  {items, %{entry | text: append_text(entry.text, text)}, tool_calls}
+                  {items, %{entry | text: append_text(entry.text, text), end_ts: event.ts},
+                   tool_calls}
 
                 _ ->
                   {items, _current} = flush_current(items, current, started_at, agent_label)
-                  {items, %{tag: tag, text: text, ts: event.ts}, tool_calls}
+
+                  {items, %{tag: tag, text: text, start_ts: event.ts, end_ts: event.ts},
+                   tool_calls}
               end
             end
 
           "tool_call" ->
             payload = event.payload || %{}
             id = map_value(payload, "id", :id)
+
+            payload = Map.put(payload, "_event_ts", event.ts)
 
             {items, current, Map.put(tool_calls, id, payload)}
 
@@ -893,6 +1610,22 @@ defmodule SwatiWeb.CallsLive.Show do
     duration_ms = map_value(payload, "ms", :ms) || 0
     status = if map_value(payload, "isError", :isError), do: "failed", else: "succeeded"
 
+    call_ts = Map.get(call_payload, "_event_ts") || Map.get(call_payload, :_event_ts)
+
+    start_ms =
+      cond do
+        is_struct(call_ts, DateTime) ->
+          diff_ms(started_at, call_ts)
+
+        is_integer(duration_ms) && duration_ms > 0 ->
+          max(diff_ms(started_at, ts) - duration_ms, 0)
+
+        true ->
+          diff_ms(started_at, ts)
+      end
+
+    end_ms = start_ms + (duration_ms || 0)
+
     %{
       id: id || "tool-#{System.unique_integer([:positive])}",
       type: :tool,
@@ -901,7 +1634,9 @@ defmodule SwatiWeb.CallsLive.Show do
       duration_ms: duration_ms,
       args: inspect(args, pretty: true, limit: 50),
       response: tool_response_text(payload),
-      offset: format_offset(started_at, ts),
+      offset: format_duration(div(start_ms, 1000)),
+      start_ms: start_ms,
+      end_ms: end_ms,
       mcp_server: "mcp_server"
     }
   end
@@ -927,13 +1662,18 @@ defmodule SwatiWeb.CallsLive.Show do
         _ -> :agent
       end
 
+    start_ms = diff_ms(started_at, Map.get(current, :start_ts))
+    end_ms = diff_ms(started_at, Map.get(current, :end_ts))
+
     item = %{
       id: "msg-#{System.unique_integer([:positive])}",
       type: :message,
       role: role,
-      label: if(role == :caller, do: "Caller", else: agent_label),
+      label: if(role == :caller, do: "Customer", else: agent_label),
       text: String.trim(current.text),
-      offset: format_offset(started_at, current.ts)
+      offset: format_duration(div(start_ms, 1000)),
+      start_ms: start_ms,
+      end_ms: max(end_ms, start_ms)
     }
 
     {[item | items], nil}
@@ -948,13 +1688,6 @@ defmodule SwatiWeb.CallsLive.Show do
     else
       existing <> " " <> next
     end
-  end
-
-  defp format_offset(nil, _ts), do: "0:00"
-
-  defp format_offset(%DateTime{} = start, %DateTime{} = ts) do
-    seconds = max(DateTime.diff(ts, start, :second), 0)
-    format_duration(seconds)
   end
 
   defp normalize_string(nil), do: ""

@@ -319,6 +319,8 @@ defmodule SwatiWeb.CallsLive.Index do
             agent_name={@agent_name}
             status_badge={@status_badge}
             transcript_items={@transcript_items}
+            waveform_context_json={@waveform_context_json}
+            waveform_duration_ms={@waveform_duration_ms}
             back_patch={~p"/calls"}
           />
         <% end %>
@@ -377,10 +379,11 @@ defmodule SwatiWeb.CallsLive.Index do
       {:noreply, push_patch(socket, to: ~p"/calls")}
     else
       call = Calls.get_call!(tenant.id, call_id)
+      timeline = Calls.get_call_timeline(tenant.id, call_id)
 
       {:noreply,
        socket
-       |> assign(CallsShow.detail_assigns(call))
+       |> assign(CallsShow.detail_assigns(call, timeline))
        |> assign(call_sheet_open: true)}
     end
   end

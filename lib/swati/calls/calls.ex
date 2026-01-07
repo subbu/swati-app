@@ -4,7 +4,15 @@ defmodule Swati.Calls do
   alias Swati.Repo
   alias Swati.Tenancy
 
-  alias Swati.Calls.{Call, CallEvent}
+  alias Swati.Calls.{
+    Call,
+    CallEvent,
+    CallMarker,
+    CallSpeakerSegment,
+    CallTimelineMeta,
+    CallToolCall,
+    CallUtterance
+  }
 
   def create_call_start(attrs) do
     %Call{}
@@ -65,6 +73,53 @@ defmodule Swati.Calls do
     |> Tenancy.scope(tenant_id)
     |> Repo.get!(call_id)
     |> Repo.preload([:agent, :phone_number, events: from(e in CallEvent, order_by: [asc: e.ts])])
+  end
+
+  def get_call_timeline(tenant_id, call_id) do
+    # Ensure this call belongs to the tenant (defense-in-depth for web access patterns)
+    _ =
+      Call
+      |> Tenancy.scope(tenant_id)
+      |> where([c], c.id == ^call_id)
+      |> select([c], c.id)
+      |> Repo.one!()
+
+    meta =
+      CallTimelineMeta
+      |> where([m], m.call_id == ^call_id)
+      |> Repo.one()
+
+    utterances =
+      CallUtterance
+      |> where([u], u.call_id == ^call_id)
+      |> order_by([u], asc: u.start_ms)
+      |> Repo.all()
+
+    speaker_segments =
+      CallSpeakerSegment
+      |> where([s], s.call_id == ^call_id)
+      |> order_by([s], asc: s.start_ms)
+      |> Repo.all()
+
+    tool_calls =
+      CallToolCall
+      |> where([t], t.call_id == ^call_id)
+      |> order_by([t], asc: t.start_ms)
+      |> Repo.all()
+
+    markers =
+      CallMarker
+      |> where([m], m.call_id == ^call_id)
+      |> order_by([m], asc: m.offset_ms)
+      |> Repo.all()
+
+    %{
+      meta: meta,
+      utterances: utterances,
+      speaker_segments: speaker_segments,
+      tool_calls: tool_calls,
+      markers: markers
+    }
   end
 
   defp apply_filters(query, filters) do
