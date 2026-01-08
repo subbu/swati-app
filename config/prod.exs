@@ -18,3 +18,7 @@ config :logger, level: :info
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
+
+config :swati,
+       :media_gateway_base_url,
+       System.get_env("MEDIA_GATEWAY_BASE_URL", "https://subbu-dev1.fly.dev")

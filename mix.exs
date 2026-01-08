@@ -60,6 +60,7 @@ defmodule Swati.MixProject do
        compile: false,
        depth: 1},
       {:swoosh, "~> 1.16"},
+      {:resend, "~> 0.4.0"},
       {:oban, "~> 2.19"},
       {:oban_web, "~> 2.11"},
       {:cloak_ecto, "~> 1.2"},

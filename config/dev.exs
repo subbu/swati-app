@@ -104,5 +104,10 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
+# Configure Resend for development
+config :swati, Swati.Mailer,
+  adapter: Resend.Swoosh.Adapter,
+  api_key: System.get_env("RESEND_API_KEY") || "re_QAiQTDc5_A2ipwGPhSTjc5x2gfZWZzAF2"
+
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
