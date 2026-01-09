@@ -32,47 +32,236 @@ defmodule SwatiWeb.CallsLive.Show do
 
   def call_detail(assigns) do
     ~H"""
-    <div id="call-detail" class="space-y-8 font-['Instrument_Sans']">
+    <div id="call-detail" class="space-y-10 font-['Instrument_Sans']">
       <style>
-        .swati-active-transcript {
-          outline: 2px solid rgb(59 130 246 / 0.55);
-          outline-offset: 2px;
-          border-radius: 1rem;
+        /* Refined animation system */
+        @keyframes swati-fade-up {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes swati-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes swati-scale-in {
+          from { opacity: 0; transform: scale(0.96); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes swati-pulse-subtle {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        #call-detail {
+          animation: swati-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Active transcript highlight - refined */
+        .swati-active-transcript {
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.06) 100%);
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35), 0 4px 16px -4px rgba(59, 130, 246, 0.2);
+          border-radius: 1.25rem;
+          transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Tooltip refinements */
         #call-waveform-tooltip {
-          max-width: min(460px, 92vw);
+          max-width: min(480px, 92vw);
+          backdrop-filter: blur(12px);
+          background: rgba(255, 255, 255, 0.95);
+          box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.12), 0 4px 16px -4px rgba(0, 0, 0, 0.08);
+          animation: swati-scale-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @media (prefers-color-scheme: dark) {
+          #call-waveform-tooltip {
+            background: rgba(30, 30, 35, 0.95);
+          }
         }
         #call-waveform-tooltip .swati-tooltip-scroll {
-          max-height: 220px;
+          max-height: 240px;
           overflow: auto;
+          scrollbar-width: thin;
+        }
+
+        /* Audio panel refinements */
+        #call-audio-panel {
+          transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+        #call-audio-panel:hover {
+          box-shadow: 0 8px 40px -12px rgba(0, 0, 0, 0.12), 0 4px 20px -8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Waveform container polish */
+        #call-waveform-container {
+          transition: box-shadow 0.25s ease;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        #call-waveform-container:hover {
+          box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.08);
+        }
+        #call-waveform-container:focus-visible {
+          outline: 2px solid rgba(59, 130, 246, 0.5);
+          outline-offset: 2px;
+        }
+
+        /* Play button pulse when playing */
+        #call-audio-play.is-playing {
+          animation: swati-pulse-subtle 2s ease-in-out infinite;
+        }
+
+        /* Transcript items - staggered entrance */
+        #transcript-list > div {
+          animation: swati-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+        }
+        #transcript-list > div:nth-child(1) { animation-delay: 0.1s; }
+        #transcript-list > div:nth-child(2) { animation-delay: 0.15s; }
+        #transcript-list > div:nth-child(3) { animation-delay: 0.2s; }
+        #transcript-list > div:nth-child(4) { animation-delay: 0.25s; }
+        #transcript-list > div:nth-child(5) { animation-delay: 0.3s; }
+        #transcript-list > div:nth-child(n+6) { animation-delay: 0.35s; }
+
+        /* Message bubble hover states */
+        [data-transcript-item="message"] {
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        [data-transcript-item="message"]:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Tool card refinements */
+        [data-transcript-item="tool"] {
+          transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+        }
+        [data-transcript-item="tool"]:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.1);
+          border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        /* Button micro-interactions */
+        #call-audio-panel button {
+          transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        #call-audio-panel button:active {
+          transform: scale(0.95);
+        }
+
+        /* Rate button style */
+        #call-audio-rate {
+          font-variant-numeric: tabular-nums;
+          transition: all 0.2s ease;
+        }
+        #call-audio-rate:hover {
+          background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Speaker legend dots - refined */
+        .swati-speaker-dot {
+          transition: transform 0.2s ease;
+        }
+        .swati-speaker-dot:hover {
+          transform: scaleX(1.3);
+        }
+
+        /* Accordion refinements */
+        .swati-tool-accordion summary {
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+        }
+        .swati-tool-accordion summary:hover {
+          background-color: rgba(0, 0, 0, 0.02);
+        }
+        .swati-tool-accordion[open] summary .swati-accordion-chevron {
+          transform: rotate(180deg);
+        }
+        .swati-accordion-chevron {
+          transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Pre block styling */
+        .swati-code-block {
+          font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+          font-size: 11px;
+          line-height: 1.6;
+          letter-spacing: -0.01em;
+        }
+
+        /* Transcript click hint */
+        [data-transcript-item] {
+          cursor: pointer;
+          position: relative;
+        }
+        [data-transcript-item]::after {
+          content: 'Click to seek';
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%) translateY(4px);
+          background: rgba(15, 23, 42, 0.9);
+          color: white;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 500;
+          white-space: nowrap;
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+          transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+          z-index: 30;
+        }
+        [data-transcript-item]:hover::after {
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(-50%) translateY(-4px);
+        }
+
+        /* Dark mode tooltip */
+        @media (prefers-color-scheme: dark) {
+          [data-transcript-item]::after {
+            background: rgba(255, 255, 255, 0.95);
+            color: rgba(15, 23, 42, 0.9);
+          }
         }
       </style>
 
-      <header class="flex flex-wrap items-start gap-4">
-        <div class="space-y-2">
+      <header class="flex flex-wrap items-start justify-between gap-6">
+        <div class="space-y-3 min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-2xl md:text-3xl font-semibold text-foreground font-['Instrument_Serif']">
+            <h1 class="text-2xl md:text-[1.75rem] font-semibold text-foreground font-['Instrument_Serif'] tracking-[-0.02em] leading-tight">
               Conversation with {@agent_name}
             </h1>
             <.badge size="sm" variant="soft" color={@status_badge.color}>
               {@status_badge.label}
             </.badge>
           </div>
-          <div class="flex flex-wrap items-center gap-3 text-sm text-foreground-soft">
-            <span>{@call.from_number} → {@call.to_number}</span>
-            <span class="text-foreground-softer">•</span>
-            <span class="font-mono text-xs text-foreground-softer">{@call.id}</span>
+          <div class="flex flex-wrap items-center gap-2.5 text-[13px] text-foreground-soft">
+            <div class="flex items-center gap-1.5">
+              <.icon name="hero-phone" class="size-3.5 text-foreground-softer" />
+              <span class="font-medium">{@call.from_number}</span>
+              <.icon name="hero-arrow-right" class="size-3 text-foreground-softer" />
+              <span class="font-medium">{@call.to_number}</span>
+            </div>
+            <span class="text-foreground-softer/60">•</span>
+            <span
+              class="font-mono text-[11px] text-foreground-softer bg-base-200/60 px-2 py-0.5 rounded-md cursor-pointer hover:bg-base-200 transition-colors select-all"
+              title="Click to copy call ID"
+            >
+              {@call.id}
+            </span>
           </div>
         </div>
-        <div class="ml-auto flex items-center gap-2">
-          <.button :if={@back_patch} patch={@back_patch} variant="ghost" size="sm">
-            <.icon name="hero-arrow-left" class="icon" /> Back
+        <div class="flex items-center gap-2 shrink-0">
+          <.button :if={@back_patch} patch={@back_patch} variant="ghost" size="sm" class="gap-1.5">
+            <.icon name="hero-arrow-left" class="size-4" />
+            <span>Back</span>
           </.button>
         </div>
       </header>
 
-      <div class="space-y-6">
-        <div class="space-y-6">
+      <div class="space-y-8">
+        <div class="space-y-8">
           <section
             id="call-audio-panel"
             phx-hook=".CallAudioPlayer"
@@ -82,46 +271,51 @@ defmodule SwatiWeb.CallsLive.Show do
             data-agent-label={@agent_name}
             data-waveform-context={@waveform_context_json}
             data-seed={@call.id}
-            class="rounded-3xl border border-base-300 bg-base-100 p-6 shadow-sm space-y-4"
+            class="rounded-[1.75rem] border border-base-300/80 bg-gradient-to-b from-base-100 to-base-100/95 p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
           >
             <div class="flex items-start justify-between gap-4">
-              <div class="space-y-1">
-                <h2 class="text-lg font-semibold text-foreground">Conversation audio</h2>
-                <p class="text-sm text-foreground-soft">
-                  {format_long_datetime(@call.started_at)}
-                  <span class="text-foreground-softer">·</span>
-                  {format_duration(@call.duration_seconds)}
+              <div class="space-y-1.5">
+                <h2 class="text-[17px] font-semibold text-foreground tracking-[-0.01em]">Conversation audio</h2>
+                <p class="text-[13px] text-foreground-soft flex items-center gap-2">
+                  <.icon name="hero-calendar" class="size-3.5 text-foreground-softer" />
+                  <span>{format_long_datetime(@call.started_at)}</span>
+                  <span class="text-foreground-softer/50">·</span>
+                  <.icon name="hero-clock" class="size-3.5 text-foreground-softer" />
+                  <span class="font-medium">{format_duration(@call.duration_seconds)}</span>
                 </p>
               </div>
-              <div class="flex items-center gap-2">
-                <.button variant="ghost" size="icon-sm">
-                  <.icon name="hero-arrow-down-tray" class="icon" />
+              <div class="flex items-center gap-1.5">
+                <.button variant="ghost" size="icon-sm" class="rounded-xl hover:bg-base-200/80">
+                  <.icon name="hero-arrow-down-tray" class="size-4" />
                 </.button>
-                <.button variant="ghost" size="icon-sm">
-                  <.icon name="hero-ellipsis-horizontal" class="icon" />
+                <.button variant="ghost" size="icon-sm" class="rounded-xl hover:bg-base-200/80">
+                  <.icon name="hero-ellipsis-horizontal" class="size-4" />
                 </.button>
               </div>
             </div>
 
             <%= if @primary_audio_url do %>
-              <div class="flex items-center justify-between gap-4 text-xs text-foreground-softer">
-                <div class="flex items-center gap-4">
-                  <div class="flex items-center gap-2">
-                    <span class="inline-block h-1 w-4 rounded-full bg-primary"></span>
-                    <span class="uppercase tracking-wide font-semibold text-primary">Agent</span>
+              <div class="flex items-center justify-between gap-4 text-[11px] text-foreground-softer pt-1">
+                <div class="flex items-center gap-5">
+                  <div class="flex items-center gap-2 group cursor-default">
+                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-primary/90"></span>
+                    <span class="uppercase tracking-wider font-semibold text-primary/90">{@agent_name}</span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <span class="inline-block h-1 w-4 rounded-full bg-secondary"></span>
-                    <span class="uppercase tracking-wide font-semibold text-secondary">Customer</span>
+                  <div class="flex items-center gap-2 group cursor-default">
+                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-secondary/90"></span>
+                    <span class="uppercase tracking-wider font-semibold text-secondary/90">Customer</span>
                   </div>
                 </div>
-                <span class="hidden md:block">Click & Drag to analyze a segment</span>
+                <span class="hidden md:flex items-center gap-1.5 text-foreground-softer/70">
+                  <.icon name="hero-cursor-arrow-ripple" class="size-3.5" />
+                  <span>Click & drag to analyze</span>
+                </span>
               </div>
 
-              <div id="call-waveform-wrap" class="relative">
+              <div id="call-waveform-wrap" class="relative pt-1">
                 <div
                   id="call-waveform-container"
-                  class="call-waveform h-12 rounded-full bg-base-200/70 overflow-hidden"
+                  class="call-waveform h-14 rounded-2xl bg-gradient-to-b from-base-200/50 to-base-200/70 overflow-hidden cursor-pointer"
                   phx-update="ignore"
                   role="slider"
                   tabindex="0"
@@ -129,44 +323,44 @@ defmodule SwatiWeb.CallsLive.Show do
                   aria-valuemin="0"
                   aria-valuemax={@call.duration_seconds || 0}
                   aria-valuenow="0"
-                  style="--waveform-color: rgba(148,163,184,0.72); --waveform-color-played: rgba(37,99,235,0.95); --waveform-agent-bg: rgba(37,99,235,0.08); --waveform-customer-bg: rgba(168,85,247,0.08); --waveform-selection-bg: rgba(37,99,235,0.16); --waveform-selection-border: rgba(37,99,235,0.55); --waveform-hover-line: rgba(15,23,42,0.14);"
+                  style="--waveform-color: rgba(148,163,184,0.65); --waveform-color-played: rgba(37,99,235,0.92); --waveform-agent-bg: rgba(37,99,235,0.07); --waveform-customer-bg: rgba(168,85,247,0.07); --waveform-selection-bg: rgba(37,99,235,0.14); --waveform-selection-border: rgba(37,99,235,0.5); --waveform-hover-line: rgba(15,23,42,0.12);"
                 >
                   <canvas id="call-waveform" class="call-waveform-canvas"></canvas>
                 </div>
 
                 <div
                   id="call-waveform-tooltip"
-                  class="hidden absolute z-20 rounded-2xl border border-base-300 bg-base-100 px-4 py-3 shadow-lg text-foreground text-xs pointer-events-auto"
+                  class="hidden absolute z-20 rounded-2xl border border-base-300/60 bg-base-100/98 px-4 py-3.5 text-foreground text-xs pointer-events-auto"
                 >
                 </div>
               </div>
 
-              <div class="flex flex-wrap items-center gap-4">
-                <.button id="call-audio-play" size="icon" variant="solid" color="primary">
-                  <.icon name="hero-play" class="icon js-play-icon" />
-                  <.icon name="hero-pause" class="icon js-pause-icon hidden" />
+              <div class="flex flex-wrap items-center gap-3 pt-1">
+                <.button id="call-audio-play" size="icon" variant="solid" color="primary" class="size-11 rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow">
+                  <.icon name="hero-play-solid" class="size-5 js-play-icon" />
+                  <.icon name="hero-pause-solid" class="size-5 js-pause-icon hidden" />
                 </.button>
+
+                <div class="flex items-center gap-1 bg-base-200/50 rounded-xl p-1">
+                  <.button id="call-audio-rewind" size="icon-sm" variant="ghost" class="rounded-lg hover:bg-base-200">
+                    <.icon name="hero-backward" class="size-4" />
+                  </.button>
+                  <.button id="call-audio-forward" size="icon-sm" variant="ghost" class="rounded-lg hover:bg-base-200">
+                    <.icon name="hero-forward" class="size-4" />
+                  </.button>
+                </div>
 
                 <button
                   id="call-audio-rate"
                   type="button"
-                  class="text-sm text-foreground-soft rounded-xl px-2 py-1 hover:bg-base-200 active:bg-base-200"
+                  class="text-[13px] font-medium text-foreground-soft rounded-lg px-2.5 py-1.5 hover:bg-base-200/80 active:bg-base-200 tabular-nums min-w-[52px] text-center"
                 >
                   1.0x
                 </button>
 
-                <div class="flex items-center gap-2">
-                  <.button id="call-audio-rewind" size="icon-sm" variant="ghost">
-                    <.icon name="hero-arrow-uturn-left" class="icon" />
-                  </.button>
-                  <.button id="call-audio-forward" size="icon-sm" variant="ghost">
-                    <.icon name="hero-arrow-uturn-right" class="icon" />
-                  </.button>
-                </div>
-
-                <div class="ml-auto text-sm text-foreground-soft tabular-nums">
-                  <span id="call-audio-current-time">0:00</span>
-                  <span class="text-foreground-softer">/</span>
+                <div class="ml-auto flex items-center gap-1.5 text-[13px] text-foreground-soft tabular-nums">
+                  <span id="call-audio-current-time" class="font-medium text-foreground">0:00</span>
+                  <span class="text-foreground-softer/60">/</span>
                   <span id="call-audio-total-time">{format_duration(@call.duration_seconds)}</span>
                 </div>
               </div>
@@ -174,7 +368,10 @@ defmodule SwatiWeb.CallsLive.Show do
               <audio id="call-audio" preload="metadata" src={@primary_audio_url} class="hidden">
               </audio>
             <% else %>
-              <div class="text-sm text-foreground-soft">No audio recording available.</div>
+              <div class="flex items-center gap-3 py-6 text-sm text-foreground-soft">
+                <.icon name="hero-speaker-x-mark" class="size-5 text-foreground-softer" />
+                <span>No audio recording available for this call.</span>
+              </div>
             <% end %>
 
             <script :type={Phoenix.LiveView.ColocatedHook} name=".CallAudioPlayer">
@@ -410,10 +607,21 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.audioEl.playbackRate = RATES[this.rateIndex];
                   if (this.rateBtn) this.rateBtn.textContent = formatRate(RATES[this.rateIndex]);
 
-                  // Transcript elements for playback highlighting
+                  // Transcript elements for playback highlighting + click-to-seek
                   this.transcriptRoot = document.getElementById("transcript-list");
                   this.transcriptEls = Array.from(this.transcriptRoot?.querySelectorAll("[data-transcript-item]") || []);
                   this.activeTranscriptEl = null;
+
+                  // Click-to-seek on transcript items
+                  this.onTranscriptClick = (e) => {
+                    const item = e.target.closest("[data-transcript-item]");
+                    if (!item) return;
+                    const startMs = Number(item.dataset.startMs || 0);
+                    this.seekTo(startMs / 1000);
+                  };
+                  if (this.transcriptRoot) {
+                    this.transcriptRoot.addEventListener("click", this.onTranscriptClick);
+                  }
 
                   // Hover/selection state
                   this.hoverRatio = null;
@@ -815,6 +1023,7 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (this.rateBtn) this.rateBtn.removeEventListener("click", this.onRateClick);
                   if (this.rewindBtn) this.rewindBtn.removeEventListener("click", this.onRewindClick);
                   if (this.forwardBtn) this.forwardBtn.removeEventListener("click", this.onForwardClick);
+                  if (this.transcriptRoot) this.transcriptRoot.removeEventListener("click", this.onTranscriptClick);
 
                   if (this.waveformEl) {
                     this.waveformEl.removeEventListener("pointerenter", this.onPointerEnter);
@@ -863,13 +1072,26 @@ defmodule SwatiWeb.CallsLive.Show do
 
                   if (playIcon) playIcon.classList.toggle("hidden", !!isPlaying);
                   if (pauseIcon) pauseIcon.classList.toggle("hidden", !isPlaying);
+
+                  // Toggle playing state class for pulse animation
+                  if (this.playBtn) {
+                    this.playBtn.classList.toggle("is-playing", !!isPlaying);
+                  }
                 },
 
                 updateActiveTranscript() {
                   if (!this.transcriptEls || this.transcriptEls.length === 0) return;
 
                   const isPlaying = this.audioEl && !this.audioEl.paused && !this.audioEl.ended;
-                  if (!isPlaying) return;
+
+                  // Clear highlight when paused
+                  if (!isPlaying) {
+                    if (this.activeTranscriptEl) {
+                      this.activeTranscriptEl.classList.remove("swati-active-transcript");
+                      this.activeTranscriptEl = null;
+                    }
+                    return;
+                  }
 
                   const currentMs = (this.audioEl?.currentTime || 0) * 1000;
                   let next = null;
@@ -887,6 +1109,8 @@ defmodule SwatiWeb.CallsLive.Show do
 
                   if (this.activeTranscriptEl) {
                     this.activeTranscriptEl.classList.add("swati-active-transcript");
+                    // Smooth scroll into view if needed
+                    this.activeTranscriptEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
                   }
                 },
 
@@ -1125,11 +1349,21 @@ defmodule SwatiWeb.CallsLive.Show do
             </script>
           </section>
 
-          <section class="space-y-4">
-            <div id="transcription-panel" class="pt-6 space-y-6">
-              <div id="transcript-list" class="space-y-6">
+          <section class="space-y-5">
+            <div class="flex items-center justify-between">
+              <h3 class="text-[15px] font-semibold text-foreground tracking-[-0.01em]">Conversation transcript</h3>
+              <span class="text-[12px] text-foreground-softer tabular-nums">
+                {length(@transcript_items)} messages
+              </span>
+            </div>
+            <div id="transcription-panel" class="space-y-5">
+              <div id="transcript-list" class="space-y-4">
                 <%= if @transcript_items == [] do %>
-                  <p class="text-sm text-foreground-soft">No transcription events yet.</p>
+                  <div class="flex flex-col items-center justify-center py-12 text-center">
+                    <.icon name="hero-chat-bubble-left-ellipsis" class="size-10 text-foreground-softer/40 mb-3" />
+                    <p class="text-sm text-foreground-soft">No transcription events yet.</p>
+                    <p class="text-xs text-foreground-softer mt-1">Transcript will appear here once the conversation starts.</p>
+                  </div>
                 <% else %>
                   <div :for={item <- @transcript_items} id={item_dom_id(item)}>
                     <%= if item.type == :message do %>
@@ -1143,17 +1377,22 @@ defmodule SwatiWeb.CallsLive.Show do
                           data-end-ms={item.end_ms || item.start_ms || 0}
                           data-speaker={if(item.role == :caller, do: "customer", else: "agent")}
                           class={[
-                            "max-w-[75%] rounded-2xl px-4 py-3 shadow-sm",
+                            "max-w-[78%] md:max-w-[72%] rounded-[1.25rem] px-4 py-3.5 cursor-pointer",
                             item.role == :caller &&
-                              "bg-base-100 border border-base-300 text-foreground",
-                            item.role == :agent && "bg-base-200/80 text-foreground"
+                              "bg-gradient-to-br from-base-100 to-base-100/95 border border-base-300/80 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_-2px_rgba(0,0,0,0.06)]",
+                            item.role == :agent && "bg-gradient-to-br from-base-200/90 to-base-200/70 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
                           ]}
                         >
-                          <p class="text-sm leading-relaxed">{item.text}</p>
-                          <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
-                            <span class="uppercase tracking-wide">{item.label}</span>
-                            <span>·</span>
-                            <span>{item.offset}</span>
+                          <p class="text-[14px] leading-relaxed tracking-[-0.005em]">{item.text}</p>
+                          <div class="mt-2.5 flex items-center gap-2 text-[11px] text-foreground-softer">
+                            <span class={[
+                              "inline-block size-1.5 rounded-full",
+                              item.role == :caller && "bg-secondary/70",
+                              item.role == :agent && "bg-primary/70"
+                            ]}></span>
+                            <span class="uppercase tracking-wider font-medium">{item.label}</span>
+                            <span class="text-foreground-softer/50">·</span>
+                            <span class="font-mono tabular-nums">{item.offset}</span>
                           </div>
                         </div>
                       </div>
@@ -1163,67 +1402,77 @@ defmodule SwatiWeb.CallsLive.Show do
                         data-start-ms={item.start_ms || 0}
                         data-end-ms={item.end_ms || item.start_ms || 0}
                         data-speaker="tool"
-                        class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm space-y-3"
+                        class="rounded-[1.25rem] border border-base-300/70 bg-gradient-to-b from-base-100 to-base-100/95 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_-2px_rgba(0,0,0,0.05)] space-y-3"
                       >
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                          <div class="flex items-center gap-2">
-                            <.icon
-                              name="hero-wrench-screwdriver"
-                              class="size-4 text-foreground-softer"
-                            />
-                            <p class="text-sm font-semibold text-foreground">
-                              Tool {item.status}: {item.name}
-                            </p>
+                          <div class="flex items-center gap-2.5">
+                            <div class={[
+                              "flex items-center justify-center size-7 rounded-lg",
+                              item.status == "succeeded" && "bg-success/10",
+                              item.status == "failed" && "bg-danger/10"
+                            ]}>
+                              <.icon
+                                name={if item.status == "succeeded", do: "hero-wrench-screwdriver", else: "hero-exclamation-triangle"}
+                                class={"size-4 #{if item.status == "succeeded", do: "text-success", else: "text-danger"}"}
+                              />
+                            </div>
+                            <div>
+                              <p class="text-[13px] font-semibold text-foreground leading-tight">{item.name}</p>
+                              <p class="text-[11px] text-foreground-softer capitalize">{item.status}</p>
+                            </div>
                           </div>
-                          <div class="flex items-center gap-2 text-xs text-foreground-softer">
-                            <span>{item.offset}</span>
-                            <span>·</span>
-                            <span>Result {item.duration_ms} ms</span>
+                          <div class="flex items-center gap-2 text-[11px] text-foreground-softer">
+                            <span class="font-mono tabular-nums">{item.offset}</span>
+                            <span class="text-foreground-softer/50">·</span>
+                            <span class="font-mono tabular-nums">{item.duration_ms}ms</span>
                           </div>
                         </div>
 
                         <.accordion
                           id={"tool-accordion-#{item.id}"}
-                          class="rounded-2xl border border-base-200"
+                          class="rounded-xl border border-base-200/80 overflow-hidden"
                         >
                           <.accordion_item>
-                            <:header class="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
-                              <span>Mcp call</span>
-                              <.icon name="hero-chevron-down" class="icon text-foreground-softer" />
+                            <:header class="flex items-center justify-between gap-3 text-[13px] font-medium text-foreground bg-base-200/30 px-3.5 py-2.5">
+                              <div class="flex items-center gap-2">
+                                <.icon name="hero-command-line" class="size-3.5 text-foreground-softer" />
+                                <span>MCP call details</span>
+                              </div>
+                              <.icon name="hero-chevron-down" class="swati-accordion-chevron size-4 text-foreground-softer" />
                             </:header>
                             <:panel>
-                              <div class="space-y-4 text-xs text-foreground-soft">
+                              <div class="p-3.5 space-y-4 text-xs text-foreground-soft bg-base-200/15">
                                 <div class="flex items-center justify-between">
-                                  <span class="uppercase tracking-wide text-foreground-softer">
-                                    MCP server information
+                                  <span class="uppercase tracking-wider text-[10px] font-medium text-foreground-softer">
+                                    MCP server
                                   </span>
-                                  <.badge size="xs" variant="surface">
+                                  <.badge size="xs" variant="surface" class="font-mono">
                                     {item.mcp_server}
                                   </.badge>
                                 </div>
 
-                                <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
-                                  <p class="text-xs uppercase tracking-wide text-foreground-softer">
-                                    Parameters extracted by LLM
+                                <div class="rounded-lg border border-base-200/80 bg-base-200/40 p-3 space-y-2">
+                                  <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
+                                    Parameters
                                   </p>
                                   <pre
                                     phx-no-curly-interpolation
-                                    class="text-[11px] whitespace-pre-wrap text-foreground"
+                                    class="swati-code-block whitespace-pre-wrap text-foreground"
                                   >{item.args}</pre>
                                 </div>
 
-                                <div class="rounded-xl border border-base-200 bg-base-200/60 p-3 space-y-2">
+                                <div class="rounded-lg border border-base-200/80 bg-base-200/40 p-3 space-y-2">
                                   <div class="flex items-center justify-between">
-                                    <p class="text-xs uppercase tracking-wide text-foreground-softer">
+                                    <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
                                       Response
                                     </p>
-                                    <.button variant="ghost" size="icon-xs">
-                                      <.icon name="hero-clipboard" class="icon" />
+                                    <.button variant="ghost" size="icon-xs" class="size-6 rounded-md hover:bg-base-200">
+                                      <.icon name="hero-clipboard" class="size-3.5" />
                                     </.button>
                                   </div>
                                   <pre
                                     phx-no-curly-interpolation
-                                    class="text-[11px] whitespace-pre-wrap text-foreground"
+                                    class="swati-code-block whitespace-pre-wrap text-foreground"
                                   >{item.response}</pre>
                                 </div>
                               </div>
