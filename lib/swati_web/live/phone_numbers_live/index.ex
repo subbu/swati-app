@@ -2,6 +2,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
   use SwatiWeb, :live_view
 
   alias Swati.Agents
+  alias Swati.Avatars
   alias Swati.Telephony
 
   @default_country_iso "IN"
@@ -37,9 +38,25 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
               </:cell>
               <:cell>
                 <%= if agent = agent_for_number(number, @agents_by_id) do %>
-                  <div>
-                    <p class="font-medium">{agent.name}</p>
-                    <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
+                  <div class="flex items-center gap-3">
+                    <div class="size-9 overflow-hidden rounded-full border border-base-300 bg-base-200">
+                      <%= if avatar_ready?(@avatars_by_agent, agent.id) do %>
+                        <img
+                          class="size-full object-cover"
+                          src={@avatars_by_agent[agent.id].output_url}
+                          alt=""
+                          loading="lazy"
+                        />
+                      <% else %>
+                        <span class="flex size-full items-center justify-center text-xs font-semibold text-base-content/70">
+                          {initials(agent.name)}
+                        </span>
+                      <% end %>
+                    </div>
+                    <div>
+                      <p class="font-medium">{agent.name}</p>
+                      <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
+                    </div>
                   </div>
                 <% else %>
                   <div class="flex items-center gap-2">
@@ -278,20 +295,38 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
                   id={"assign-agent-#{agent.id}"}
                   class="rounded-xl border border-base-200 bg-base-100 p-4"
                 >
-                  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div class="space-y-2">
-                      <div class="flex items-center gap-2">
-                        <p class="text-base font-semibold">{agent.name}</p>
-                        <.badge color={status_color(agent.status)} variant="soft">
-                          {agent.status}
-                        </.badge>
+                  <div class="flex flex-col gap-4 md:flex-row md:items-start">
+                    <div class="flex items-start gap-4 md:w-2/3">
+                      <%= if avatar_ready?(@avatars_by_agent, agent.id) do %>
+                        <div class="size-20 shrink-0 overflow-hidden">
+                          <img
+                            class="size-full object-cover"
+                            src={@avatars_by_agent[agent.id].output_url}
+                            alt=""
+                            loading="lazy"
+                          />
+                        </div>
+                      <% else %>
+                        <div class="size-20 shrink-0 overflow-hidden rounded-2xl border border-base-300 bg-base-200">
+                          <span class="flex size-full items-center justify-center text-lg font-semibold text-base-content/70">
+                            {initials(agent.name)}
+                          </span>
+                        </div>
+                      <% end %>
+                      <div class="space-y-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <p class="text-base font-semibold">{agent.name}</p>
+                          <.badge color={status_color(agent.status)} variant="soft">
+                            {agent.status}
+                          </.badge>
+                        </div>
+                        <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
+                        <p class="text-sm text-base-content/70">
+                          {agent_summary(agent)}
+                        </p>
                       </div>
-                      <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
-                      <p class="text-sm text-base-content/70">
-                        {agent_summary(agent)}
-                      </p>
                     </div>
-                    <div class="flex items-center">
+                    <div class="flex items-center md:ml-auto">
                       <.button
                         class="btn btn-primary btn-sm"
                         phx-click="assign-agent"
@@ -412,6 +447,9 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     agents = Agents.list_agents(tenant.id)
     phone_numbers = Telephony.list_phone_numbers(tenant.id)
 
+    avatars_by_agent =
+      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+
     search_params = %{
       "country_iso" => @default_country_iso,
       "region_city" => "",
@@ -423,6 +461,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     {:ok,
      socket
      |> assign(:agents, agents)
+     |> assign(:avatars_by_agent, avatars_by_agent)
      |> assign(:phone_numbers, phone_numbers)
      |> assign(:default_country_iso, @default_country_iso)
      |> assign(:search_params, search_params)
@@ -661,11 +700,35 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     agents = Agents.list_agents(tenant.id)
     phone_numbers = Telephony.list_phone_numbers(tenant.id)
 
+    avatars_by_agent =
+      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+
     socket
     |> assign(:agents, agents)
+    |> assign(:avatars_by_agent, avatars_by_agent)
     |> assign(:phone_numbers, phone_numbers)
     |> assign(:agents_by_id, Map.new(agents, &{&1.id, &1}))
     |> assign(:agent_assign_options, agent_assign_options(agents))
+  end
+
+  defp agent_ids(agents), do: Enum.map(agents, & &1.id)
+
+  defp avatar_ready?(avatars_by_agent, agent_id) do
+    case Map.get(avatars_by_agent, agent_id) do
+      %{status: :ready, output_url: url} when is_binary(url) -> true
+      _ -> false
+    end
+  end
+
+  defp initials(nil), do: "?"
+
+  defp initials(name) when is_binary(name) do
+    name
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.take(2)
+    |> Enum.map(&String.first/1)
+    |> Enum.join()
+    |> String.upcase()
   end
 
   defp maybe_assign_agent(socket, phone_number, tenant, actor) do

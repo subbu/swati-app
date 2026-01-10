@@ -24,7 +24,14 @@ config :swati, Oban,
   repo: Swati.Repo,
   engine: Oban.Engines.Basic,
   plugins: [Oban.Plugins.Pruner],
-  queues: [default: 10, integrations: 10, telephony: 5, calls: 10]
+  queues: [default: 10, integrations: 10, telephony: 5, calls: 10, media: 5]
+
+config :replicate,
+  replicate_api_token: System.get_env("REPLICATE_API_TOKEN")
+
+config :swati,
+  uploads_base_path: System.get_env("SWATI_UPLOADS_PATH", Path.expand("priv/static/uploads")),
+  uploads_public_path: System.get_env("SWATI_UPLOADS_PUBLIC_PATH", "/uploads")
 
 vault_key_b64 =
   System.get_env("SWATI_VAULT_KEY_B64") ||

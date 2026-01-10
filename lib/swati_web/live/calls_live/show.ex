@@ -270,21 +270,20 @@ defmodule SwatiWeb.CallsLive.Show do
             data-seed={@call.id}
             class="rounded-[1.75rem] border border-base-300/80 p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
           >
-
             <%= if @primary_audio_url do %>
               <div class="flex items-center justify-between gap-4 text-[11px] text-foreground-softer pt-1">
                 <div class="flex items-center gap-5">
                   <div class="flex items-center gap-2 group cursor-default">
-                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-primary/90">
+                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-[#2563eb]">
                     </span>
-                    <span class="uppercase tracking-wider font-semibold text-primary/90">
+                    <span class="uppercase tracking-wider font-semibold text-[#2563eb]">
                       {@agent_name}
                     </span>
                   </div>
                   <div class="flex items-center gap-2 group cursor-default">
-                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-secondary/90">
+                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-[#a855f7]">
                     </span>
-                    <span class="uppercase tracking-wider font-semibold text-secondary/90">
+                    <span class="uppercase tracking-wider font-semibold text-[#a855f7]">
                       Customer
                     </span>
                   </div>
@@ -1550,11 +1549,14 @@ defmodule SwatiWeb.CallsLive.Show do
                         >
                           <p class="text-[14px] leading-relaxed tracking-[-0.005em]">{item.text}</p>
                           <div class="mt-2.5 flex items-center gap-2 text-[11px] text-foreground-softer">
-                            <span class={[
-                              "inline-block size-1.5 rounded-full",
-                              item.role == :caller && "bg-secondary/70",
-                              item.role == :agent && "bg-primary/70"
-                            ]}>
+                            <span
+                              class="inline-block size-1.5 rounded-full"
+                              style={
+                                if item.role == :caller,
+                                  do: "background-color: #a855f7",
+                                  else: "background-color: #2563eb"
+                              }
+                            >
                             </span>
                             <span class="uppercase tracking-wider font-medium">{item.label}</span>
                             <span class="text-foreground-softer/50">·</span>

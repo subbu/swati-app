@@ -3,6 +3,7 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   alias Swati.Agents
   alias Swati.Agents.Agent
+  alias Swati.Avatars
   alias Swati.Integrations
 
   @impl true
@@ -34,6 +35,48 @@ defmodule SwatiWeb.AgentsLive.Form do
                   options={@language_options}
                 />
                 <.input field={@form[:llm_model]} label="LLM model" />
+              </div>
+            </section>
+
+            <section
+              :if={@live_action == :edit}
+              class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4"
+            >
+              <h2 class="text-lg font-semibold">Avatar</h2>
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="size-20 overflow-hidden rounded-full border border-base-300 bg-base-200">
+                    <%= if avatar_ready?(@avatar) do %>
+                      <img
+                        class="size-full object-cover"
+                        src={@avatar.output_url}
+                        alt=""
+                        loading="lazy"
+                      />
+                    <% else %>
+                      <span class="flex size-full items-center justify-center text-lg font-semibold text-base-content/70">
+                        {initials(@agent.name)}
+                      </span>
+                    <% end %>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium">{avatar_status_label(@avatar)}</p>
+                    <p class="text-xs text-base-content/60">{avatar_subtitle(@avatar)}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <.button type="button" phx-click="generate_avatar" variant="soft">
+                    Generate avatar
+                  </.button>
+                  <.button
+                    :if={@avatar && @avatar.status == :failed}
+                    type="button"
+                    phx-click="generate_avatar"
+                    variant="ghost"
+                  >
+                    Retry
+                  </.button>
+                </div>
               </div>
             </section>
 
@@ -233,6 +276,20 @@ defmodule SwatiWeb.AgentsLive.Form do
      )}
   end
 
+  @impl true
+  def handle_event("generate_avatar", _params, socket) do
+    case Avatars.request_agent_avatar(socket.assigns.current_scope, socket.assigns.agent) do
+      {:ok, avatar} ->
+        {:noreply,
+         socket
+         |> assign(:avatar, avatar)
+         |> put_flash(:info, "Avatar generation queued.")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Unable to queue avatar generation.")}
+    end
+  end
+
   defp assign_agent(socket, agent) do
     attrs = build_agent_attrs(%{}, agent)
     changeset = Agent.changeset(agent, attrs)
@@ -240,6 +297,7 @@ defmodule SwatiWeb.AgentsLive.Form do
     socket
     |> assign(:agent, agent)
     |> assign_form(changeset, attrs)
+    |> assign_avatar(agent)
   end
 
   defp assign_form(socket, changeset, attrs) do
@@ -253,6 +311,13 @@ defmodule SwatiWeb.AgentsLive.Form do
     |> assign(:escalation_enabled, Map.get(attrs, :escalation_enabled, false))
     |> assign(:escalation_note, Map.get(attrs, :escalation_note, ""))
     |> assign(:integration_form, to_form(%{}, as: :integrations))
+  end
+
+  defp assign_avatar(socket, %Agent{id: nil}), do: assign(socket, :avatar, nil)
+
+  defp assign_avatar(socket, %Agent{} = agent) do
+    avatar = Avatars.get_latest_avatar(socket.assigns.current_scope, agent.id)
+    assign(socket, :avatar, avatar)
   end
 
   defp build_agent_attrs(params, agent) do
@@ -354,6 +419,57 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   defp truthy?(value) when value in [true, "true", "on", "1"], do: true
   defp truthy?(_value), do: false
+
+  defp initials(nil), do: "?"
+
+  defp initials(name) when is_binary(name) do
+    name
+    |> String.split(~r/\\s+/, trim: true)
+    |> Enum.take(2)
+    |> Enum.map(&String.first/1)
+    |> Enum.join()
+    |> String.upcase()
+  end
+
+  defp avatar_ready?(nil), do: false
+
+  defp avatar_ready?(avatar) do
+    avatar.status == :ready and is_binary(avatar.output_url)
+  end
+
+  defp avatar_status_label(nil), do: "No avatar yet"
+  defp avatar_status_label(%{status: :queued}), do: "Avatar queued"
+  defp avatar_status_label(%{status: :running}), do: "Avatar generating"
+  defp avatar_status_label(%{status: :failed}), do: "Avatar failed"
+  defp avatar_status_label(%{status: :ready}), do: "Avatar ready"
+  defp avatar_status_label(_avatar), do: "Avatar pending"
+
+  defp avatar_subtitle(nil), do: "Generate a sticker-style avatar via Replicate."
+
+  defp avatar_subtitle(%{status: :ready, generated_at: %DateTime{} = generated_at}) do
+    "Generated #{Calendar.strftime(generated_at, "%b %-d, %Y %H:%M")}"
+  end
+
+  defp avatar_subtitle(%{status: :failed, error: error}) when is_binary(error) and error != "" do
+    avatar_error_message(error)
+  end
+
+  defp avatar_subtitle(%{status: :failed}), do: "Try again to regenerate."
+  defp avatar_subtitle(_avatar), do: "Background job running."
+
+  defp avatar_error_message(message) do
+    if avatar_auth_error?(message) do
+      "Replicate auth failed. Check REPLICATE_API_TOKEN."
+    else
+      message
+    end
+  end
+
+  defp avatar_auth_error?(message) do
+    message
+    |> String.downcase()
+    |> String.contains?("authentication token")
+  end
 
   defp status_options do
     [

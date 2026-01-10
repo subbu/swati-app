@@ -65,6 +65,7 @@ defmodule Swati.MixProject do
       {:oban_web, "~> 2.11"},
       {:cloak_ecto, "~> 1.2"},
       {:req, "~> 0.5"},
+      {:replicate, "~> 1.3.0"},
       {:fun_with_flags, "~> 1.13"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},

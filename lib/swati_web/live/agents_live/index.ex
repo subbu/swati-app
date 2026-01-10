@@ -2,6 +2,7 @@ defmodule SwatiWeb.AgentsLive.Index do
   use SwatiWeb, :live_view
 
   alias Swati.Agents
+  alias Swati.Avatars
 
   @impl true
   def render(assigns) do
@@ -18,7 +19,7 @@ defmodule SwatiWeb.AgentsLive.Index do
 
         <.table>
           <.table_head>
-            <:col>Name</:col>
+            <:col>Agent</:col>
             <:col>Status</:col>
             <:col>Language</:col>
             <:col>Model</:col>
@@ -26,7 +27,30 @@ defmodule SwatiWeb.AgentsLive.Index do
           </.table_head>
           <.table_body>
             <.table_row :for={agent <- @agents}>
-              <:cell class="font-medium">{agent.name}</:cell>
+              <:cell>
+                <div class="flex items-center gap-3">
+                  <div class="size-10 overflow-hidden rounded-full border border-base-300 bg-base-200">
+                    <%= if avatar_ready?(@avatars_by_agent, agent.id) do %>
+                      <img
+                        class="size-full object-cover"
+                        src={@avatars_by_agent[agent.id].output_url}
+                        alt=""
+                        loading="lazy"
+                      />
+                    <% else %>
+                      <span class="flex size-full items-center justify-center text-sm font-semibold text-base-content/70">
+                        {initials(agent.name)}
+                      </span>
+                    <% end %>
+                  </div>
+                  <div>
+                    <p class="font-medium">{agent.name}</p>
+                    <p class="text-xs text-base-content/60">
+                      {avatar_status_label(@avatars_by_agent, agent.id)}
+                    </p>
+                  </div>
+                </div>
+              </:cell>
               <:cell>
                 <.badge color={status_color(agent.status)} variant="soft">{agent.status}</.badge>
               </:cell>
@@ -58,7 +82,10 @@ defmodule SwatiWeb.AgentsLive.Index do
     tenant = socket.assigns.current_scope.tenant
     agents = Agents.list_agents(tenant.id)
 
-    {:ok, assign(socket, agents: agents)}
+    avatars_by_agent =
+      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+
+    {:ok, assign(socket, agents: agents, avatars_by_agent: avatars_by_agent)}
   end
 
   defp status_color(:active), do: "success"
@@ -68,4 +95,35 @@ defmodule SwatiWeb.AgentsLive.Index do
   defp status_color(:archived), do: "neutral"
   defp status_color("archived"), do: "neutral"
   defp status_color(_), do: "primary"
+
+  defp agent_ids(agents), do: Enum.map(agents, & &1.id)
+
+  defp initials(nil), do: "?"
+
+  defp initials(name) when is_binary(name) do
+    name
+    |> String.split(~r/\\s+/, trim: true)
+    |> Enum.take(2)
+    |> Enum.map(&String.first/1)
+    |> Enum.join()
+    |> String.upcase()
+  end
+
+  defp avatar_ready?(avatars_by_agent, agent_id) do
+    case Map.get(avatars_by_agent, agent_id) do
+      %{status: :ready, output_url: url} when is_binary(url) -> true
+      _ -> false
+    end
+  end
+
+  defp avatar_status_label(avatars_by_agent, agent_id) do
+    case Map.get(avatars_by_agent, agent_id) do
+      nil -> "No avatar yet"
+      %{status: :queued} -> "Avatar queued"
+      %{status: :running} -> "Avatar generating"
+      %{status: :failed} -> "Avatar failed"
+      %{status: :ready} -> "Avatar ready"
+      _ -> "Avatar pending"
+    end
+  end
 end
