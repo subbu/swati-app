@@ -48,30 +48,32 @@ defmodule SwatiWeb.Layouts do
 
         <.navlist heading="Workspace">
           <.navlink navigate={~p"/onboarding"}>
-            <.icon name="hero-home" class="size-5 text-foreground-softer group-hover:text-foreground" />
-            Onboarding
+            <.icon
+              name="hero-arrow-trending-up"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Onboarding
           </.navlink>
           <.navlink navigate={~p"/dashboard"}>
             <.icon
-              name="hero-chart-bar"
+              name="hero-chart-bar-square"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Dashboard
           </.navlink>
           <.navlink navigate={~p"/agents"}>
             <.icon
-              name="hero-users"
+              name="hero-user-circle"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Agents
           </.navlink>
           <.navlink navigate={~p"/integrations"}>
             <.icon
-              name="hero-command-line"
+              name="hero-wrench-screwdriver"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Integrations
           </.navlink>
           <.navlink navigate={~p"/numbers"}>
             <.icon
-              name="hero-document-text"
+              name="hero-hashtag"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Numbers
           </.navlink>
@@ -118,19 +120,19 @@ defmodule SwatiWeb.Layouts do
 
               <.navlist heading="Workspace">
                 <.navlink navigate={~p"/onboarding"}>
-                  <.icon name="hero-home" class="size-5" /> Onboarding
+                  <.icon name="hero-arrow-trending-up" class="size-5" /> Onboarding
                 </.navlink>
                 <.navlink navigate={~p"/dashboard"}>
-                  <.icon name="hero-chart-bar" class="size-5" /> Dashboard
+                  <.icon name="hero-chart-bar-square" class="size-5" /> Dashboard
                 </.navlink>
                 <.navlink navigate={~p"/agents"}>
-                  <.icon name="hero-users" class="size-5" /> Agents
+                  <.icon name="hero-user-circle" class="size-5" /> Agents
                 </.navlink>
                 <.navlink navigate={~p"/integrations"}>
-                  <.icon name="hero-command-line" class="size-5" /> Integrations
+                  <.icon name="hero-wrench-screwdriver" class="size-5" /> Integrations
                 </.navlink>
                 <.navlink navigate={~p"/numbers"}>
-                  <.icon name="hero-document-text" class="size-5" /> Numbers
+                  <.icon name="hero-hashtag" class="size-5" /> Numbers
                 </.navlink>
                 <.navlink navigate={~p"/calls"}>
                   <.icon name="hero-phone" class="size-5" /> Calls

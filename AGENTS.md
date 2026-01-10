@@ -45,6 +45,7 @@ custom classes must fully style the input
 - Always use Fluxon components for any UI components. Refer to https://docs.fluxonui.com/overview.html
   - Use <.modal> for confirmations and simple forms with 1-2 inputs. Use <.sheet> for all other forms. Use https://fluxonui.com/templates/forms as a reference for forms.
   - Refer to https://fluxonui.com/components/table for simple tables. Refer to https://fluxonui.com/templates/dashboards for advanced data display. These include filters, sorting, etc.
+  - Modal and Sheet elements already contain a close button. Dont add another in content.
 
 
 <!-- phoenix-gen-auth-start -->

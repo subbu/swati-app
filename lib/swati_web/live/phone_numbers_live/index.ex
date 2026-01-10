@@ -12,80 +12,82 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="space-y-8">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 class="text-2xl font-semibold">Phone numbers</h1>
+            <p class="text-sm text-base-content/70">Buy and route inbound numbers.</p>
           </div>
-          <div class="flex items-center gap-3">
-            <.button
-              class="btn btn-primary"
-              phx-click={Fluxon.open_dialog("buy-number-sheet") |> JS.push("open-buy-sheet")}
-            >
-              Buy new number
-            </.button>
-          </div>
+          <.button phx-click={Fluxon.open_dialog("buy-number-sheet") |> JS.push("open-buy-sheet")}>
+            Buy new number
+          </.button>
         </div>
 
-        <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-6">
-          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 class="text-lg font-semibold">Provisioned numbers</h2>
-            </div>
-          </div>
-
-          <.table>
-            <.table_head>
-              <:col>Number</:col>
-              <:col>Status</:col>
-              <:col>Agent</:col>
-              <:col>Action</:col>
-            </.table_head>
-            <.table_body>
-              <.table_row :for={number <- @phone_numbers} id={"phone-number-#{number.id}"}>
-                <:cell class="font-medium">{format_number(number.e164)}</:cell>
-                <:cell>
-                  <.badge color={status_color(number.status)} variant="soft">{number.status}</.badge>
-                </:cell>
-                <:cell>
-                  <.form
-                    for={@assign_form}
-                    id={"assign-form-#{number.id}"}
-                    phx-change="assign"
+        <.table>
+          <.table_head>
+            <:col>Number</:col>
+            <:col>Status</:col>
+            <:col>Agent</:col>
+            <:col>Action</:col>
+          </.table_head>
+          <.table_body>
+            <.table_row :for={number <- @phone_numbers} id={"phone-number-#{number.id}"}>
+              <:cell class="font-medium">{format_number(number.e164)}</:cell>
+              <:cell>
+                <.badge color={status_color(number.status)} variant="soft">{number.status}</.badge>
+              </:cell>
+              <:cell>
+                <%= if agent = agent_for_number(number, @agents_by_id) do %>
+                  <div>
+                    <p class="font-medium">{agent.name}</p>
+                    <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
+                  </div>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-base-content/60">Unassigned</span>
+                    <.button
+                      class="btn btn-ghost btn-xs"
+                      phx-click="open-assign-modal"
+                      phx-value-phone_number_id={number.id}
+                    >
+                      Assign agent
+                    </.button>
+                  </div>
+                <% end %>
+              </:cell>
+              <:cell class="text-right">
+                <.dropdown placement="bottom-end">
+                  <:toggle>
+                    <.button class="btn btn-ghost btn-sm">
+                      <.icon name="hero-ellipsis-vertical" class="size-4" />
+                    </.button>
+                  </:toggle>
+                  <.dropdown_button
+                    phx-click="open-assign-modal"
+                    phx-value-phone_number_id={number.id}
                   >
-                    <.input
-                      type="hidden"
-                      name="assign[phone_number_id]"
-                      value={number.id}
-                    />
-                    <.select
-                      name="assign[agent_id]"
-                      options={@agent_assign_options}
-                      value={number.inbound_agent_id || ""}
-                    />
-                  </.form>
-                </:cell>
-                <:cell>
-                  <.form
-                    for={@action_form}
-                    id={"action-form-#{number.id}"}
-                    phx-change="action"
+                    Change agent
+                  </.dropdown_button>
+                  <.dropdown_button
+                    :if={number.status in [:active, "active"]}
+                    phx-click="action"
+                    phx-value-phone_number_id={number.id}
+                    phx-value-type="suspend"
                   >
-                    <.input
-                      type="hidden"
-                      name="action[phone_number_id]"
-                      value={number.id}
-                    />
-                    <.select
-                      name="action[type]"
-                      options={action_options(number)}
-                      value=""
-                    />
-                  </.form>
-                </:cell>
-              </.table_row>
-            </.table_body>
-          </.table>
-        </section>
+                    Suspend
+                  </.dropdown_button>
+                  <.dropdown_button
+                    :if={not (number.status in [:active, "active"])}
+                    phx-click="action"
+                    phx-value-phone_number_id={number.id}
+                    phx-value-type="activate"
+                  >
+                    Activate
+                  </.dropdown_button>
+                </.dropdown>
+              </:cell>
+            </.table_row>
+          </.table_body>
+        </.table>
       </div>
 
       <.sheet
@@ -242,6 +244,81 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
       </.sheet>
 
       <.modal
+        id="assign-agent-modal"
+        class="w-full max-w-2xl p-0"
+        open={@assign_modal_open}
+        on_close={JS.push("close-assign-modal")}
+      >
+        <div class="flex flex-col">
+          <div class="flex items-start justify-between gap-4 border-b border-base-200 p-6">
+            <div>
+              <h3 class="text-lg font-semibold">Assign agent</h3>
+              <p class="text-sm text-base-content/70">
+                {assign_sheet_title(@assign_target)}
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <.button
+                :if={@assign_target && @assign_target.inbound_agent_id}
+                class="btn btn-ghost btn-sm"
+                phx-click="assign-agent"
+                phx-value-phone_number_id={@assign_target && @assign_target.id}
+                phx-value-agent_id=""
+              >
+                Unassign agent
+              </.button>
+            </div>
+          </div>
+
+          <div class="space-y-6 overflow-y-auto p-6 max-h-[70vh]">
+            <section class="space-y-3">
+              <div class="space-y-3">
+                <div
+                  :for={agent <- @agents}
+                  id={"assign-agent-#{agent.id}"}
+                  class="rounded-xl border border-base-200 bg-base-100 p-4"
+                >
+                  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div class="space-y-2">
+                      <div class="flex items-center gap-2">
+                        <p class="text-base font-semibold">{agent.name}</p>
+                        <.badge color={status_color(agent.status)} variant="soft">{agent.status}</.badge>
+                      </div>
+                      <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
+                      <p class="text-sm text-base-content/70">
+                        {agent_summary(agent)}
+                      </p>
+                    </div>
+                    <div class="flex items-center">
+                      <.button
+                        class="btn btn-primary btn-sm"
+                        phx-click="assign-agent"
+                        phx-value-phone_number_id={@assign_target && @assign_target.id}
+                        phx-value-agent_id={agent.id}
+                        disabled={!@assign_target || agent.id == @assign_target.inbound_agent_id}
+                      >
+                        <%= if @assign_target && agent.id == @assign_target.inbound_agent_id do %>
+                          Assigned
+                        <% else %>
+                          Assign
+                        <% end %>
+                      </.button>
+                      <.link
+                        class="ml-3 text-xs underline text-base-content/60"
+                        navigate={~p"/agents/#{agent.id}/edit"}
+                      >
+                        View
+                      </.link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </.modal>
+
+      <.modal
         id="purchase-success-modal"
         class="w-full max-w-lg p-0 bg-transparent shadow-none rounded-none"
         open={@purchase_modal_open}
@@ -351,15 +428,16 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
      |> assign(:available_numbers, [])
      |> assign(:available_meta, nil)
      |> assign(:buy_sheet_open, false)
+     |> assign(:assign_modal_open, false)
+     |> assign(:assign_target, nil)
      |> assign(:purchase_modal_open, false)
      |> assign(:purchase_summary, nil)
      |> assign(:simulate_enabled, FunWithFlags.enabled?(@simulate_flag))
+     |> assign(:agents_by_id, Map.new(agents, &{&1.id, &1}))
      |> assign(:agent_assign_options, agent_assign_options(agents))
      |> assign(:city_options, city_options())
      |> assign(:search_form, to_form(search_params, as: :search))
-     |> assign(:buy_settings_form, to_form(buy_settings, as: :settings))
-     |> assign(:assign_form, to_form(%{}, as: :assign))
-     |> assign(:action_form, to_form(%{}, as: :action))}
+     |> assign(:buy_settings_form, to_form(buy_settings, as: :settings))}
   end
 
   @impl true
@@ -378,11 +456,33 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
   end
 
   @impl true
-  def handle_event("assign", %{"assign" => params}, socket) do
+  def handle_event("open-assign-modal", %{"phone_number_id" => phone_number_id}, socket) do
+    phone_number =
+      Enum.find(socket.assigns.phone_numbers, fn number ->
+        number.id == phone_number_id
+      end)
+
+    if phone_number do
+      {:noreply,
+       socket
+       |> assign(:assign_modal_open, true)
+       |> assign(:assign_target, phone_number)}
+    else
+      {:noreply, put_flash(socket, :error, "Phone number not found.")}
+    end
+  end
+
+  def handle_event("close-assign-modal", _params, socket) do
+    {:noreply, socket |> assign(:assign_modal_open, false) |> assign(:assign_target, nil)}
+  end
+
+  def handle_event(
+        "assign-agent",
+        %{"phone_number_id" => phone_number_id, "agent_id" => agent_id},
+        socket
+      ) do
     tenant = socket.assigns.current_scope.tenant
     actor = socket.assigns.current_scope.user
-    phone_number_id = Map.get(params, "phone_number_id")
-    agent_id = Map.get(params, "agent_id")
 
     with true <- is_binary(phone_number_id),
          phone_number <- Telephony.get_phone_number!(tenant.id, phone_number_id),
@@ -394,19 +494,19 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
            ) do
       {:noreply,
        socket
-       |> put_flash(:info, "Agent assignment updated.")
-       |> refresh_data()}
+       |> put_flash(:info, assignment_message(agent_id, socket.assigns.agents_by_id))
+       |> refresh_data()
+       |> assign(:assign_modal_open, false)
+       |> assign(:assign_target, nil)}
     else
       _ -> {:noreply, put_flash(socket, :error, "Assignment failed.")}
     end
   end
 
   @impl true
-  def handle_event("action", %{"action" => params}, socket) do
+  def handle_event("action", %{"phone_number_id" => phone_number_id, "type" => action}, socket) do
     tenant = socket.assigns.current_scope.tenant
     actor = socket.assigns.current_scope.user
-    phone_number_id = Map.get(params, "phone_number_id")
-    action = Map.get(params, "type")
 
     if is_binary(phone_number_id) and is_binary(action) and action != "" do
       phone_number = Telephony.get_phone_number!(tenant.id, phone_number_id)
@@ -562,6 +662,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     socket
     |> assign(:agents, agents)
     |> assign(:phone_numbers, phone_numbers)
+    |> assign(:agents_by_id, Map.new(agents, &{&1.id, &1}))
     |> assign(:agent_assign_options, agent_assign_options(agents))
   end
 
@@ -749,22 +850,68 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     [{"Unassigned", ""} | Enum.map(agents, fn agent -> {agent.name, agent.id} end)]
   end
 
+  defp agent_for_number(nil, _agents_by_id), do: nil
+
+  defp agent_for_number(number, agents_by_id) do
+    Map.get(agents_by_id, number.inbound_agent_id)
+  end
+
+  defp agent_meta(agent) do
+    language = agent.language || "language unknown"
+    model = agent.llm_model || "model unknown"
+    "#{language} · #{model}"
+  end
+
+  defp agent_summary(agent) do
+    summary =
+      case agent.instructions do
+        value when is_binary(value) ->
+          value
+          |> String.trim()
+          |> String.replace(~r/\s+/, " ")
+
+        _ ->
+          ""
+      end
+
+    if summary == "" do
+      "No instructions yet."
+    else
+      truncate(summary, 160)
+    end
+  end
+
+  defp truncate(value, limit) when is_binary(value) and is_integer(limit) do
+    if String.length(value) > limit do
+      String.slice(value, 0, limit) <> "..."
+    else
+      value
+    end
+  end
+
+  defp assignment_message(agent_id, agents_by_id) do
+    if agent_id in [nil, ""] do
+      "Agent unassigned."
+    else
+      case Map.get(agents_by_id, agent_id) do
+        %{name: name} -> "Assigned to #{name}."
+        _ -> "Agent assignment updated."
+      end
+    end
+  end
+
+  defp assign_sheet_title(nil), do: "Select a phone number."
+
+  defp assign_sheet_title(number) do
+    "Number #{format_number(number.e164)}"
+  end
+
   defp city_options do
     [
       {"All", ""},
       {"Mumbai", "Mumbai"},
       {"Bangalore", "Bangalore"}
     ]
-  end
-
-  defp action_options(number) do
-    base = [{"Actions", ""}]
-
-    if number.status in [:active, "active"] do
-      base ++ [{"Suspend", "suspend"}]
-    else
-      base ++ [{"Activate", "activate"}]
-    end
   end
 
   defp number_label(number) do
@@ -836,6 +983,10 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
 
   defp status_color(:active), do: "success"
   defp status_color("active"), do: "success"
+  defp status_color(:draft), do: "warning"
+  defp status_color("draft"), do: "warning"
+  defp status_color(:archived), do: "neutral"
+  defp status_color("archived"), do: "neutral"
   defp status_color(:provisioned), do: "warning"
   defp status_color("provisioned"), do: "warning"
   defp status_color(:suspended), do: "danger"
