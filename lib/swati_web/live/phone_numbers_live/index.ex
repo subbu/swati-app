@@ -76,7 +76,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
                     Suspend
                   </.dropdown_button>
                   <.dropdown_button
-                    :if={not (number.status in [:active, "active"])}
+                    :if={number.status not in [:active, "active"]}
                     phx-click="action"
                     phx-value-phone_number_id={number.id}
                     phx-value-type="activate"
@@ -282,7 +282,9 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
                     <div class="space-y-2">
                       <div class="flex items-center gap-2">
                         <p class="text-base font-semibold">{agent.name}</p>
-                        <.badge color={status_color(agent.status)} variant="soft">{agent.status}</.badge>
+                        <.badge color={status_color(agent.status)} variant="soft">
+                          {agent.status}
+                        </.badge>
                       </div>
                       <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
                       <p class="text-sm text-base-content/70">
