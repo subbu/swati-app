@@ -1,8 +1,6 @@
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
 
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:opsz@8..64&display=swap");
-
 @import "tailwindcss" source(none);
 @source "../css";
 @source "../js";

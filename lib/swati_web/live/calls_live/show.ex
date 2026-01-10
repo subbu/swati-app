@@ -32,7 +32,7 @@ defmodule SwatiWeb.CallsLive.Show do
 
   def call_detail(assigns) do
     ~H"""
-    <div id="call-detail" class="space-y-10 font-['Instrument_Sans']">
+    <div id="call-detail" class="space-y-10">
       <style>
         /* Refined animation system */
         @keyframes swati-fade-up {
@@ -229,7 +229,7 @@ defmodule SwatiWeb.CallsLive.Show do
       <header class="flex flex-wrap items-start justify-between gap-6">
         <div class="space-y-3 min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-2xl md:text-[1.75rem] font-semibold text-foreground font-['Instrument_Serif'] tracking-[-0.02em] leading-tight">
+            <h1 class="text-2xl md:text-[1.75rem] font-semibold text-foreground tracking-[-0.02em] leading-tight">
               Conversation with {@agent_name}
             </h1>
             <.badge size="sm" variant="soft" color={@status_badge.color}>
@@ -244,12 +244,9 @@ defmodule SwatiWeb.CallsLive.Show do
               <span class="font-medium">{@call.to_number}</span>
             </div>
             <span class="text-foreground-softer/60">•</span>
-            <span
-              class="font-mono text-[11px] text-foreground-softer bg-base-200/60 px-2 py-0.5 rounded-md cursor-pointer hover:bg-base-200 transition-colors select-all"
-              title="Click to copy call ID"
-            >
-              {@call.id}
-            </span>
+            <span>{format_long_datetime(@call.started_at)}</span>
+            <span class="text-foreground-softer/60">•</span>
+            <span class="font-medium">{format_duration(@call.duration_seconds)}</span>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -273,28 +270,6 @@ defmodule SwatiWeb.CallsLive.Show do
             data-seed={@call.id}
             class="rounded-[1.75rem] border border-base-300/80 p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
           >
-            <div class="flex items-start justify-between gap-4">
-              <div class="space-y-1.5">
-                <h2 class="text-[17px] font-semibold text-foreground tracking-[-0.01em]">
-                  Conversation audio
-                </h2>
-                <p class="text-[13px] text-foreground-soft flex items-center gap-2">
-                  <.icon name="hero-calendar" class="size-3.5 text-foreground-softer" />
-                  <span>{format_long_datetime(@call.started_at)}</span>
-                  <span class="text-foreground-softer/50">·</span>
-                  <.icon name="hero-clock" class="size-3.5 text-foreground-softer" />
-                  <span class="font-medium">{format_duration(@call.duration_seconds)}</span>
-                </p>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <.button variant="ghost" size="icon-sm" class="rounded-xl hover:bg-base-200/80">
-                  <.icon name="hero-arrow-down-tray" class="size-4" />
-                </.button>
-                <.button variant="ghost" size="icon-sm" class="rounded-xl hover:bg-base-200/80">
-                  <.icon name="hero-ellipsis-horizontal" class="size-4" />
-                </.button>
-              </div>
-            </div>
 
             <%= if @primary_audio_url do %>
               <div class="flex items-center justify-between gap-4 text-[11px] text-foreground-softer pt-1">

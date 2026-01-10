@@ -41,7 +41,7 @@ const chartDefaults = {
   color: "rgba(60, 60, 70, 0.7)",
   borderColor: "rgba(60, 60, 70, 0.1)",
   font: {
-    family: "'Instrument Sans', sans-serif",
+    family: "system-ui, -apple-system, sans-serif",
     weight: 400,
   },
 };
