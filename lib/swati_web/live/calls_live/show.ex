@@ -275,7 +275,9 @@ defmodule SwatiWeb.CallsLive.Show do
           >
             <div class="flex items-start justify-between gap-4">
               <div class="space-y-1.5">
-                <h2 class="text-[17px] font-semibold text-foreground tracking-[-0.01em]">Conversation audio</h2>
+                <h2 class="text-[17px] font-semibold text-foreground tracking-[-0.01em]">
+                  Conversation audio
+                </h2>
                 <p class="text-[13px] text-foreground-soft flex items-center gap-2">
                   <.icon name="hero-calendar" class="size-3.5 text-foreground-softer" />
                   <span>{format_long_datetime(@call.started_at)}</span>
@@ -298,12 +300,18 @@ defmodule SwatiWeb.CallsLive.Show do
               <div class="flex items-center justify-between gap-4 text-[11px] text-foreground-softer pt-1">
                 <div class="flex items-center gap-5">
                   <div class="flex items-center gap-2 group cursor-default">
-                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-primary/90"></span>
-                    <span class="uppercase tracking-wider font-semibold text-primary/90">{@agent_name}</span>
+                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-primary/90">
+                    </span>
+                    <span class="uppercase tracking-wider font-semibold text-primary/90">
+                      {@agent_name}
+                    </span>
                   </div>
                   <div class="flex items-center gap-2 group cursor-default">
-                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-secondary/90"></span>
-                    <span class="uppercase tracking-wider font-semibold text-secondary/90">Customer</span>
+                    <span class="swati-speaker-dot inline-block h-1.5 w-5 rounded-full bg-secondary/90">
+                    </span>
+                    <span class="uppercase tracking-wider font-semibold text-secondary/90">
+                      Customer
+                    </span>
                   </div>
                 </div>
                 <span class="hidden md:flex items-center gap-1.5 text-foreground-softer/70">
@@ -336,16 +344,32 @@ defmodule SwatiWeb.CallsLive.Show do
               </div>
 
               <div class="flex flex-wrap items-center gap-3 pt-1">
-                <.button id="call-audio-play" size="icon" variant="solid" color="primary" class="size-11 rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow">
+                <.button
+                  id="call-audio-play"
+                  size="icon"
+                  variant="solid"
+                  color="primary"
+                  class="size-11 rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow"
+                >
                   <.icon name="hero-play-solid" class="size-5 js-play-icon" />
                   <.icon name="hero-pause-solid" class="size-5 js-pause-icon hidden" />
                 </.button>
 
                 <div class="flex items-center gap-1 bg-base-200/50 rounded-xl p-1">
-                  <.button id="call-audio-rewind" size="icon-sm" variant="ghost" class="rounded-lg hover:bg-base-200">
+                  <.button
+                    id="call-audio-rewind"
+                    size="icon-sm"
+                    variant="ghost"
+                    class="rounded-lg hover:bg-base-200"
+                  >
                     <.icon name="hero-backward" class="size-4" />
                   </.button>
-                  <.button id="call-audio-forward" size="icon-sm" variant="ghost" class="rounded-lg hover:bg-base-200">
+                  <.button
+                    id="call-audio-forward"
+                    size="icon-sm"
+                    variant="ghost"
+                    class="rounded-lg hover:bg-base-200"
+                  >
                     <.icon name="hero-forward" class="size-4" />
                   </.button>
                 </div>
@@ -379,6 +403,9 @@ defmodule SwatiWeb.CallsLive.Show do
               const SEEK_STEP_SECONDS = 10;
               const DRAG_SELECT_THRESHOLD_PX = 6;
               const MIN_SELECTION_SECONDS = 0.20;
+
+              const NEAREST_UTTERANCE_MAX_DISTANCE_MS = 2000;
+              const NEAREST_TOOL_MAX_DISTANCE_MS = 1200;
 
               function clamp(n, min, max) {
                 return Math.min(Math.max(n, min), max);
@@ -579,10 +606,14 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.customerLabel = (context.customer_label || "Customer").toString();
                   this.timelineDurationMs = Number(context.duration_ms || 0) || 0;
 
-                  this.speakerSegments = Array.isArray(context.speaker_segments) ? context.speaker_segments : [];
-                  this.utterances = Array.isArray(context.utterances) ? context.utterances : [];
-                  this.toolCalls = Array.isArray(context.tool_calls) ? context.tool_calls : [];
-                  this.markers = Array.isArray(context.markers) ? context.markers : [];
+                  this.speakerSegments = Array.isArray(context.speaker_segments) ? context.speaker_segments.slice() : [];
+                  this.utterances = Array.isArray(context.utterances) ? context.utterances.slice() : [];
+                  this.toolCalls = Array.isArray(context.tool_calls) ? context.tool_calls.slice() : [];
+                  this.markers = Array.isArray(context.markers) ? context.markers.slice() : [];
+
+                  this.speakerSegments.sort((a, b) => Number(a?.start_ms || 0) - Number(b?.start_ms || 0));
+                  this.utterances.sort((a, b) => Number(a?.start_ms || 0) - Number(b?.start_ms || 0));
+                  this.toolCalls.sort((a, b) => Number(a?.start_ms || 0) - Number(b?.start_ms || 0));
 
                   this.maxContextMs = 0;
                   const bumpMax = (n) => { if (Number.isFinite(n) && n > this.maxContextMs) this.maxContextMs = n; };
@@ -608,20 +639,49 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (this.rateBtn) this.rateBtn.textContent = formatRate(RATES[this.rateIndex]);
 
                   // Transcript elements for playback highlighting + click-to-seek
-                  this.transcriptRoot = document.getElementById("transcript-list");
-                  this.transcriptEls = Array.from(this.transcriptRoot?.querySelectorAll("[data-transcript-item]") || []);
+                  this.transcriptRoot = null;
+                  this.transcriptEls = [];
+                  this.transcriptMeta = [];
                   this.activeTranscriptEl = null;
 
-                  // Click-to-seek on transcript items
                   this.onTranscriptClick = (e) => {
+                    // Ignore clicks on interactive elements so tool accordions/buttons work normally
+                    const interactive = e.target.closest("button, a, summary, input, textarea, select");
+                    if (interactive) return;
+
                     const item = e.target.closest("[data-transcript-item]");
                     if (!item) return;
                     const startMs = Number(item.dataset.startMs || 0);
                     this.seekTo(startMs / 1000);
                   };
-                  if (this.transcriptRoot) {
-                    this.transcriptRoot.addEventListener("click", this.onTranscriptClick);
-                  }
+
+                  this.buildTranscriptIndex = () => {
+                    this.transcriptMeta = (this.transcriptEls || [])
+                      .map((el, idx) => {
+                        const start = Number(el.dataset.startMs || 0);
+                        const rawEnd = Number(el.dataset.endMs || start);
+                        const end = Math.max(rawEnd, start);
+                        const type = (el.dataset.transcriptItem || "message").toString();
+                        const dur = Math.max(0, end - start);
+                        return { el, idx, type, start, end, dur };
+                      })
+                      .sort((a, b) => (a.start - b.start) || (a.dur - b.dur) || (a.idx - b.idx));
+                  };
+
+                  this.refreshTranscriptIndex = () => {
+                    const root = document.getElementById("transcript-list");
+
+                    if (root !== this.transcriptRoot) {
+                      if (this.transcriptRoot) this.transcriptRoot.removeEventListener("click", this.onTranscriptClick);
+                      this.transcriptRoot = root;
+                      if (this.transcriptRoot) this.transcriptRoot.addEventListener("click", this.onTranscriptClick);
+                    }
+
+                    this.transcriptEls = Array.from(this.transcriptRoot?.querySelectorAll("[data-transcript-item]") || []);
+                    this.buildTranscriptIndex();
+                  };
+
+                  this.refreshTranscriptIndex();
 
                   // Hover/selection state
                   this.hoverRatio = null;
@@ -630,6 +690,30 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.didDrag = false;
                   this.pointerDownX = 0;
                   this.selection = null; // { startRatio, endRatio, startMs, endMs }
+
+                  // Smooth progress animation while playing
+                  this.animFrame = null;
+                  this.isAnimating = false;
+                  this.startAnimationLoop = () => {
+                    if (this.isAnimating) return;
+                    this.isAnimating = true;
+
+                    const tick = () => {
+                      if (!this.isAnimating) return;
+                      this.draw();
+                      this.animFrame = requestAnimationFrame(tick);
+                    };
+
+                    this.animFrame = requestAnimationFrame(tick);
+                  };
+
+                  this.stopAnimationLoop = () => {
+                    this.isAnimating = false;
+                    if (this.animFrame) {
+                      cancelAnimationFrame(this.animFrame);
+                      this.animFrame = null;
+                    }
+                  };
 
                   // Resize handling
                   this.resizeObserver = new ResizeObserver(() => this.draw());
@@ -650,8 +734,10 @@ defmodule SwatiWeb.CallsLive.Show do
                   };
 
                   this.onPlayPause = () => {
-                    this.updatePlayUI();
+                    const isPlaying = this.updatePlayUI();
                     this.updateActiveTranscript();
+                    if (isPlaying) this.startAnimationLoop();
+                    else this.stopAnimationLoop();
                     this.draw();
                   };
 
@@ -769,6 +855,45 @@ defmodule SwatiWeb.CallsLive.Show do
                     return out;
                   };
 
+                  this.findNearestUtteranceAt = (ms, maxDistanceMs = NEAREST_UTTERANCE_MAX_DISTANCE_MS) => {
+                    const t = Number(ms || 0);
+                    let best = null;
+                    let bestDist = Number.POSITIVE_INFINITY;
+
+                    for (const u of this.utterances) {
+                      const s = Number(u?.start_ms ?? -1);
+                      const e = Number(u?.end_ms ?? s);
+                      if (s < 0) continue;
+
+                      const dist = t < s ? (s - t) : (t > e ? (t - e) : 0);
+                      if (dist < bestDist) {
+                        bestDist = dist;
+                        best = u;
+                        if (dist === 0) break;
+                      }
+                    }
+
+                    if (!best || bestDist > maxDistanceMs) return null;
+                    return best;
+                  };
+
+                  this.findNearestToolCallsAt = (ms, maxDistanceMs = NEAREST_TOOL_MAX_DISTANCE_MS, limit = 6) => {
+                    const t = Number(ms || 0);
+                    const scored = [];
+
+                    for (const tc of this.toolCalls) {
+                      const s = Number(tc?.start_ms ?? -1);
+                      const e = Number(tc?.end_ms ?? s);
+                      if (s < 0) continue;
+
+                      const dist = t < s ? (s - t) : (t > e ? (t - e) : 0);
+                      if (dist <= maxDistanceMs) scored.push({ tc, dist });
+                    }
+
+                    scored.sort((a, b) => a.dist - b.dist);
+                    return scored.slice(0, limit).map((x) => x.tc);
+                  };
+
                   this.updateTooltip = ({ mode, clientX, startMs, endMs }) => {
                     if (!this.tooltipEl) return;
 
@@ -776,26 +901,41 @@ defmodule SwatiWeb.CallsLive.Show do
                     const x = clamp(clientX - rect.left, 14, rect.width - 14);
 
                     const durationMs = this.durationMs();
-                    const safeStart = clamp(Number(startMs || 0), 0, durationMs || Number.MAX_SAFE_INTEGER);
-                    const safeEnd = clamp(Number(endMs || safeStart), 0, durationMs || Number.MAX_SAFE_INTEGER);
+                    const a = clamp(Number(startMs || 0), 0, durationMs || Number.MAX_SAFE_INTEGER);
+                    const b = clamp(Number(endMs ?? a), 0, durationMs || Number.MAX_SAFE_INTEGER);
+
+                    const lo = Math.min(a, b);
+                    const hi = Math.max(a, b);
+
+                    // Hover tooltips should not steal pointer events (keeps hover + hover-line stable)
+                    this.tooltipEl.style.pointerEvents = mode === "selection" ? "auto" : "none";
 
                     const headerTime =
                       mode === "selection"
-                        ? `${formatTime(safeStart / 1000)} – ${formatTime(safeEnd / 1000)}`
-                        : formatTime(safeStart / 1000);
+                        ? `${formatTime(lo / 1000)} – ${formatTime(hi / 1000)}`
+                        : formatTime(lo / 1000);
 
-                    const speaker = this.speakerForMs(safeStart);
+                    const speaker = this.speakerForMs(lo);
                     const speakerLabel = this.labelForSpeaker(speaker);
 
                     const utterances =
                       mode === "selection"
-                        ? this.findUtterancesInRange(safeStart, safeEnd, 10)
-                        : this.findUtterancesInRange(safeStart, safeStart, 1);
+                        ? this.findUtterancesInRange(lo, hi, 10)
+                        : (() => {
+                            const hits = this.findUtterancesInRange(lo, lo, 1);
+                            if (hits.length > 0) return hits;
+                            const nearest = this.findNearestUtteranceAt(lo);
+                            return nearest ? [nearest] : [];
+                          })();
 
                     const tools =
                       mode === "selection"
-                        ? this.findToolCallsInRange(safeStart, safeEnd, 10)
-                        : this.findToolCallsInRange(safeStart, safeStart, 6);
+                        ? this.findToolCallsInRange(lo, hi, 10)
+                        : (() => {
+                            const hits = this.findToolCallsInRange(lo, lo, 6);
+                            if (hits.length > 0) return hits;
+                            return this.findNearestToolCallsAt(lo);
+                          })();
 
                     const utterHtml =
                       utterances.length === 0
@@ -819,14 +959,18 @@ defmodule SwatiWeb.CallsLive.Show do
                         ? ""
                         : `<div class="mt-3 space-y-2">
                             <div class="text-[11px] uppercase tracking-wide text-foreground-softer">Tool calls</div>
-                            <div class="space-y-1">
+                            <div class="space-y-2">
                               ${tools
                                 .map((t) => {
                                   const name = escapeHtml((t?.name ?? "tool").toString());
                                   const status = escapeHtml((t?.status ?? "succeeded").toString());
-                                  return `<div class="flex items-center justify-between gap-3">
-                                            <div class="text-xs text-foreground">${name}</div>
-                                            <div class="text-[11px] text-foreground-softer uppercase tracking-wide">${status}</div>
+                                  const summary = truncateText((t?.response_summary ?? "").toString(), 120);
+                                  return `<div class="space-y-1">
+                                            <div class="flex items-center justify-between gap-3">
+                                              <div class="text-xs text-foreground">${name}</div>
+                                              <div class="text-[11px] text-foreground-softer uppercase tracking-wide">${status}</div>
+                                            </div>
+                                            ${summary ? `<div class="text-[11px] text-foreground-soft leading-snug">${escapeHtml(summary)}</div>` : ""}
                                           </div>`;
                                 })
                                 .join("")}
@@ -1002,11 +1146,18 @@ defmodule SwatiWeb.CallsLive.Show do
                   this.enhanceFromRemote().catch(() => {});
                 },
 
+                updated() {
+                  // LiveView patches can replace transcript nodes; keep highlighting reliable.
+                  this.refreshTranscriptIndex?.();
+                },
+
                 destroyed() {
+                  if (this.transcriptRoot) this.transcriptRoot.removeEventListener("click", this.onTranscriptClick);
                   try {
                     if (this.resizeObserver) this.resizeObserver.disconnect();
                   } catch (_e) {}
 
+                  this.stopAnimationLoop?.();
                   if (this.abortController) {
                     try { this.abortController.abort(); } catch (_e) {}
                   }
@@ -1023,7 +1174,6 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (this.rateBtn) this.rateBtn.removeEventListener("click", this.onRateClick);
                   if (this.rewindBtn) this.rewindBtn.removeEventListener("click", this.onRewindClick);
                   if (this.forwardBtn) this.forwardBtn.removeEventListener("click", this.onForwardClick);
-                  if (this.transcriptRoot) this.transcriptRoot.removeEventListener("click", this.onTranscriptClick);
 
                   if (this.waveformEl) {
                     this.waveformEl.removeEventListener("pointerenter", this.onPointerEnter);
@@ -1077,10 +1227,12 @@ defmodule SwatiWeb.CallsLive.Show do
                   if (this.playBtn) {
                     this.playBtn.classList.toggle("is-playing", !!isPlaying);
                   }
+
+                  return isPlaying;
                 },
 
                 updateActiveTranscript() {
-                  if (!this.transcriptEls || this.transcriptEls.length === 0) return;
+                  if (!this.transcriptMeta || this.transcriptMeta.length === 0) return;
 
                   const isPlaying = this.audioEl && !this.audioEl.paused && !this.audioEl.ended;
 
@@ -1094,22 +1246,52 @@ defmodule SwatiWeb.CallsLive.Show do
                   }
 
                   const currentMs = (this.audioEl?.currentTime || 0) * 1000;
-                  let next = null;
 
-                  for (const el of this.transcriptEls) {
-                    const start = Number(el.dataset.startMs || 0);
-                    const end = Number(el.dataset.endMs || start);
-                    if (currentMs >= start && currentMs <= end) { next = el; break; }
+                  // Prefer: (1) items that contain currentMs, (2) tool items over message items, (3) most specific (shortest duration)
+                  let best = null;
+
+                  for (const item of this.transcriptMeta) {
+                    if (item.start > currentMs) break;
+
+                    const contains = currentMs >= item.start && currentMs <= item.end;
+                    if (!contains) continue;
+
+                    if (!best) {
+                      best = item;
+                      continue;
+                    }
+
+                    const bestIsTool = best.type === "tool";
+                    const itemIsTool = item.type === "tool";
+
+                    if (itemIsTool && !bestIsTool) {
+                      best = item;
+                      continue;
+                    }
+
+                    if (itemIsTool === bestIsTool) {
+                      if (item.dur < best.dur) best = item;
+                      else if (item.dur === best.dur && item.start > best.start) best = item;
+                    }
                   }
 
-                  if (next === this.activeTranscriptEl) return;
+                  if (!best) {
+                    // Fallback: keep last-started transcript item highlighted (prevents "dead zones")
+                    for (const item of this.transcriptMeta) {
+                      if (item.start <= currentMs) best = item;
+                      else break;
+                    }
+                  }
+
+                  const nextEl = best ? best.el : null;
+
+                  if (nextEl === this.activeTranscriptEl) return;
 
                   if (this.activeTranscriptEl) this.activeTranscriptEl.classList.remove("swati-active-transcript");
-                  this.activeTranscriptEl = next;
+                  this.activeTranscriptEl = nextEl;
 
                   if (this.activeTranscriptEl) {
                     this.activeTranscriptEl.classList.add("swati-active-transcript");
-                    // Smooth scroll into view if needed
                     this.activeTranscriptEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
                   }
                 },
@@ -1351,7 +1533,9 @@ defmodule SwatiWeb.CallsLive.Show do
 
           <section class="space-y-5">
             <div class="flex items-center justify-between">
-              <h3 class="text-[15px] font-semibold text-foreground tracking-[-0.01em]">Conversation transcript</h3>
+              <h3 class="text-[15px] font-semibold text-foreground tracking-[-0.01em]">
+                Conversation transcript
+              </h3>
               <span class="text-[12px] text-foreground-softer tabular-nums">
                 {length(@transcript_items)} messages
               </span>
@@ -1360,9 +1544,14 @@ defmodule SwatiWeb.CallsLive.Show do
               <div id="transcript-list" class="space-y-4">
                 <%= if @transcript_items == [] do %>
                   <div class="flex flex-col items-center justify-center py-12 text-center">
-                    <.icon name="hero-chat-bubble-left-ellipsis" class="size-10 text-foreground-softer/40 mb-3" />
+                    <.icon
+                      name="hero-chat-bubble-left-ellipsis"
+                      class="size-10 text-foreground-softer/40 mb-3"
+                    />
                     <p class="text-sm text-foreground-soft">No transcription events yet.</p>
-                    <p class="text-xs text-foreground-softer mt-1">Transcript will appear here once the conversation starts.</p>
+                    <p class="text-xs text-foreground-softer mt-1">
+                      Transcript will appear here once the conversation starts.
+                    </p>
                   </div>
                 <% else %>
                   <div :for={item <- @transcript_items} id={item_dom_id(item)}>
@@ -1380,7 +1569,8 @@ defmodule SwatiWeb.CallsLive.Show do
                             "max-w-[78%] md:max-w-[72%] rounded-[1.25rem] px-4 py-3.5 cursor-pointer",
                             item.role == :caller &&
                               "bg-gradient-to-br from-base-100 to-base-100/95 border border-base-300/80 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_-2px_rgba(0,0,0,0.06)]",
-                            item.role == :agent && "bg-gradient-to-br from-base-200/90 to-base-200/70 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+                            item.role == :agent &&
+                              "bg-gradient-to-br from-base-200/90 to-base-200/70 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
                           ]}
                         >
                           <p class="text-[14px] leading-relaxed tracking-[-0.005em]">{item.text}</p>
@@ -1389,7 +1579,8 @@ defmodule SwatiWeb.CallsLive.Show do
                               "inline-block size-1.5 rounded-full",
                               item.role == :caller && "bg-secondary/70",
                               item.role == :agent && "bg-primary/70"
-                            ]}></span>
+                            ]}>
+                            </span>
                             <span class="uppercase tracking-wider font-medium">{item.label}</span>
                             <span class="text-foreground-softer/50">·</span>
                             <span class="font-mono tabular-nums">{item.offset}</span>
@@ -1412,13 +1603,21 @@ defmodule SwatiWeb.CallsLive.Show do
                               item.status == "failed" && "bg-danger/10"
                             ]}>
                               <.icon
-                                name={if item.status == "succeeded", do: "hero-wrench-screwdriver", else: "hero-exclamation-triangle"}
+                                name={
+                                  if item.status == "succeeded",
+                                    do: "hero-wrench-screwdriver",
+                                    else: "hero-exclamation-triangle"
+                                }
                                 class={"size-4 #{if item.status == "succeeded", do: "text-success", else: "text-danger"}"}
                               />
                             </div>
                             <div>
-                              <p class="text-[13px] font-semibold text-foreground leading-tight">{item.name}</p>
-                              <p class="text-[11px] text-foreground-softer capitalize">{item.status}</p>
+                              <p class="text-[13px] font-semibold text-foreground leading-tight">
+                                {item.name}
+                              </p>
+                              <p class="text-[11px] text-foreground-softer capitalize">
+                                {item.status}
+                              </p>
                             </div>
                           </div>
                           <div class="flex items-center gap-2 text-[11px] text-foreground-softer">
@@ -1435,10 +1634,16 @@ defmodule SwatiWeb.CallsLive.Show do
                           <.accordion_item>
                             <:header class="flex items-center justify-between gap-3 text-[13px] font-medium text-foreground bg-base-200/30 px-3.5 py-2.5">
                               <div class="flex items-center gap-2">
-                                <.icon name="hero-command-line" class="size-3.5 text-foreground-softer" />
+                                <.icon
+                                  name="hero-command-line"
+                                  class="size-3.5 text-foreground-softer"
+                                />
                                 <span>MCP call details</span>
                               </div>
-                              <.icon name="hero-chevron-down" class="swati-accordion-chevron size-4 text-foreground-softer" />
+                              <.icon
+                                name="hero-chevron-down"
+                                class="swati-accordion-chevron size-4 text-foreground-softer"
+                              />
                             </:header>
                             <:panel>
                               <div class="p-3.5 space-y-4 text-xs text-foreground-soft bg-base-200/15">
@@ -1466,7 +1671,11 @@ defmodule SwatiWeb.CallsLive.Show do
                                     <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
                                       Response
                                     </p>
-                                    <.button variant="ghost" size="icon-xs" class="size-6 rounded-md hover:bg-base-200">
+                                    <.button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      class="size-6 rounded-md hover:bg-base-200"
+                                    >
                                       <.icon name="hero-clipboard" class="size-3.5" />
                                     </.button>
                                   </div>
@@ -1596,51 +1805,197 @@ defmodule SwatiWeb.CallsLive.Show do
     end
   end
 
+  # // REPOMARK:SCOPE: 3 - Add helpers to infer missing end_ms for timeline ranges and render full tool payloads (fixes "dead zones" + incomplete speaker backgrounds)
+  defp timeline_duration_ms(timeline) do
+    meta = if is_map(timeline), do: Map.get(timeline, :meta), else: nil
+    duration = if is_map(meta), do: Map.get(meta, :duration_ms), else: nil
+    if is_integer(duration) && duration > 0, do: duration, else: 0
+  end
+
+  defp safe_ms(value) when is_integer(value), do: max(value, 0)
+  defp safe_ms(_), do: 0
+
+  defp cap_ms(value, total_ms) when is_integer(total_ms) and total_ms > 0,
+    do: min(value, total_ms)
+
+  defp cap_ms(value, _), do: value
+
+  defp estimate_timeline_duration_ms(utterances, tool_calls, speaker_segments \\ []) do
+    Enum.concat([utterances, tool_calls, speaker_segments])
+    |> Enum.map(fn item ->
+      start = safe_ms(Map.get(item, :start_ms))
+      explicit_end = safe_ms(Map.get(item, :end_ms))
+
+      dur =
+        max(
+          safe_ms(Map.get(item, :latency_ms)),
+          safe_ms(Map.get(item, :duration_ms))
+        )
+
+      max(explicit_end, start + dur)
+    end)
+    |> Enum.max(fn -> 0 end)
+  end
+
+  defp infer_end_ms(
+         start_ms,
+         explicit_end_ms,
+         duration_ms,
+         next_start_ms,
+         total_duration_ms,
+         opts \\ []
+       ) do
+    start_ms = safe_ms(start_ms)
+    explicit_end_ms = safe_ms(explicit_end_ms)
+    duration_ms = safe_ms(duration_ms)
+    next_start_ms = safe_ms(next_start_ms)
+    total_duration_ms = safe_ms(total_duration_ms)
+
+    min_len_ms = Keyword.get(opts, :min_len_ms, 200)
+    allow_next_start = Keyword.get(opts, :allow_next_start, true)
+    allow_total_duration = Keyword.get(opts, :allow_total_duration, true)
+
+    candidate =
+      cond do
+        explicit_end_ms > start_ms ->
+          explicit_end_ms
+
+        duration_ms > 0 ->
+          start_ms + duration_ms
+
+        allow_next_start && next_start_ms > start_ms ->
+          next_start_ms
+
+        allow_total_duration && total_duration_ms > start_ms ->
+          total_duration_ms
+
+        true ->
+          start_ms
+      end
+
+    candidate
+    |> max(start_ms + min_len_ms)
+    |> cap_ms(total_duration_ms)
+    |> max(start_ms)
+  end
+
+  defp with_inferred_end_ms(items, total_duration_ms, duration_field, opts \\ []) do
+    sorted =
+      items
+      |> Enum.sort_by(fn item -> safe_ms(Map.get(item, :start_ms)) end, :asc)
+
+    Enum.with_index(sorted)
+    |> Enum.map(fn {item, idx} ->
+      start_ms = safe_ms(Map.get(item, :start_ms))
+      explicit_end_ms = Map.get(item, :end_ms)
+      duration_ms = safe_ms(Map.get(item, duration_field))
+
+      next_start_ms =
+        case Enum.at(sorted, idx + 1) do
+          nil -> nil
+          next -> Map.get(next, :start_ms)
+        end
+
+      end_ms =
+        infer_end_ms(
+          start_ms,
+          explicit_end_ms,
+          duration_ms,
+          next_start_ms,
+          total_duration_ms,
+          opts
+        )
+
+      {item, start_ms, end_ms}
+    end)
+  end
+
+  defp inspect_full(term) do
+    inspect(term, pretty: true, limit: :infinity, printable_limit: :infinity, width: 120)
+  end
+
+  defp tool_call_response_text_from_timeline(t) do
+    resp =
+      Map.get(t, :response) ||
+        Map.get(t, :response_text) ||
+        Map.get(t, :raw_response) ||
+        Map.get(t, :result) ||
+        Map.get(t, :output)
+
+    cond do
+      is_binary(resp) ->
+        resp
+
+      is_map(resp) or is_list(resp) ->
+        inspect_full(resp)
+
+      true ->
+        to_string(Map.get(t, :response_summary) || "")
+    end
+  end
+
   defp build_transcript_items_from_timeline(timeline, agent_label) do
     utterances = Map.get(timeline, :utterances) || []
     tool_calls = Map.get(timeline, :tool_calls) || []
 
+    # // REPOMARK:SCOPE: 4 - Infer end_ms for timeline utterances/tool_calls and show full tool args/response in transcript items
+    total_duration_ms =
+      case timeline_duration_ms(timeline) do
+        d when is_integer(d) and d > 0 -> d
+        _ -> estimate_timeline_duration_ms(utterances, tool_calls)
+      end
+
     utter_items =
-      Enum.map(utterances, fn u ->
+      utterances
+      |> with_inferred_end_ms(total_duration_ms, :duration_ms,
+        allow_next_start: true,
+        allow_total_duration: true
+      )
+      |> Enum.map(fn {u, start_ms, end_ms} ->
         role =
-          case normalize_speaker(u.speaker) do
+          case normalize_speaker(Map.get(u, :speaker)) do
             "customer" -> :caller
             _ -> :agent
           end
 
-        start_ms = u.start_ms || 0
-        end_ms = u.end_ms || start_ms
+        id = Map.get(u, :id) || System.unique_integer([:positive])
 
         %{
-          id: "utt-#{u.id}",
+          id: "utt-#{id}",
           type: :message,
           role: role,
           label: if(role == :caller, do: "Customer", else: agent_label),
-          text: String.trim(to_string(u.text || "")),
+          text: String.trim(to_string(Map.get(u, :text) || "")),
           offset: format_duration(div(start_ms, 1000)),
           start_ms: start_ms,
-          end_ms: max(end_ms, start_ms)
+          end_ms: end_ms
         }
       end)
 
     tool_items =
-      Enum.map(tool_calls, fn t ->
-        start_ms = t.start_ms || 0
-        end_ms = t.end_ms || start_ms
-        duration_ms = t.latency_ms || max(end_ms - start_ms, 0)
+      tool_calls
+      |> with_inferred_end_ms(total_duration_ms, :latency_ms,
+        allow_next_start: false,
+        allow_total_duration: false
+      )
+      |> Enum.map(fn {t, start_ms, end_ms} ->
+        latency = safe_ms(Map.get(t, :latency_ms))
+        duration_ms = if latency > 0, do: latency, else: max(end_ms - start_ms, 0)
+
+        id = Map.get(t, :id) || System.unique_integer([:positive])
 
         %{
-          id: "tool-#{t.id}",
+          id: "tool-#{id}",
           type: :tool,
-          name: to_string(t.name || "tool"),
-          status: to_string(t.status || "succeeded"),
+          name: to_string(Map.get(t, :name) || "tool"),
+          status: to_string(Map.get(t, :status) || "succeeded"),
           duration_ms: duration_ms,
-          args: inspect(t.args || %{}, pretty: true, limit: 50),
-          response: truncate_text(t.response_summary || "", 800),
+          args: inspect_full(Map.get(t, :args) || %{}),
+          response: tool_call_response_text_from_timeline(t),
           offset: format_duration(div(start_ms, 1000)),
           start_ms: start_ms,
-          end_ms: max(end_ms, start_ms),
-          mcp_server: to_string(t.mcp_endpoint || "mcp_server")
+          end_ms: end_ms,
+          mcp_server: to_string(Map.get(t, :mcp_endpoint) || "mcp_server")
         }
       end)
 
@@ -1669,15 +2024,21 @@ defmodule SwatiWeb.CallsLive.Show do
           |> Enum.max(fn -> 0 end)
       end
 
+    # // REPOMARK:SCOPE: 5 - Infer end_ms for timeline speaker_segments/utterances/tool_calls so waveform shading + hover + highlights cover all regions
     speaker_segments =
       cond do
         timeline_present?(timeline) && is_list(timeline.speaker_segments) &&
             timeline.speaker_segments != [] ->
-          Enum.map(timeline.speaker_segments, fn s ->
+          timeline.speaker_segments
+          |> with_inferred_end_ms(duration_ms, :duration_ms,
+            allow_next_start: true,
+            allow_total_duration: true
+          )
+          |> Enum.map(fn {s, start_ms, end_ms} ->
             %{
-              speaker: normalize_speaker(s.speaker),
-              start_ms: s.start_ms || 0,
-              end_ms: s.end_ms || (s.start_ms || 0)
+              speaker: normalize_speaker(Map.get(s, :speaker)),
+              start_ms: start_ms,
+              end_ms: end_ms
             }
           end)
 
@@ -1688,12 +2049,17 @@ defmodule SwatiWeb.CallsLive.Show do
     utterances =
       cond do
         timeline_present?(timeline) && is_list(timeline.utterances) && timeline.utterances != [] ->
-          Enum.map(timeline.utterances, fn u ->
+          timeline.utterances
+          |> with_inferred_end_ms(duration_ms, :duration_ms,
+            allow_next_start: true,
+            allow_total_duration: true
+          )
+          |> Enum.map(fn {u, start_ms, end_ms} ->
             %{
-              speaker: normalize_speaker(u.speaker),
-              start_ms: u.start_ms || 0,
-              end_ms: u.end_ms || (u.start_ms || 0),
-              text: truncate_text(u.text || "", 600)
+              speaker: normalize_speaker(Map.get(u, :speaker)),
+              start_ms: start_ms,
+              end_ms: end_ms,
+              text: truncate_text(Map.get(u, :text) || "", 600)
             }
           end)
 
@@ -1713,14 +2079,19 @@ defmodule SwatiWeb.CallsLive.Show do
     tool_calls =
       cond do
         timeline_present?(timeline) && is_list(timeline.tool_calls) && timeline.tool_calls != [] ->
-          Enum.map(timeline.tool_calls, fn t ->
+          timeline.tool_calls
+          |> with_inferred_end_ms(duration_ms, :latency_ms,
+            allow_next_start: false,
+            allow_total_duration: false
+          )
+          |> Enum.map(fn {t, start_ms, end_ms} ->
             %{
-              name: to_string(t.name || "tool"),
-              status: to_string(t.status || "succeeded"),
-              start_ms: t.start_ms || 0,
-              end_ms: t.end_ms || (t.start_ms || 0),
-              latency_ms: t.latency_ms || 0,
-              response_summary: truncate_text(t.response_summary || "", 420)
+              name: to_string(Map.get(t, :name) || "tool"),
+              status: to_string(Map.get(t, :status) || "succeeded"),
+              start_ms: start_ms,
+              end_ms: end_ms,
+              latency_ms: safe_ms(Map.get(t, :latency_ms)),
+              response_summary: truncate_text(tool_call_response_text_from_timeline(t), 420)
             }
           end)
 
@@ -1859,6 +2230,7 @@ defmodule SwatiWeb.CallsLive.Show do
     duration_ms = map_value(payload, "ms", :ms) || 0
     status = if map_value(payload, "isError", :isError), do: "failed", else: "succeeded"
 
+    # // REPOMARK:SCOPE: 6 - Show full tool args/response (avoid truncation) for non-timeline tool_call/tool_result event path
     call_ts = Map.get(call_payload, "_event_ts") || Map.get(call_payload, :_event_ts)
 
     start_ms =
@@ -1881,7 +2253,7 @@ defmodule SwatiWeb.CallsLive.Show do
       name: name,
       status: status,
       duration_ms: duration_ms,
-      args: inspect(args, pretty: true, limit: 50),
+      args: inspect_full(args),
       response: tool_response_text(payload),
       offset: format_duration(div(start_ms, 1000)),
       start_ms: start_ms,
@@ -1894,10 +2266,19 @@ defmodule SwatiWeb.CallsLive.Show do
     response = map_value(payload, "response", :response) || %{}
     content = map_value(response, "content", :content) || []
 
-    case List.first(content) do
-      %{"text" => text} when is_binary(text) -> text
-      %{text: text} when is_binary(text) -> text
-      _ -> inspect(response, pretty: true, limit: 50)
+    texts =
+      content
+      |> Enum.map(fn
+        %{"text" => text} when is_binary(text) -> text
+        %{text: text} when is_binary(text) -> text
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    case texts do
+      [text] -> text
+      [_ | _] -> Enum.join(texts, "\n\n")
+      [] -> inspect_full(response)
     end
   end
 
