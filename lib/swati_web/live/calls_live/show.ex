@@ -271,7 +271,7 @@ defmodule SwatiWeb.CallsLive.Show do
             data-agent-label={@agent_name}
             data-waveform-context={@waveform_context_json}
             data-seed={@call.id}
-            class="rounded-[1.75rem] border border-base-300/80 bg-gradient-to-b from-base-100 to-base-100/95 p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
+            class="rounded-[1.75rem] border border-base-300/80 p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
           >
             <div class="flex items-start justify-between gap-4">
               <div class="space-y-1.5">
@@ -323,7 +323,7 @@ defmodule SwatiWeb.CallsLive.Show do
               <div id="call-waveform-wrap" class="relative pt-1">
                 <div
                   id="call-waveform-container"
-                  class="call-waveform h-14 rounded-2xl bg-gradient-to-b from-base-200/50 to-base-200/70 overflow-hidden cursor-pointer"
+                  class="call-waveform h-32 rounded-2xl bg-gradient-to-b from-base-200/50 to-base-200/70 overflow-hidden cursor-pointer"
                   phx-update="ignore"
                   role="slider"
                   tabindex="0"
