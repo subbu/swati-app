@@ -33,6 +33,37 @@ config :swati,
   uploads_base_path: System.get_env("SWATI_UPLOADS_PATH", Path.expand("priv/static/uploads")),
   uploads_public_path: System.get_env("SWATI_UPLOADS_PUBLIC_PATH", "/uploads")
 
+config :swati,
+  avatar_s3_bucket:
+    System.get_env("SWATI_AVATAR_S3_BUCKET") ||
+      System.get_env("S3_CALL_RECORDINGS_BUCKET") ||
+      System.get_env("S3_BUCKET") ||
+      Application.get_env(:swati, :avatar_s3_bucket),
+  avatar_s3_region:
+    System.get_env("SWATI_AVATAR_S3_REGION") ||
+      System.get_env("S3_REGION") ||
+      System.get_env("AWS_REGION") ||
+      Application.get_env(:swati, :avatar_s3_region),
+  avatar_s3_access_key_id:
+    System.get_env("SWATI_AVATAR_S3_ACCESS_KEY_ID") ||
+      System.get_env("S3_ACCESS_KEY") ||
+      System.get_env("AWS_ACCESS_KEY_ID") ||
+      Application.get_env(:swati, :avatar_s3_access_key_id),
+  avatar_s3_secret_access_key:
+    System.get_env("SWATI_AVATAR_S3_SECRET_ACCESS_KEY") ||
+      System.get_env("S3_SECRET_KEY") ||
+      System.get_env("AWS_SECRET_ACCESS_KEY") ||
+      Application.get_env(:swati, :avatar_s3_secret_access_key),
+  avatar_s3_endpoint:
+    System.get_env("SWATI_AVATAR_S3_ENDPOINT") ||
+      System.get_env("S3_ENDPOINT_URL") ||
+      System.get_env("S3_URL") ||
+      Application.get_env(:swati, :avatar_s3_endpoint),
+  avatar_s3_public_base_url:
+    System.get_env("SWATI_AVATAR_S3_PUBLIC_BASE_URL") ||
+      System.get_env("S3_PUBLIC_BASE_URL") ||
+      Application.get_env(:swati, :avatar_s3_public_base_url)
+
 vault_key_b64 =
   System.get_env("SWATI_VAULT_KEY_B64") ||
     Application.get_env(:swati, :vault_key_b64) ||
