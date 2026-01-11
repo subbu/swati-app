@@ -19,6 +19,7 @@ ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION
 ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
+ARG FLUXON_LICENSE_KEY
 
 # install build dependencies
 RUN apt-get update \
@@ -40,7 +41,7 @@ COPY mix.exs mix.lock ./
 RUN --mount=type=secret,id=FLUXON_LICENSE_KEY \
   mix hex.repo add fluxon https://repo.fluxonui.com \
   --fetch-public-key "SHA256:zF8zWamOWgokeJdiIYgRl91ZBmQYnyXlxIOp3ralbos" \
-  --auth-key "$(cat /run/secrets/FLUXON_LICENSE_KEY)"
+  --auth-key "${FLUXON_LICENSE_KEY}"
 RUN mix deps.get --only $MIX_ENV
 RUN mkdir config
 
