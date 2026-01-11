@@ -28,7 +28,7 @@ defmodule Swati.Release do
     Application.ensure_loaded(@app)
   end
 
-  # Add this to lib/swatiai/release.ex
+  # Add this to lib/swati/release.ex
 
   def backport_phone_number(e164, country, region, user_id) do
     start_app()
@@ -39,7 +39,7 @@ defmodule Swati.Release do
     IO.puts("Country: #{country}, Region: #{region}")
     IO.puts("User ID: #{user_id}")
 
-    user = Swatiai.Accounts.get_user!(user_id)
+    user = Swati.Accounts.get_user!(user_id)
     IO.puts("Found user: #{user.email}")
 
     attrs = %{
@@ -49,7 +49,7 @@ defmodule Swati.Release do
       user_id: user_id
     }
 
-    case Swatiai.PhoneNumbers.create_phone_number(attrs) do
+    case Swati.PhoneNumbers.create_phone_number(attrs) do
       {:ok, phone_number} ->
         IO.puts("✓ Successfully backported phone number: #{phone_number.e164}")
         {:ok, phone_number}
@@ -63,7 +63,7 @@ defmodule Swati.Release do
 
   defp start_app do
     load_app()
-    Application.ensure_all_started(:swatiai)
+    Application.ensure_all_started(:swati)
   end
 
   defp load_app do
