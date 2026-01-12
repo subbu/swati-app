@@ -21,10 +21,10 @@ defmodule SwatiWeb.WebhooksLive.Show do
             <div :if={@webhook.tags != []} class="flex flex-wrap gap-2">
               <span
                 :for={tag <- sort_tags(@webhook.tags)}
-                class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium"
+                class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
                 style={tag_style(tag)}
               >
-                <span class="h-1.5 w-1.5 rounded-full" style={tag_dot_style(tag)}></span>
+                <span class="h-2 w-2 rounded-full" style={tag_dot_style(tag)}></span>
                 {tag.name}
               </span>
             </div>
@@ -343,8 +343,18 @@ defmodule SwatiWeb.WebhooksLive.Show do
   defp sort_tags(_tags), do: []
 
   defp tag_style(tag) do
-    "border-color: #{tag.color}; color: #{tag.color};"
+    "border-color: #{tag.color}; color: #{tag.color}; background-color: #{tag_background_color(tag.color)};"
   end
+
+  defp tag_background_color(color) when is_binary(color) do
+    if String.starts_with?(color, "#") and String.length(color) == 7 do
+      color <> "1A"
+    else
+      "transparent"
+    end
+  end
+
+  defp tag_background_color(_color), do: "transparent"
 
   defp tag_dot_style(tag) do
     "background-color: #{tag.color};"

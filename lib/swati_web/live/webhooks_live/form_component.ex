@@ -1,5 +1,5 @@
-defmodule SwatiWeb.WebhooksLive.Form do
-  use SwatiWeb, :live_view
+defmodule SwatiWeb.WebhooksLive.FormComponent do
+  use SwatiWeb, :live_component
 
   alias Swati.Webhooks
   alias Swati.Webhooks.Tag
@@ -10,100 +10,114 @@ defmodule SwatiWeb.WebhooksLive.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="space-y-8">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-semibold">{@page_title}</h1>
-            <p class="text-sm text-base-content/70">
+    <div class="flex h-full flex-col">
+      <div class="flex-1 overflow-y-auto">
+        <div class="max-w-4xl mx-auto w-full space-y-8">
+          <div class="border-b border-base pb-6">
+            <h2 class="text-2xl font-semibold text-foreground">{@page_title}</h2>
+            <p class="text-sm text-foreground-softer">
               Create easy HTTP tools for non-technical teammates.
             </p>
           </div>
-          <.button navigate={~p"/agent-data"} variant="ghost">Back</.button>
-        </div>
 
-        <.form for={@form} id="webhook-form" phx-change="validate" phx-submit="save">
-          <input type="hidden" name="webhook[inputs_present]" value="true" />
-          <input type="hidden" name="webhook[headers_present]" value="true" />
+          <.form
+            for={@form}
+            id="webhook-form"
+            phx-change="validate"
+            phx-submit="save"
+            phx-target={@myself}
+            class="space-y-8"
+          >
+            <input type="hidden" name="webhook[inputs_present]" value="true" />
+            <input type="hidden" name="webhook[headers_present]" value="true" />
 
-          <div class="grid gap-6">
             <FormComponents.basics_section
               form={@form}
               method_options={@method_options}
               status_options={@status_options}
             />
+
+            <.separator class="my-6" />
+
             <FormComponents.tool_section form={@form} tool_name_locked={@tool_name_locked} />
-            <FormComponents.tags_section tags={@tags} selected_tag_ids={@selected_tag_ids} />
+
+            <.separator class="my-6" />
+
+            <FormComponents.tags_section
+              tags={@tags}
+              selected_tag_ids={@selected_tag_ids}
+              target={@myself}
+            />
+
+            <.separator class="my-6" />
+
             <FormComponents.inputs_section
               inputs={@inputs}
               input_type_options={@input_type_options}
               payload_preview={@payload_preview}
+              target={@myself}
             />
+
+            <.separator class="my-6" />
+
             <FormComponents.auth_section
               form={@form}
               auth_type_options={@auth_type_options}
               auth_token={@auth_token}
               header_entries={@header_entries}
+              target={@myself}
             />
-          </div>
 
-          <div class="flex justify-end">
-            <.button type="submit">Save webhook</.button>
-          </div>
-        </.form>
-
-        <FormComponents.tag_modal
-          tag_form={@tag_form}
-          tag_modal_open={@tag_modal_open}
-          tag_palette_options={@tag_palette_options}
-        />
+            <div class="pt-2">
+              <.button type="submit" variant="solid">{@save_label}</.button>
+            </div>
+          </.form>
+        </div>
       </div>
-    </Layouts.app>
+
+      <FormComponents.tag_modal
+        tag_form={@tag_form}
+        tag_modal_open={@tag_modal_open}
+        tag_palette_options={@tag_palette_options}
+        target={@myself}
+      />
+    </div>
     """
   end
 
   @impl true
-  def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
+  def update(assigns, socket) do
+    tenant = assigns.current_scope.tenant
     palette_options = Webhooks.tag_palette_options()
     default_color = palette_options |> List.first() |> Map.get(:value)
+    action = Map.get(assigns, :action, :new)
+    page_title = if action == :edit, do: "Edit webhook", else: "New webhook"
+    save_label = if action == :edit, do: "Save changes", else: "Create webhook"
+    previous_webhook = socket.assigns[:webhook]
 
-    {:ok,
-     socket
-     |> assign(:method_options, method_options())
-     |> assign(:auth_type_options, auth_type_options())
-     |> assign(:status_options, status_options())
-     |> assign(:input_type_options, Helpers.input_type_options())
-     |> assign(:tool_name_locked, false)
-     |> assign(:tags, Webhooks.list_tags(tenant.id))
-     |> assign(:selected_tag_ids, [])
-     |> assign(:tag_palette_options, palette_options)
-     |> assign(:default_tag_color, default_color)
-     |> assign(:tag_modal_open, false)
-     |> assign(:tag_form, tag_form(%Tag{color: default_color}))}
-  end
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign(:method_options, method_options())
+      |> assign(:auth_type_options, auth_type_options())
+      |> assign(:status_options, status_options())
+      |> assign(:input_type_options, Helpers.input_type_options())
+      |> assign(:tags, Webhooks.list_tags(tenant.id))
+      |> assign(:tag_palette_options, palette_options)
+      |> assign(:page_title, page_title)
+      |> assign(:save_label, save_label)
+      |> assign_new(:default_tag_color, fn -> default_color end)
+      |> assign_new(:tag_modal_open, fn -> false end)
+      |> assign_new(:tag_form, fn -> tag_form(%Tag{color: default_color}) end)
 
-  @impl true
-  def handle_params(params, _url, socket) do
-    case socket.assigns.live_action do
-      :new ->
-        webhook = %Webhook{}
+    socket =
+      if previous_webhook != assigns.webhook or is_nil(socket.assigns[:form]) do
+        assign_webhook(socket, assigns.webhook, %{})
+      else
+        socket
+      end
 
-        {:noreply,
-         socket
-         |> assign(:page_title, "New webhook")
-         |> assign_webhook(webhook, %{})}
-
-      :edit ->
-        webhook = Webhooks.get_webhook!(socket.assigns.current_scope.tenant.id, params["id"])
-        locked = Webhooks.attached?(webhook.id)
-
-        {:noreply,
-         socket
-         |> assign(:page_title, "Edit webhook")
-         |> assign(:tool_name_locked, locked)
-         |> assign_webhook(webhook, %{})}
-    end
+    {:ok, socket}
   end
 
   @impl true
@@ -184,7 +198,7 @@ defmodule SwatiWeb.WebhooksLive.Form do
 
   @impl true
   def handle_event("save", %{"webhook" => params}, socket) do
-    case socket.assigns.live_action do
+    case socket.assigns.action do
       :new ->
         case Webhooks.create_webhook(
                socket.assigns.current_scope.tenant.id,
@@ -192,10 +206,12 @@ defmodule SwatiWeb.WebhooksLive.Form do
                socket.assigns.current_scope.user
              ) do
           {:ok, _webhook} ->
+            send(self(), :refresh_webhooks)
+
             {:noreply,
              socket
              |> put_flash(:info, "Webhook created.")
-             |> push_navigate(to: ~p"/agent-data")}
+             |> push_patch(to: socket.assigns.return_to)}
 
           {:error, %Ecto.Changeset{} = changeset} ->
             {:noreply, assign_webhook(socket, socket.assigns.webhook, params, changeset)}
@@ -214,6 +230,8 @@ defmodule SwatiWeb.WebhooksLive.Form do
                socket.assigns.current_scope.user
              ) do
           {:ok, webhook} ->
+            send(self(), :refresh_webhooks)
+
             {:noreply,
              socket
              |> put_flash(:info, "Webhook updated.")

@@ -3,6 +3,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
 
   alias Swati.Integrations
   alias Swati.Webhooks
+  alias Swati.Webhooks.Webhook
 
   @impl true
   def render(assigns) do
@@ -18,7 +19,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
           </div>
           <div class="flex flex-wrap gap-2">
             <.button navigate={~p"/integrations/new"} variant="soft">New integration</.button>
-            <.button navigate={~p"/webhooks/new"}>New webhook</.button>
+            <.button patch={~p"/webhooks/new"}>New webhook</.button>
           </div>
         </div>
 
@@ -36,53 +37,78 @@ defmodule SwatiWeb.AgentDataLive.Index do
           <%= if @integrations == [] do %>
             <p class="text-sm text-base-content/60">No integrations yet.</p>
           <% else %>
-            <.table>
-              <.table_head>
-                <:col>Name</:col>
-                <:col>Type</:col>
-                <:col>Status</:col>
-                <:col>Last test</:col>
-                <:col></:col>
-              </.table_head>
-              <.table_body>
-                <.table_row :for={integration <- @integrations}>
-                  <:cell class="font-medium">
-                    <.link
-                      id={"integration-#{integration.id}-link"}
-                      navigate={~p"/integrations/#{integration.id}"}
-                      class="underline"
-                    >
-                      {integration.name}
-                    </.link>
-                  </:cell>
-                  <:cell>{integration.type}</:cell>
-                  <:cell>
-                    <.badge color={status_color(integration.status)} variant="soft">
-                      {integration.status}
-                    </.badge>
-                  </:cell>
-                  <:cell>{integration.last_test_status || "—"}</:cell>
-                  <:cell class="text-right">
-                    <div class="flex items-center justify-end gap-2">
-                      <.button
-                        size="sm"
-                        variant="ghost"
-                        phx-click="test_integration"
-                        phx-value-id={integration.id}
-                      >
-                        Test
-                      </.button>
+            <div class="overflow-x-auto rounded-base border border-base bg-base">
+              <.table>
+                <colgroup>
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                  <col class="w-28" />
+                </colgroup>
+                <.table_head class="text-foreground-softest">
+                  <:col class="py-2">
+                    <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+                      Name
+                    </span>
+                  </:col>
+                  <:col class="py-2">
+                    <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+                      Type
+                    </span>
+                  </:col>
+                  <:col class="py-2">
+                    <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+                      Status
+                    </span>
+                  </:col>
+                  <:col class="py-2">
+                    <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+                      Last test
+                    </span>
+                  </:col>
+                  <:col class="py-2"></:col>
+                </.table_head>
+                <.table_body>
+                  <.table_row :for={integration <- @integrations} class="hover:bg-accent/50">
+                    <:cell class="py-2 align-middle font-medium text-foreground">
                       <.link
-                        class="text-sm underline"
-                        navigate={~p"/integrations/#{integration.id}/edit"}
+                        id={"integration-#{integration.id}-link"}
+                        navigate={~p"/integrations/#{integration.id}"}
+                        class="underline"
                       >
-                        Edit
+                        {integration.name}
                       </.link>
-                    </div>
-                  </:cell>
-                </.table_row>
-              </.table_body>
-            </.table>
+                    </:cell>
+                    <:cell class="py-2 align-middle">{integration.type}</:cell>
+                    <:cell class="py-2 align-middle">
+                      <.badge color={status_color(integration.status)} variant="soft">
+                        {integration.status}
+                      </.badge>
+                    </:cell>
+                    <:cell class="py-2 align-middle">{integration.last_test_status || "—"}</:cell>
+                    <:cell class="py-2 align-middle text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <.button
+                          size="sm"
+                          variant="ghost"
+                          phx-click="test_integration"
+                          phx-value-id={integration.id}
+                        >
+                          Test
+                        </.button>
+                        <.link
+                          class="text-sm underline"
+                          navigate={~p"/integrations/#{integration.id}/edit"}
+                        >
+                          Edit
+                        </.link>
+                      </div>
+                    </:cell>
+                  </.table_row>
+                </.table_body>
+              </.table>
+            </div>
           <% end %>
         </section>
 
@@ -92,7 +118,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
               <h2 class="text-lg font-semibold">Webhooks</h2>
               <p class="text-sm text-base-content/70">Call custom HTTP endpoints as tools.</p>
             </div>
-            <.button navigate={~p"/webhooks/new"} size="sm" variant="ghost">
+            <.button patch={~p"/webhooks/new"} size="sm" variant="ghost">
               Add webhook
             </.button>
           </div>
@@ -118,7 +144,8 @@ defmodule SwatiWeb.AgentDataLive.Index do
                   variant={if(@selected_tag_id == tag.id, do: "soft", else: "ghost")}
                   phx-click="filter_webhooks"
                   phx-value-id={tag.id}
-                  class="flex items-center gap-2"
+                  class="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+                  style={tag_style(tag)}
                 >
                   <span class="h-2 w-2 rounded-full" style={tag_dot_style(tag)}></span>
                   {tag.name}
@@ -137,10 +164,10 @@ defmodule SwatiWeb.AgentDataLive.Index do
                   <div :for={{tag, grouped_webhooks} <- @webhook_groups} class="space-y-3">
                     <div class="flex items-center gap-2">
                       <span
-                        class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium"
+                        class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
                         style={tag_style(tag)}
                       >
-                        <span class="h-1.5 w-1.5 rounded-full" style={tag_dot_style(tag)}></span>
+                        <span class="h-2 w-2 rounded-full" style={tag_dot_style(tag)}></span>
                         {tag.name}
                       </span>
                       <span class="text-xs text-base-content/60">
@@ -167,6 +194,26 @@ defmodule SwatiWeb.AgentDataLive.Index do
           <% end %>
         </section>
       </div>
+
+      <.sheet
+        id="webhook-form-sheet"
+        placement="right"
+        class="w-full max-w-4xl"
+        open={@webhook_sheet_open}
+        on_close={JS.push("close-webhook-sheet")}
+      >
+        <%= if @webhook_sheet_open do %>
+          <.live_component
+            module={SwatiWeb.WebhooksLive.FormComponent}
+            id="webhook-form"
+            webhook={@webhook_form_webhook}
+            action={@webhook_form_action}
+            tool_name_locked={@tool_name_locked}
+            current_scope={@current_scope}
+            return_to={~p"/agent-data"}
+          />
+        <% end %>
+      </.sheet>
     </Layouts.app>
     """
   end
@@ -178,7 +225,37 @@ defmodule SwatiWeb.AgentDataLive.Index do
     {:ok,
      socket
      |> assign(:integrations, Integrations.list_integrations(tenant.id))
+     |> assign(:webhook_sheet_open, false)
+     |> assign(:webhook_form_action, nil)
+     |> assign(:webhook_form_webhook, nil)
+     |> assign(:tool_name_locked, false)
      |> load_webhooks(nil)}
+  end
+
+  @impl true
+  def handle_params(params, _url, socket) do
+    tenant = socket.assigns.current_scope.tenant
+
+    case socket.assigns.live_action do
+      :new_webhook ->
+        webhook = %Webhook{}
+
+        {:noreply, assign_webhook_sheet(socket, webhook, :new, false)}
+
+      :edit_webhook ->
+        webhook = Webhooks.get_webhook!(tenant.id, params["id"])
+        locked = Webhooks.attached?(webhook.id)
+
+        {:noreply, assign_webhook_sheet(socket, webhook, :edit, locked)}
+
+      _ ->
+        {:noreply,
+         socket
+         |> assign(:webhook_sheet_open, false)
+         |> assign(:webhook_form_action, nil)
+         |> assign(:webhook_form_webhook, nil)
+         |> assign(:tool_name_locked, false)}
+    end
   end
 
   @impl true
@@ -229,63 +306,98 @@ defmodule SwatiWeb.AgentDataLive.Index do
     {:noreply, load_webhooks(socket, tag_id)}
   end
 
+  @impl true
+  def handle_event("close-webhook-sheet", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/agent-data")}
+  end
+
+  @impl true
+  def handle_info(:refresh_webhooks, socket) do
+    {:noreply, refresh_webhooks(socket)}
+  end
+
   defp webhook_table(assigns) do
     ~H"""
-    <.table>
-      <.table_head>
-        <:col>Name</:col>
-        <:col>Method</:col>
-        <:col>Status</:col>
-        <:col>Last test</:col>
-        <:col></:col>
-      </.table_head>
-      <.table_body>
-        <.table_row :for={webhook <- @webhooks}>
-          <:cell class="font-medium">
-            <.link
-              id={"webhook-#{webhook.id}-link"}
-              navigate={~p"/webhooks/#{webhook.id}"}
-              class="underline"
-            >
-              {webhook.name}
-            </.link>
-            <p class="text-xs text-base-content/60">{webhook.tool_name}</p>
-            <div :if={webhook.tags != []} class="mt-2 flex flex-wrap gap-1.5">
-              <span
-                :for={tag <- sort_tags(webhook.tags)}
-                class="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
-                style={tag_style(tag)}
+    <div class="overflow-x-auto rounded-base border border-base bg-base">
+      <.table>
+        <colgroup>
+          <col />
+          <col />
+          <col />
+          <col />
+          <col class="w-28" />
+        </colgroup>
+        <.table_head class="text-foreground-softest">
+          <:col class="py-2">
+            <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+              Name
+            </span>
+          </:col>
+          <:col class="py-2">
+            <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+              Method
+            </span>
+          </:col>
+          <:col class="py-2">
+            <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+              Status
+            </span>
+          </:col>
+          <:col class="py-2">
+            <span class="-mx-2 inline-flex items-center gap-0.5 px-2 py-1 rounded-base">
+              Last test
+            </span>
+          </:col>
+          <:col class="py-2"></:col>
+        </.table_head>
+        <.table_body>
+          <.table_row :for={webhook <- @webhooks} class="hover:bg-accent/50">
+            <:cell class="py-2 align-middle font-medium text-foreground">
+              <.link
+                id={"webhook-#{webhook.id}-link"}
+                navigate={~p"/webhooks/#{webhook.id}"}
+                class="underline"
               >
-                <span class="h-1.5 w-1.5 rounded-full" style={tag_dot_style(tag)}></span>
-                {tag.name}
-              </span>
-            </div>
-          </:cell>
-          <:cell>{method_label(webhook.http_method)}</:cell>
-          <:cell>
-            <.badge color={status_color(webhook.status)} variant="soft">
-              {webhook.status}
-            </.badge>
-          </:cell>
-          <:cell>{webhook.last_test_status || "—"}</:cell>
-          <:cell class="text-right">
-            <div class="flex items-center justify-end gap-2">
-              <.button
-                size="sm"
-                variant="ghost"
-                phx-click="test_webhook"
-                phx-value-id={webhook.id}
-              >
-                Test
-              </.button>
-              <.link class="text-sm underline" navigate={~p"/webhooks/#{webhook.id}/edit"}>
-                Edit
+                {webhook.name}
               </.link>
-            </div>
-          </:cell>
-        </.table_row>
-      </.table_body>
-    </.table>
+              <p class="text-xs text-base-content/60">{webhook.tool_name}</p>
+              <div :if={webhook.tags != []} class="mt-2 flex flex-wrap gap-1.5">
+                <span
+                  :for={tag <- sort_tags(webhook.tags)}
+                  class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+                  style={tag_style(tag)}
+                >
+                  <span class="h-2 w-2 rounded-full" style={tag_dot_style(tag)}></span>
+                  {tag.name}
+                </span>
+              </div>
+            </:cell>
+            <:cell class="py-2 align-middle">{method_label(webhook.http_method)}</:cell>
+            <:cell class="py-2 align-middle">
+              <.badge color={status_color(webhook.status)} variant="soft">
+                {webhook.status}
+              </.badge>
+            </:cell>
+            <:cell class="py-2 align-middle">{webhook.last_test_status || "—"}</:cell>
+            <:cell class="py-2 align-middle text-right">
+              <div class="flex items-center justify-end gap-2">
+                <.button
+                  size="sm"
+                  variant="ghost"
+                  phx-click="test_webhook"
+                  phx-value-id={webhook.id}
+                >
+                  Test
+                </.button>
+                <.link class="text-sm underline" patch={~p"/webhooks/#{webhook.id}/edit"}>
+                  Edit
+                </.link>
+              </div>
+            </:cell>
+          </.table_row>
+        </.table_body>
+      </.table>
+    </div>
     """
   end
 
@@ -296,6 +408,14 @@ defmodule SwatiWeb.AgentDataLive.Index do
 
   defp refresh_webhooks(socket) do
     load_webhooks(socket, socket.assigns.selected_tag_id)
+  end
+
+  defp assign_webhook_sheet(socket, webhook, action, locked) do
+    socket
+    |> assign(:webhook_sheet_open, true)
+    |> assign(:webhook_form_action, action)
+    |> assign(:webhook_form_webhook, webhook)
+    |> assign(:tool_name_locked, locked)
   end
 
   defp load_webhooks(socket, tag_id) do
@@ -353,8 +473,18 @@ defmodule SwatiWeb.AgentDataLive.Index do
   defp sort_tags(_tags), do: []
 
   defp tag_style(tag) do
-    "border-color: #{tag.color}; color: #{tag.color};"
+    "border-color: #{tag.color}; color: #{tag.color}; background-color: #{tag_background_color(tag.color)};"
   end
+
+  defp tag_background_color(color) when is_binary(color) do
+    if String.starts_with?(color, "#") and String.length(color) == 7 do
+      color <> "1A"
+    else
+      "transparent"
+    end
+  end
+
+  defp tag_background_color(_color), do: "transparent"
 
   defp tag_dot_style(tag) do
     "background-color: #{tag.color};"
