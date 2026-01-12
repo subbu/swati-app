@@ -31,12 +31,12 @@ config :swati,
        System.get_env("PLIVO_AUTH_TOKEN")
 
 config :swati,
-       avatar_s3_bucket: "subbu-dev-avatars",
-       avatar_s3_region: "eu-central",
-       avatar_s3_access_key_id: "QS8V8HT49W2N6RZW4GSM",
-       avatar_s3_secret_access_key: "6h9arRWbPrmUCT7CnfQmwes12SOB6JSHlTvrXJ51",
-       avatar_s3_endpoint: "https://hel1.your-objectstorage.com",
-       avatar_s3_public_base_url: "https://hel1.your-objectstorage.com/subbu-dev-avatars"
+  avatar_s3_bucket: "subbu-dev-avatars",
+  avatar_s3_region: "eu-central",
+  avatar_s3_access_key_id: "QS8V8HT49W2N6RZW4GSM",
+  avatar_s3_secret_access_key: "6h9arRWbPrmUCT7CnfQmwes12SOB6JSHlTvrXJ51",
+  avatar_s3_endpoint: "https://hel1.your-objectstorage.com",
+  avatar_s3_public_base_url: "https://hel1.your-objectstorage.com/subbu-dev-avatars"
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

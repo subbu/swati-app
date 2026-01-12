@@ -8,10 +8,10 @@ defmodule Swati.Avatars.Storage do
 
     content_type = content_type(response.headers) || "image/png"
     extension = extension_from_content_type(content_type)
-    key = build_object_key(agent_id, extension)
+    key = object_key(agent_id, extension)
 
     with :ok <- upload_to_s3(key, response.body, content_type) do
-      {:ok, %{key: key, public_url: public_url(key)}}
+      {:ok, %{key: key, public_url: public_url_for_key(key)}}
     end
   rescue
     exception -> {:error, exception}
@@ -36,8 +36,9 @@ defmodule Swati.Avatars.Storage do
     end
   end
 
-  defp build_object_key(agent_id, extension) do
-    "avatars/agent-#{agent_id}/avatar-#{Ecto.UUID.generate()}.#{extension}"
+  @doc false
+  def object_key(_agent_id, extension) do
+    "avatar-#{Ecto.UUID.generate()}.#{extension}"
   end
 
   defp upload_url(%{bucket: bucket, region: region, endpoint: nil}, key) do
@@ -49,7 +50,8 @@ defmodule Swati.Avatars.Storage do
     "#{endpoint}/#{bucket}/#{key}"
   end
 
-  defp public_url(key) do
+  @doc false
+  def public_url_for_key(key) do
     case Application.get_env(:swati, :avatar_s3_public_base_url) do
       nil -> upload_url(s3_config!(), key)
       base -> (base |> normalize_endpoint() |> String.trim_trailing("/")) <> "/" <> key
