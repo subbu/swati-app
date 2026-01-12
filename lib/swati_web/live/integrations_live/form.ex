@@ -14,7 +14,7 @@ defmodule SwatiWeb.IntegrationsLive.Form do
             <h1 class="text-2xl font-semibold">{@page_title}</h1>
             <p class="text-sm text-base-content/70">Store endpoint, auth, and allowlists.</p>
           </div>
-          <.button navigate={~p"/integrations"} variant="ghost">Back</.button>
+          <.button navigate={~p"/agent-data"} variant="ghost">Back</.button>
         </div>
 
         <.form for={@form} id="integration-form" phx-change="validate" phx-submit="save">
@@ -112,7 +112,7 @@ defmodule SwatiWeb.IntegrationsLive.Form do
             {:noreply,
              socket
              |> put_flash(:info, "Integration created.")
-             |> push_navigate(to: ~p"/integrations")}
+             |> push_navigate(to: ~p"/agent-data")}
 
           {:error, %Ecto.Changeset{} = changeset} ->
             {:noreply, assign_integration(socket, socket.assigns.integration, params, changeset)}

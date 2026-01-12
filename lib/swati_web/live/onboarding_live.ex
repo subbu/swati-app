@@ -3,6 +3,7 @@ defmodule SwatiWeb.OnboardingLive do
 
   alias Swati.Agents
   alias Swati.Integrations
+  alias Swati.Webhooks
   alias Swati.Telephony
 
   @impl true
@@ -59,10 +60,10 @@ defmodule SwatiWeb.OnboardingLive do
           ~p"/agents/new"
         ),
         step_for(
-          "Add MCP integration",
-          "Connect tools and data.",
-          has_integrations?(tenant),
-          ~p"/integrations/new"
+          "Add agent data",
+          "Connect MCP integrations or webhooks.",
+          has_agent_data?(tenant),
+          ~p"/agent-data"
         ),
         step_for(
           "Provision phone number",
@@ -103,8 +104,10 @@ defmodule SwatiWeb.OnboardingLive do
     tenant && Agents.list_agents(tenant.id) != []
   end
 
-  defp has_integrations?(tenant) do
-    tenant && Integrations.list_integrations(tenant.id) != []
+  defp has_agent_data?(tenant) do
+    tenant &&
+      (Integrations.list_integrations(tenant.id) != [] or
+         Webhooks.list_webhooks(tenant.id) != [])
   end
 
   defp has_numbers?(tenant) do

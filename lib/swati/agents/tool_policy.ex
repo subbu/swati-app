@@ -1,5 +1,6 @@
 defmodule Swati.Agents.ToolPolicy do
   alias Swati.Integrations.ToolAllowlist
+  alias Swati.Webhooks.ToolAllowlist, as: WebhookAllowlist
 
   @spec default() :: map()
   def default do
@@ -23,8 +24,8 @@ defmodule Swati.Agents.ToolPolicy do
 
   def normalize(_policy), do: default()
 
-  @spec effective(map() | nil, list({term(), term()})) :: map()
-  def effective(base_config, integrations) do
+  @spec effective(map() | nil, list({term(), term()}), list({term(), term()})) :: map()
+  def effective(base_config, integrations, webhooks) do
     base_policy = normalize(Map.get(base_config || %{}, "tool_policy"))
     base_allow = Map.get(base_policy, "allow", [])
     base_deny = Map.get(base_policy, "deny", [])
@@ -37,16 +38,25 @@ defmodule Swati.Agents.ToolPolicy do
       end)
       |> Enum.uniq()
 
+    webhook_allow =
+      webhooks
+      |> Enum.flat_map(fn {webhook, _secret} ->
+        WebhookAllowlist.allowed_tools(webhook)
+      end)
+      |> Enum.uniq()
+
+    data_allow = Enum.uniq(integration_allow ++ webhook_allow)
+
     allow =
       cond do
-        base_allow != [] and integration_allow != [] ->
-          Enum.filter(base_allow, &(&1 in integration_allow))
+        base_allow != [] and data_allow != [] ->
+          Enum.filter(base_allow, &(&1 in data_allow))
 
         base_allow != [] ->
           base_allow
 
-        integration_allow != [] ->
-          integration_allow
+        data_allow != [] ->
+          data_allow
 
         true ->
           []

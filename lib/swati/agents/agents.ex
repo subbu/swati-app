@@ -5,7 +5,7 @@ defmodule Swati.Agents do
   alias Swati.Repo
   alias Swati.Tenancy
 
-  alias Swati.Agents.{Agent, AgentIntegration, AgentVersion, Compiler}
+  alias Swati.Agents.{Agent, AgentIntegration, AgentWebhook, AgentVersion, Compiler}
 
   def list_agents(tenant_id) do
     Agent
@@ -109,6 +109,11 @@ defmodule Swati.Agents do
     |> Repo.all()
   end
 
+  def list_agent_webhooks(agent_id) do
+    from(aw in AgentWebhook, where: aw.agent_id == ^agent_id, preload: [:webhook])
+    |> Repo.all()
+  end
+
   def list_agent_versions(agent_id) do
     from(v in AgentVersion, where: v.agent_id == ^agent_id, order_by: [desc: v.version])
     |> Repo.all()
@@ -122,6 +127,17 @@ defmodule Swati.Agents do
     |> Repo.insert(
       on_conflict: [set: [enabled: enabled, updated_at: DateTime.utc_now()]],
       conflict_target: [:agent_id, :integration_id]
+    )
+  end
+
+  def upsert_agent_webhook(agent_id, webhook_id, enabled) do
+    attrs = %{agent_id: agent_id, webhook_id: webhook_id, enabled: enabled}
+
+    %AgentWebhook{}
+    |> AgentWebhook.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: [set: [enabled: enabled, updated_at: DateTime.utc_now()]],
+      conflict_target: [:agent_id, :webhook_id]
     )
   end
 end

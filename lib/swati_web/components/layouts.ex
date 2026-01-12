@@ -65,11 +65,11 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Agents
           </.navlink>
-          <.navlink navigate={~p"/integrations"}>
+          <.navlink navigate={~p"/agent-data"}>
             <.icon
               name="hero-wrench-screwdriver"
               class="size-5 text-foreground-softer group-hover:text-foreground"
-            /> Integrations
+            /> Agent data
           </.navlink>
           <.navlink navigate={~p"/numbers"}>
             <.icon
@@ -128,8 +128,8 @@ defmodule SwatiWeb.Layouts do
                 <.navlink navigate={~p"/agents"}>
                   <.icon name="hero-user-circle" class="size-5" /> Agents
                 </.navlink>
-                <.navlink navigate={~p"/integrations"}>
-                  <.icon name="hero-wrench-screwdriver" class="size-5" /> Integrations
+                <.navlink navigate={~p"/agent-data"}>
+                  <.icon name="hero-wrench-screwdriver" class="size-5" /> Agent data
                 </.navlink>
                 <.navlink navigate={~p"/numbers"}>
                   <.icon name="hero-hashtag" class="size-5" /> Numbers

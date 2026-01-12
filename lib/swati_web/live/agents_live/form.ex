@@ -5,6 +5,7 @@ defmodule SwatiWeb.AgentsLive.Form do
   alias Swati.Agents.Agent
   alias Swati.Avatars
   alias Swati.Integrations
+  alias Swati.Webhooks
 
   @impl true
   def render(assigns) do
@@ -158,6 +159,33 @@ defmodule SwatiWeb.AgentsLive.Form do
             </div>
           </.form>
         </section>
+
+        <section
+          :if={@live_action == :edit}
+          class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4"
+        >
+          <h2 class="text-lg font-semibold">Webhooks</h2>
+          <p class="text-sm text-base-content/70">
+            Toggle which webhooks are available to this agent.
+          </p>
+          <.form for={@webhook_form} id="agent-webhooks" phx-change="toggle_webhook">
+            <div class="grid gap-2">
+              <div
+                :for={webhook <- @webhooks}
+                class="flex items-center justify-between rounded-xl border border-base-300 px-4 py-3"
+              >
+                <div>
+                  <p class="font-medium">{webhook.name}</p>
+                  <p class="text-xs text-base-content/60">{webhook.tool_name}</p>
+                </div>
+                <.switch
+                  name={"webhooks[#{webhook.id}]"}
+                  checked={Map.get(@webhook_states, webhook.id, true)}
+                />
+              </div>
+            </div>
+          </.form>
+        </section>
       </div>
     </Layouts.app>
     """
@@ -171,7 +199,9 @@ defmodule SwatiWeb.AgentsLive.Form do
      |> assign(:language_options, language_options())
      |> assign(:voice_options, voice_options())
      |> assign(:integrations, [])
-     |> assign(:integration_states, %{})}
+     |> assign(:integration_states, %{})
+     |> assign(:webhooks, [])
+     |> assign(:webhook_states, %{})}
   end
 
   @impl true
@@ -193,13 +223,17 @@ defmodule SwatiWeb.AgentsLive.Form do
       :edit ->
         agent = Agents.get_agent!(socket.assigns.current_scope.tenant.id, params["id"])
         integrations = Integrations.list_integrations(socket.assigns.current_scope.tenant.id)
+        webhooks = Webhooks.list_webhooks(socket.assigns.current_scope.tenant.id)
         states = integration_states(agent, integrations)
+        webhook_states = webhook_states(agent, webhooks)
 
         {:noreply,
          socket
          |> assign(:page_title, "Edit agent")
          |> assign(:integrations, integrations)
          |> assign(:integration_states, states)
+         |> assign(:webhooks, webhooks)
+         |> assign(:webhook_states, webhook_states)
          |> assign_agent(agent)}
     end
   end
@@ -277,6 +311,21 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   @impl true
+  def handle_event("toggle_webhook", %{"webhooks" => params}, socket) do
+    Enum.each(socket.assigns.webhooks, fn webhook ->
+      enabled = Map.get(params, webhook.id) == "true"
+      _ = Agents.upsert_agent_webhook(socket.assigns.agent.id, webhook.id, enabled)
+    end)
+
+    {:noreply,
+     assign(
+       socket,
+       :webhook_states,
+       webhook_states(socket.assigns.agent, socket.assigns.webhooks)
+     )}
+  end
+
+  @impl true
   def handle_event("generate_avatar", _params, socket) do
     case Avatars.request_agent_avatar(socket.assigns.current_scope, socket.assigns.agent) do
       {:ok, avatar} ->
@@ -311,6 +360,7 @@ defmodule SwatiWeb.AgentsLive.Form do
     |> assign(:escalation_enabled, Map.get(attrs, :escalation_enabled, false))
     |> assign(:escalation_note, Map.get(attrs, :escalation_note, ""))
     |> assign(:integration_form, to_form(%{}, as: :integrations))
+    |> assign(:webhook_form, to_form(%{}, as: :webhooks))
   end
 
   defp assign_avatar(socket, %Agent{id: nil}), do: assign(socket, :avatar, nil)
@@ -393,6 +443,16 @@ defmodule SwatiWeb.AgentsLive.Form do
 
     Map.new(integrations, fn integration ->
       {integration.id, Map.get(states, integration.id, true)}
+    end)
+  end
+
+  defp webhook_states(agent, webhooks) do
+    states =
+      Agents.list_agent_webhooks(agent.id)
+      |> Map.new(fn aw -> {aw.webhook_id, aw.enabled} end)
+
+    Map.new(webhooks, fn webhook ->
+      {webhook.id, Map.get(states, webhook.id, true)}
     end)
   end
 

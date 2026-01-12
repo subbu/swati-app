@@ -21,6 +21,7 @@ defmodule Swati.Agents.Agent do
 
     has_many :versions, Swati.Agents.AgentVersion
     has_many :agent_integrations, Swati.Agents.AgentIntegration
+    has_many :agent_webhooks, Swati.Agents.AgentWebhook
     has_many :avatars, Swati.Agents.AgentAvatar
 
     timestamps()

@@ -49,6 +49,25 @@ Response example:
       "allowed_tools": ["search", "get_customer"]
     }
   ],
+  "webhooks": [
+    {
+      "id": "...",
+      "name": "Create ticket",
+      "tool_name": "create_ticket",
+      "description": "Open a support ticket",
+      "endpoint": "https://.../tickets",
+      "http_method": "post",
+      "timeout_secs": 15,
+      "status": "active",
+      "headers": {"x-api-key": "********"},
+      "input_schema": {
+        "type": "object",
+        "properties": {"subject": {"type": "string"}},
+        "required": ["subject"]
+      },
+      "auth": {"type": "bearer", "token": "..."}
+    }
+  ],
   "logging": {
     "recording": {
       "enabled": true,
@@ -62,8 +81,8 @@ Response example:
 ```
 
 Notes:
-- `tool_policy.allow` defaults to the union of `allowed_tools` from enabled integrations when the agent allowlist is empty.
-- If the agent allowlist is set, the response filters it to tools present in the enabled integrations.
+- `tool_policy.allow` defaults to the union of `allowed_tools` from enabled integrations and webhook tool names when the agent allowlist is empty.
+- If the agent allowlist is set, the response filters it to tools present in the enabled integrations and webhooks.
 
 ### Call lifecycle
 

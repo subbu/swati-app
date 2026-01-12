@@ -5,6 +5,8 @@ defmodule Swati.Runtime do
   alias Swati.Integrations
   alias Swati.Integrations.Serialization
   alias Swati.RuntimeConfig
+  alias Swati.Webhooks
+  alias Swati.Webhooks.Serialization, as: WebhookSerialization
   alias Swati.Telephony
   alias Swati.Tenancy
 
@@ -27,11 +29,17 @@ defmodule Swati.Runtime do
 
           version ->
             integrations = Integrations.list_integrations_with_secrets(tenant.id, agent.id)
-            tool_policy = ToolPolicy.effective(version.config, integrations)
+            webhooks = Webhooks.list_webhooks_with_secrets(tenant.id, agent.id)
+            tool_policy = ToolPolicy.effective(version.config, integrations, webhooks)
 
             integrations_json =
               Enum.map(integrations, fn {integration, secret} ->
                 Serialization.internal_payload(integration, secret)
+              end)
+
+            webhooks_json =
+              Enum.map(webhooks, fn {webhook, secret} ->
+                WebhookSerialization.internal_payload(webhook, secret)
               end)
 
             {:ok,
@@ -45,6 +53,7 @@ defmodule Swati.Runtime do
                },
                agent: agent_payload(agent, version.config, tool_policy),
                integrations: integrations_json,
+               webhooks: webhooks_json,
                logging: %{
                  recording: %{
                    enabled: true,

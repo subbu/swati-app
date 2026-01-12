@@ -36,7 +36,7 @@ defmodule SwatiWeb.IntegrationsLive.Show do
             </.button>
             <.button
               id="integration-back-button"
-              navigate={~p"/integrations"}
+              navigate={~p"/agent-data"}
               variant="ghost"
             >
               Back

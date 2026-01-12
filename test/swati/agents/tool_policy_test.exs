@@ -3,6 +3,7 @@ defmodule Swati.Agents.ToolPolicyTest do
 
   alias Swati.Agents.ToolPolicy
   alias Swati.Integrations.Integration
+  alias Swati.Webhooks.Webhook
 
   test "normalize fills defaults and coerces types" do
     assert %{
@@ -36,7 +37,7 @@ defmodule Swati.Agents.ToolPolicyTest do
 
     integration = %Integration{allowed_tools: ["search", "create", "other"]}
 
-    policy = ToolPolicy.effective(base_config, [{integration, nil}])
+    policy = ToolPolicy.effective(base_config, [{integration, nil}], [])
 
     assert policy["allow"] == ["search"]
     assert policy["deny"] == ["create"]
@@ -46,7 +47,7 @@ defmodule Swati.Agents.ToolPolicyTest do
   test "effective policy uses base allowlist when integrations empty" do
     base_config = %{"tool_policy" => %{"allow" => ["search"], "deny" => []}}
 
-    policy = ToolPolicy.effective(base_config, [])
+    policy = ToolPolicy.effective(base_config, [], [])
 
     assert policy["allow"] == ["search"]
     assert policy["deny"] == []
@@ -57,9 +58,21 @@ defmodule Swati.Agents.ToolPolicyTest do
     base_config = %{"tool_policy" => %{"allow" => [], "deny" => []}}
     integration = %Integration{allowed_tools: ["lookup"], tool_prefix: "crm"}
 
-    policy = ToolPolicy.effective(base_config, [{integration, nil}])
+    policy = ToolPolicy.effective(base_config, [{integration, nil}], [])
 
     assert policy["allow"] == ["crm/lookup"]
+    assert policy["deny"] == []
+    assert policy["max_calls_per_turn"] == 3
+  end
+
+  test "effective policy unions integrations and webhooks" do
+    base_config = %{"tool_policy" => %{"allow" => [], "deny" => []}}
+    integration = %Integration{allowed_tools: ["search"]}
+    webhook = %Webhook{tool_name: "create_ticket"}
+
+    policy = ToolPolicy.effective(base_config, [{integration, nil}], [{webhook, nil}])
+
+    assert Enum.sort(policy["allow"]) == ["create_ticket", "search"]
     assert policy["deny"] == []
     assert policy["max_calls_per_turn"] == 3
   end
