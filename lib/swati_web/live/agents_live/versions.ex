@@ -2,6 +2,7 @@ defmodule SwatiWeb.AgentsLive.Versions do
   use SwatiWeb, :live_view
 
   alias Swati.Agents
+  alias SwatiWeb.Formatting
 
   @impl true
   def render(assigns) do
@@ -25,7 +26,7 @@ defmodule SwatiWeb.AgentsLive.Versions do
           <.table_body>
             <.table_row :for={version <- @versions}>
               <:cell>v{version.version}</:cell>
-              <:cell>{format_datetime(version.published_at)}</:cell>
+              <:cell>{format_datetime(version.published_at, @current_scope.tenant)}</:cell>
               <:cell class="text-xs text-base-content/60">
                 {map_size(version.config || %{})} keys
               </:cell>
@@ -45,9 +46,9 @@ defmodule SwatiWeb.AgentsLive.Versions do
     {:ok, assign(socket, agent: agent, versions: versions)}
   end
 
-  defp format_datetime(nil), do: "—"
+  defp format_datetime(nil, _tenant), do: "—"
 
-  defp format_datetime(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%b %-d, %Y %H:%M")
+  defp format_datetime(%DateTime{} = dt, tenant) do
+    Formatting.datetime(dt, tenant)
   end
 end

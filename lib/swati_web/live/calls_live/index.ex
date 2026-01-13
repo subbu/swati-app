@@ -124,6 +124,14 @@ defmodule SwatiWeb.CallsLive.Index do
                     />
                   </div>
                   <div class="flex items-center justify-between mt-3">
+                    <.label for="age" class="text-foreground">Age</.label>
+                    <.switch
+                      id="age"
+                      field={f[:age]}
+                      value={@visible_columns |> Enum.member?("age")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
                     <.label for="from_number" class="text-foreground">From</.label>
                     <.switch
                       id="from_number"
@@ -182,6 +190,7 @@ defmodule SwatiWeb.CallsLive.Index do
                     Started <CallsHelpers.sort_icon column="started_at" sort={@sort} />
                   </button>
                 </:col>
+                <:col :if={"age" in @visible_columns} class="py-2">Age</:col>
                 <:col
                   :if={"from_number" in @visible_columns}
                   class="py-2"
@@ -252,7 +261,7 @@ defmodule SwatiWeb.CallsLive.Index do
                   <:cell :if={"started_at" in @visible_columns} class="py-2 align-middle">
                     <div class="flex items-center">
                       <span class="text-foreground">
-                        {CallsHelpers.format_datetime(call.started_at)}
+                        {CallsHelpers.format_datetime(call.started_at, @current_scope.tenant)}
                       </span>
                       <.icon
                         name="hero-chevron-right"
@@ -260,14 +269,17 @@ defmodule SwatiWeb.CallsLive.Index do
                       />
                     </div>
                   </:cell>
+                  <:cell :if={"age" in @visible_columns} class="py-2 align-middle">
+                    {CallsHelpers.format_relative(call.started_at, @current_scope.tenant)}
+                  </:cell>
                   <:cell :if={"from_number" in @visible_columns} class="py-2 align-middle">
                     <span class="font-medium text-foreground">
-                      {CallsHelpers.format_phone(call.from_number)}
+                      {CallsHelpers.format_phone(call.from_number, @current_scope.tenant)}
                     </span>
                   </:cell>
                   <:cell :if={"to_number" in @visible_columns} class="py-2 align-middle">
                     <span class="font-medium text-foreground">
-                      {CallsHelpers.format_phone(call.to_number)}
+                      {CallsHelpers.format_phone(call.to_number, @current_scope.tenant)}
                     </span>
                   </:cell>
                   <:cell :if={"duration_seconds" in @visible_columns} class="py-2 align-middle">
@@ -339,7 +351,7 @@ defmodule SwatiWeb.CallsLive.Index do
     sort = %{column: "started_at", direction: "desc"}
 
     visible_columns =
-      ~w(direction started_at from_number to_number duration_seconds status agent_id)
+      ~w(direction started_at age from_number to_number duration_seconds status agent_id)
 
     calls = Calls.list_calls(tenant.id, Map.put(filters, "sort", sort))
 
@@ -355,6 +367,7 @@ defmodule SwatiWeb.CallsLive.Index do
        to_form(%{
          "direction" => true,
          "started_at" => true,
+         "age" => true,
          "from_number" => true,
          "to_number" => true,
          "duration_seconds" => true,

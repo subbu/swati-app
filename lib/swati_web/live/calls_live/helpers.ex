@@ -2,6 +2,8 @@ defmodule SwatiWeb.CallsLive.Helpers do
   @moduledoc false
   use Phoenix.Component
 
+  alias SwatiWeb.Formatting
+
   def status_options do
     [
       {"All", ""},
@@ -18,15 +20,49 @@ defmodule SwatiWeb.CallsLive.Helpers do
     [{"All", ""} | Enum.map(agents, fn agent -> {agent.name, agent.id} end)]
   end
 
-  def format_datetime(nil), do: "—"
+  def format_datetime(nil, _tenant), do: "—"
 
-  def format_datetime(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%b %-d, %Y %H:%M")
+  def format_datetime(%DateTime{} = dt, tenant) do
+    Formatting.datetime(dt, tenant)
   end
 
-  def format_phone(nil), do: "—"
-  def format_phone(""), do: "—"
-  def format_phone(number), do: number
+  def format_phone(nil, _tenant), do: "—"
+  def format_phone("", _tenant), do: "—"
+
+  def format_phone(number, tenant) do
+    Formatting.phone(number, tenant) || "—"
+  end
+
+  def format_relative(nil, _tenant), do: "—"
+
+  def format_relative(%DateTime{} = dt, _tenant) do
+    seconds = max(DateTime.diff(DateTime.utc_now(), dt, :second), 0)
+
+    cond do
+      seconds < 60 ->
+        "just now"
+
+      seconds < 3600 ->
+        minutes = div(seconds, 60)
+        "#{minutes} min#{plural_suffix(minutes)} ago"
+
+      seconds < 86_400 ->
+        hours = div(seconds, 3600)
+        "#{hours} hour#{plural_suffix(hours)} ago"
+
+      seconds < 2_592_000 ->
+        days = div(seconds, 86_400)
+        "#{days} day#{plural_suffix(days)} ago"
+
+      seconds < 31_536_000 ->
+        months = div(seconds, 2_592_000)
+        "#{months} month#{plural_suffix(months)} ago"
+
+      true ->
+        years = div(seconds, 31_536_000)
+        "#{years} year#{plural_suffix(years)} ago"
+    end
+  end
 
   def format_duration(call) do
     seconds = call_duration_seconds(call)
@@ -133,6 +169,9 @@ defmodule SwatiWeb.CallsLive.Helpers do
 
   def sort_icon_class(column, %{column: column}), do: "text-foreground"
   def sort_icon_class(_column, _sort), do: "text-foreground-softest"
+
+  defp plural_suffix(value) when value == 1, do: ""
+  defp plural_suffix(_value), do: "s"
 
   attr :column, :string, required: true
   attr :sort, :map, required: true

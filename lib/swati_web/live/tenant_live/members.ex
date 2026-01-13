@@ -2,6 +2,7 @@ defmodule SwatiWeb.TenantLive.Members do
   use SwatiWeb, :live_view
 
   alias Swati.Accounts
+  alias SwatiWeb.Formatting
 
   @impl true
   def render(assigns) do
@@ -76,7 +77,7 @@ defmodule SwatiWeb.TenantLive.Members do
                   </.badge>
                 </:cell>
                 <:cell class="text-sm text-base-content/70">
-                  {format_date(membership.inserted_at)}
+                  {format_date(membership.inserted_at, @current_scope.tenant)}
                 </:cell>
               </.table_row>
             </.table_body>
@@ -170,8 +171,8 @@ defmodule SwatiWeb.TenantLive.Members do
   defp role_color(:viewer), do: "neutral"
   defp role_color(_), do: "primary"
 
-  defp format_date(nil), do: "—"
-  defp format_date(%DateTime{} = dt), do: Calendar.strftime(dt, "%b %-d, %Y")
+  defp format_date(nil, _tenant), do: "—"
+  defp format_date(%DateTime{} = dt, tenant), do: Formatting.date(dt, tenant)
 
   defp unauthorized(socket) do
     socket

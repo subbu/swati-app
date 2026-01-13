@@ -3,6 +3,7 @@ defmodule SwatiWeb.WebhooksLive.Show do
 
   alias Phoenix.LiveView.JS
   alias Swati.Webhooks
+  alias SwatiWeb.Formatting
 
   @impl true
   def render(assigns) do
@@ -58,7 +59,7 @@ defmodule SwatiWeb.WebhooksLive.Show do
                 {test_status_label(@webhook.last_test_status)}
               </.badge>
               <span class="text-xs text-base-content/60">
-                {last_test_label(@webhook.last_tested_at)}
+                {last_test_label(@webhook.last_tested_at, @current_scope.tenant)}
               </span>
             </div>
           </section>
@@ -163,7 +164,7 @@ defmodule SwatiWeb.WebhooksLive.Show do
                   {test_status_label(@webhook.last_test_status)}
                 </.badge>
                 <span class="text-xs text-base-content/60">
-                  {last_test_label(@webhook.last_tested_at)}
+                  {last_test_label(@webhook.last_tested_at, @current_scope.tenant)}
                 </span>
               </div>
               <p class="text-sm text-base-content/70">{health_summary(@webhook.last_test_status)}</p>
@@ -400,13 +401,13 @@ defmodule SwatiWeb.WebhooksLive.Show do
   defp health_summary(nil), do: "Run a test to validate the webhook."
   defp health_summary(_), do: "Review the latest test result."
 
-  defp last_test_label(nil), do: "Not tested yet"
+  defp last_test_label(nil, _tenant), do: "Not tested yet"
 
-  defp last_test_label(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%b %-d, %Y %H:%M")
+  defp last_test_label(%DateTime{} = dt, tenant) do
+    Formatting.datetime(dt, tenant)
   end
 
-  defp last_test_label(_), do: "Not tested yet"
+  defp last_test_label(_, _tenant), do: "Not tested yet"
 
   defp auth_label(:bearer), do: "Bearer token"
   defp auth_label("bearer"), do: "Bearer token"

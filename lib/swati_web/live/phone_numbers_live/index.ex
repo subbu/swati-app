@@ -4,6 +4,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
   alias Swati.Agents
   alias Swati.Avatars
   alias Swati.Telephony
+  alias SwatiWeb.Formatting
 
   @default_country_iso "IN"
   @simulate_flag :simulate_number_purchase
@@ -32,7 +33,9 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
           </.table_head>
           <.table_body>
             <.table_row :for={number <- @phone_numbers} id={"phone-number-#{number.id}"}>
-              <:cell class="font-medium">{format_number(number.e164)}</:cell>
+              <:cell class="font-medium">
+                {format_number(number.e164, @current_scope.tenant)}
+              </:cell>
               <:cell>
                 <.badge color={status_color(number.status)} variant="soft">{number.status}</.badge>
               </:cell>
@@ -197,7 +200,9 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
                 >
                   <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div class="space-y-1">
-                      <p class="text-base font-semibold">{format_number(number.number)}</p>
+                      <p class="text-base font-semibold">
+                        {format_number(number.number, @current_scope.tenant)}
+                      </p>
                       <p class="text-xs text-base-content/60">
                         {number.city || ""}
                         <%= if number.city && number.region do %>
@@ -271,7 +276,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
             <div>
               <h3 class="text-lg font-semibold">Assign agent</h3>
               <p class="text-sm text-base-content/70">
-                {assign_sheet_title(@assign_target)}
+                {assign_sheet_title(@assign_target, @current_scope.tenant)}
               </p>
             </div>
             <div class="flex items-center gap-2">
@@ -407,7 +412,7 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
           </div>
 
           <p class="text-zinc-500 dark:text-zinc-400 mt-2">
-            {format_number(Map.get(@purchase_summary || %{}, :number))}
+            {format_number(Map.get(@purchase_summary || %{}, :number), @current_scope.tenant)}
             <%= if Map.get(@purchase_summary || %{}, :region) ||
                    Map.get(@purchase_summary || %{}, :country) do %>
               <span>·</span>
@@ -965,10 +970,10 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
     end
   end
 
-  defp assign_sheet_title(nil), do: "Select a phone number."
+  defp assign_sheet_title(nil, _tenant), do: "Select a phone number."
 
-  defp assign_sheet_title(number) do
-    "Number #{format_number(number.e164)}"
+  defp assign_sheet_title(number, tenant) do
+    "Number #{format_number(number.e164, tenant)}"
   end
 
   defp city_options do
@@ -1005,45 +1010,10 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
   defp format_reason(%{message: message}) when is_binary(message), do: message
   defp format_reason(_reason), do: "unexpected error"
 
-  defp format_number(nil), do: "—"
+  defp format_number(nil, _tenant), do: "—"
 
-  defp format_number(value) when is_binary(value) do
-    trimmed = String.trim(value)
-    prefix = if String.starts_with?(trimmed, "+"), do: "+", else: ""
-    digits = String.replace(trimmed, ~r/[^0-9]/, "")
-
-    if String.length(digits) == 12 and String.starts_with?(digits, "91") do
-      country = String.slice(digits, 0, 2)
-      area = String.slice(digits, 2, 2)
-      block1 = String.slice(digits, 4, 4)
-      block2 = String.slice(digits, 8, 4)
-      "+#{country} #{area} #{block1} #{block2}"
-    else
-      format_number_fallback(prefix, digits)
-    end
-  end
-
-  defp format_number_fallback(prefix, digits) do
-    if String.length(digits) <= 4 do
-      prefix <> digits
-    else
-      {rest, last4} = String.split_at(digits, -4)
-      groups = chunk_from_right(rest, 3)
-
-      [prefix <> Enum.join(groups, " "), last4]
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.join(" ")
-    end
-  end
-
-  defp chunk_from_right(value, size) do
-    value
-    |> String.graphemes()
-    |> Enum.reverse()
-    |> Enum.chunk_every(size)
-    |> Enum.map(&Enum.reverse/1)
-    |> Enum.reverse()
-    |> Enum.map(&Enum.join/1)
+  defp format_number(value, tenant) do
+    Formatting.phone(value, tenant) || "—"
   end
 
   defp status_color(:active), do: "success"

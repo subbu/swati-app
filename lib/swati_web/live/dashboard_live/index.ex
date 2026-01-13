@@ -3,6 +3,7 @@ defmodule SwatiWeb.DashboardLive.Index do
 
   alias Swati.Agents
   alias Swati.Calls.Dashboard
+  alias SwatiWeb.Formatting
 
   @impl true
   def render(assigns) do
@@ -404,7 +405,7 @@ defmodule SwatiWeb.DashboardLive.Index do
               >
                 <div class="outlier-card__item-content">
                   <span class="outlier-card__item-date">
-                    {format_datetime_short(call.started_at)}
+                    {format_datetime_short(call.started_at, @current_scope.tenant)}
                   </span>
                   <span class="outlier-card__item-value">
                     {format_duration_long(call.duration_seconds)}
@@ -437,7 +438,9 @@ defmodule SwatiWeb.DashboardLive.Index do
                 navigate={~p"/calls/#{call.id}"}
                 class="outlier-card__item"
               >
-                <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
+                <span class="outlier-card__item-date">
+                  {format_datetime_short(call.started_at, @current_scope.tenant)}
+                </span>
                 <span class="outlier-card__item-value text-xs">{call.from_number}</span>
               </.link>
               <div :if={@stats.outliers.zero_duration_ended == []} class="outlier-card__empty">
@@ -460,7 +463,9 @@ defmodule SwatiWeb.DashboardLive.Index do
                 navigate={~p"/calls/#{call.id}"}
                 class="outlier-card__item"
               >
-                <span class="outlier-card__item-date">{format_datetime_short(call.started_at)}</span>
+                <span class="outlier-card__item-date">
+                  {format_datetime_short(call.started_at, @current_scope.tenant)}
+                </span>
                 <span class="outlier-card__item-value" style="color: var(--dash-accent-red)">
                   {stuck_duration(call)}
                 </span>
@@ -653,10 +658,10 @@ defmodule SwatiWeb.DashboardLive.Index do
     end
   end
 
-  defp format_datetime_short(nil), do: "—"
+  defp format_datetime_short(nil, _tenant), do: "—"
 
-  defp format_datetime_short(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%b %d %H:%M")
+  defp format_datetime_short(%DateTime{} = dt, tenant) do
+    Formatting.datetime_short(dt, tenant)
   end
 
   defp stuck_duration(call) do

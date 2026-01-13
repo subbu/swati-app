@@ -6,6 +6,7 @@ defmodule SwatiWeb.AgentsLive.Form do
   alias Swati.Avatars
   alias Swati.Integrations
   alias Swati.Webhooks
+  alias SwatiWeb.Formatting
 
   @impl true
   def render(assigns) do
@@ -62,7 +63,9 @@ defmodule SwatiWeb.AgentsLive.Form do
                   </div>
                   <div>
                     <p class="text-sm font-medium">{avatar_status_label(@avatar)}</p>
-                    <p class="text-xs text-base-content/60">{avatar_subtitle(@avatar)}</p>
+                    <p class="text-xs text-base-content/60">
+                      {avatar_subtitle(@avatar, @current_scope.tenant)}
+                    </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -504,18 +507,19 @@ defmodule SwatiWeb.AgentsLive.Form do
   defp avatar_status_label(%{status: :ready}), do: "Avatar ready"
   defp avatar_status_label(_avatar), do: "Avatar pending"
 
-  defp avatar_subtitle(nil), do: "Generate a sticker-style avatar via Replicate."
+  defp avatar_subtitle(nil, _tenant), do: "Generate a sticker-style avatar via Replicate."
 
-  defp avatar_subtitle(%{status: :ready, generated_at: %DateTime{} = generated_at}) do
-    "Generated #{Calendar.strftime(generated_at, "%b %-d, %Y %H:%M")}"
+  defp avatar_subtitle(%{status: :ready, generated_at: %DateTime{} = generated_at}, tenant) do
+    "Generated #{Formatting.datetime(generated_at, tenant)}"
   end
 
-  defp avatar_subtitle(%{status: :failed, error: error}) when is_binary(error) and error != "" do
+  defp avatar_subtitle(%{status: :failed, error: error}, _tenant)
+       when is_binary(error) and error != "" do
     avatar_error_message(error)
   end
 
-  defp avatar_subtitle(%{status: :failed}), do: "Try again to regenerate."
-  defp avatar_subtitle(_avatar), do: "Background job running."
+  defp avatar_subtitle(%{status: :failed}, _tenant), do: "Try again to regenerate."
+  defp avatar_subtitle(_avatar, _tenant), do: "Background job running."
 
   defp avatar_error_message(message) do
     if avatar_auth_error?(message) do

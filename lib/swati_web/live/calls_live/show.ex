@@ -244,7 +244,7 @@ defmodule SwatiWeb.CallsLive.Show do
               <span class="font-medium">{@call.to_number}</span>
             </div>
             <span class="text-foreground-softer/60">•</span>
-            <span>{format_long_datetime(@call.started_at)}</span>
+            <span>{format_long_datetime(@call.started_at, @current_scope.tenant)}</span>
             <span class="text-foreground-softer/60">•</span>
             <span class="font-medium">{format_duration(@call.duration_seconds)}</span>
           </div>
@@ -1739,10 +1739,10 @@ defmodule SwatiWeb.CallsLive.Show do
     end
   end
 
-  defp format_long_datetime(nil), do: "—"
+  defp format_long_datetime(nil, _tenant), do: "—"
 
-  defp format_long_datetime(%DateTime{} = dt) do
-    Calendar.strftime(dt, "%b %-d, %Y • %I:%M %p")
+  defp format_long_datetime(%DateTime{} = dt, tenant) do
+    SwatiWeb.Formatting.datetime_long(dt, tenant)
   end
 
   defp format_duration(nil), do: "0:00"
