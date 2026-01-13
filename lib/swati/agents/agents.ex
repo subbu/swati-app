@@ -109,6 +109,32 @@ defmodule Swati.Agents do
     |> Repo.all()
   end
 
+  def list_agent_integrations_for_integrations(_tenant_id, []), do: []
+
+  def list_agent_integrations_for_integrations(tenant_id, integration_ids) do
+    from(ai in AgentIntegration,
+      join: a in Agent,
+      on: a.id == ai.agent_id,
+      where: a.tenant_id == ^tenant_id,
+      where: ai.integration_id in ^integration_ids,
+      select: {ai.agent_id, ai.integration_id, ai.enabled}
+    )
+    |> Repo.all()
+  end
+
+  def list_agent_webhooks_for_webhooks(_tenant_id, []), do: []
+
+  def list_agent_webhooks_for_webhooks(tenant_id, webhook_ids) do
+    from(aw in AgentWebhook,
+      join: a in Agent,
+      on: a.id == aw.agent_id,
+      where: a.tenant_id == ^tenant_id,
+      where: aw.webhook_id in ^webhook_ids,
+      select: {aw.agent_id, aw.webhook_id, aw.enabled}
+    )
+    |> Repo.all()
+  end
+
   def list_agent_webhooks(agent_id) do
     from(aw in AgentWebhook, where: aw.agent_id == ^agent_id, preload: [:webhook])
     |> Repo.all()

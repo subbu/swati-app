@@ -3,6 +3,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
 
   alias Swati.Integrations
   alias Swati.Integrations.Integration
+  alias Swati.Agents
   alias Swati.Webhooks
   alias Swati.Webhooks.Webhook
 
@@ -129,6 +130,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
                 :for={integration <- @integrations}
                 integration={integration}
                 status_color={status_color(integration.status)}
+                agents={Map.get(@agents_by_integration, integration.id, [])}
               />
             </div>
           <% end %>
@@ -215,12 +217,20 @@ defmodule SwatiWeb.AgentDataLive.Index do
                 </p>
               <% else %>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <.webhook_card :for={webhook <- @filtered_webhooks} webhook={webhook} />
+                  <.webhook_card
+                    :for={webhook <- @filtered_webhooks}
+                    webhook={webhook}
+                    agents={Map.get(@agents_by_webhook, webhook.id, [])}
+                  />
                 </div>
               <% end %>
             <% else %>
               <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <.webhook_card :for={webhook <- @webhooks} webhook={webhook} />
+                <.webhook_card
+                  :for={webhook <- @webhooks}
+                  webhook={webhook}
+                  agents={Map.get(@agents_by_webhook, webhook.id, [])}
+                />
               </div>
             <% end %>
           <% end %>
@@ -272,11 +282,9 @@ defmodule SwatiWeb.AgentDataLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-
     {:ok,
      socket
-     |> assign(:integrations, Integrations.list_integrations(tenant.id))
+     |> load_integrations()
      |> assign(:integration_sheet_open, false)
      |> assign(:integration_form_action, nil)
      |> assign(:integration_form_integration, nil)
@@ -396,7 +404,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
   # Card component for integrations
   defp integration_card(assigns) do
     ~H"""
-    <div class="group relative rounded-xl border border-base-300/60 bg-base-100 p-4 transition-all duration-200 hover:border-base-300 hover:shadow-sm">
+    <div class="group relative flex h-full flex-col rounded-xl border border-base-300/60 bg-base-100 p-4 transition-all duration-200 hover:border-base-300 hover:shadow-sm">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <.link
@@ -405,30 +413,79 @@ defmodule SwatiWeb.AgentDataLive.Index do
           >
             {@integration.name}
           </.link>
-          <p class="mt-0.5 text-xs text-base-content/50">{@integration.type}</p>
+          <div class="mt-0.5 flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center rounded bg-base-200/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/70">
+              {integration_type_label(@integration.type)}
+            </span>
+          </div>
         </div>
         <div class={"flex h-2 w-2 rounded-full ring-4 " <> status_ring_class(@status_color)} />
       </div>
 
-      <div class="mt-4 flex items-center justify-between">
-        <span class="text-xs text-base-content/40">
-          {if @integration.last_test_status, do: @integration.last_test_status, else: "Never tested"}
+      <div class="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-base-content/60">
+        <span class="inline-flex items-center rounded-full bg-base-200/70 px-2 py-0.5">
+          {tools_summary(@integration.allowed_tools)}
         </span>
-        <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            type="button"
-            phx-click="test_integration"
-            phx-value-id={@integration.id}
-            class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-          >
-            Test
-          </button>
-          <.link
-            navigate={~p"/integrations/#{@integration.id}/edit"}
-            class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-          >
-            Edit
-          </.link>
+        <span class="inline-flex items-center rounded-full bg-base-200/70 px-2 py-0.5">
+          Auth: {auth_label(@integration.auth_type)}
+        </span>
+        <span class="inline-flex items-center rounded-full bg-base-200/70 px-2 py-0.5">
+          Timeout: {@integration.timeout_secs}s
+        </span>
+        <%= if present?(@integration.tool_prefix) do %>
+          <span class="inline-flex items-center rounded-full bg-base-200/70 px-2 py-0.5">
+            Prefix: {@integration.tool_prefix}
+          </span>
+        <% end %>
+      </div>
+
+      <div class="mt-2 text-xs text-base-content/40">
+        {if @integration.last_test_status, do: @integration.last_test_status, else: "Never tested"}
+      </div>
+
+      <div class="mt-auto pt-3 space-y-4">
+        <div>
+          <%= if @agents == [] do %>
+            <p class="text-xs text-base-content/50">No agents yet.</p>
+          <% else %>
+            <.separator text="Agents using this" class="my-3" />
+            <% {shown_agents, remaining_agents} = agents_preview(@agents) %>
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span
+                :for={agent_name <- shown_agents}
+                class="inline-flex items-center gap-2 rounded-full bg-base-200/70 px-2 py-1 text-base-content/70"
+              >
+                <span class={"flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold " <>
+                    agent_avatar_class(agent_name)}>
+                  {agent_initial(agent_name)}
+                </span>
+                {agent_name}
+              </span>
+              <%= if remaining_agents > 0 do %>
+                <span class="inline-flex items-center rounded-full bg-base-200/70 px-2 py-1 text-base-content/60">
+                  +{remaining_agents} more
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+        <div class="flex items-center justify-end">
+          <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              phx-click="test_integration"
+              phx-value-id={@integration.id}
+              class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+            >
+              Test
+            </button>
+            <.link
+              navigate={~p"/integrations/#{@integration.id}/edit"}
+              class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+            >
+              Edit
+            </.link>
+          </div>
         </div>
       </div>
     </div>
@@ -438,7 +495,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
   # Card component for webhooks
   defp webhook_card(assigns) do
     ~H"""
-    <div class="group relative rounded-xl border border-base-300/60 bg-base-100 p-4 transition-all duration-200 hover:border-base-300 hover:shadow-sm">
+    <div class="group relative flex h-full flex-col rounded-xl border border-base-300/60 bg-base-100 p-4 transition-all duration-200 hover:border-base-300 hover:shadow-sm">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <.link
@@ -469,25 +526,53 @@ defmodule SwatiWeb.AgentDataLive.Index do
         </div>
       <% end %>
 
-      <div class="mt-4 flex items-center justify-between">
-        <span class="text-xs text-base-content/40">
-          {if @webhook.last_test_status, do: @webhook.last_test_status, else: "Never tested"}
-        </span>
-        <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            type="button"
-            phx-click="test_webhook"
-            phx-value-id={@webhook.id}
-            class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-          >
-            Test
-          </button>
-          <.link
-            patch={~p"/webhooks/#{@webhook.id}/edit"}
-            class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
-          >
-            Edit
-          </.link>
+      <div class="mt-2 text-xs text-base-content/40">
+        {if @webhook.last_test_status, do: @webhook.last_test_status, else: "Never tested"}
+      </div>
+
+      <div class="mt-auto pt-3 space-y-4">
+        <div>
+          <%= if @agents == [] do %>
+            <p class="text-xs text-base-content/50">No agents yet.</p>
+          <% else %>
+            <.separator text="Agents using this" class="my-3" />
+            <% {shown_agents, remaining_agents} = agents_preview(@agents) %>
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span
+                :for={agent_name <- shown_agents}
+                class="inline-flex items-center gap-2 rounded-full bg-base-200/70 px-2 py-1 text-base-content/70"
+              >
+                <span class={"flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold " <>
+                    agent_avatar_class(agent_name)}>
+                  {agent_initial(agent_name)}
+                </span>
+                {agent_name}
+              </span>
+              <%= if remaining_agents > 0 do %>
+                <span class="inline-flex items-center rounded-full bg-base-200/70 px-2 py-1 text-base-content/60">
+                  +{remaining_agents} more
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+        <div class="flex items-center justify-end">
+          <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              phx-click="test_webhook"
+              phx-value-id={@webhook.id}
+              class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+            >
+              Test
+            </button>
+            <.link
+              patch={~p"/webhooks/#{@webhook.id}/edit"}
+              class="rounded-md px-2 py-1 text-xs font-medium text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors"
+            >
+              Edit
+            </.link>
+          </div>
         </div>
       </div>
     </div>
@@ -580,8 +665,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
   end
 
   defp refresh_integrations(socket) do
-    tenant = socket.assigns.current_scope.tenant
-    assign(socket, integrations: Integrations.list_integrations(tenant.id))
+    load_integrations(socket)
   end
 
   defp refresh_webhooks(socket) do
@@ -622,6 +706,10 @@ defmodule SwatiWeb.AgentDataLive.Index do
     tenant = socket.assigns.current_scope.tenant
     webhooks = Webhooks.list_webhooks(tenant.id)
     tag_counts = Webhooks.list_tags_with_counts(tenant.id)
+    agents = Agents.list_agents(tenant.id)
+    webhook_ids = Enum.map(webhooks, & &1.id)
+    states = Agents.list_agent_webhooks_for_webhooks(tenant.id, webhook_ids)
+    agents_by_webhook = agents_by_webhook(webhooks, agents, states)
 
     filtered_webhooks =
       if is_nil(tag_id) do
@@ -635,6 +723,23 @@ defmodule SwatiWeb.AgentDataLive.Index do
     |> assign(:tag_counts, tag_counts)
     |> assign(:selected_tag_id, tag_id)
     |> assign(:filtered_webhooks, filtered_webhooks)
+    |> assign(:agents_by_webhook, agents_by_webhook)
+  end
+
+  defp load_integrations(socket) do
+    tenant = socket.assigns.current_scope.tenant
+    integrations = Integrations.list_integrations(tenant.id)
+    agents = Agents.list_agents(tenant.id)
+    integration_ids = Enum.map(integrations, & &1.id)
+
+    states =
+      Agents.list_agent_integrations_for_integrations(tenant.id, integration_ids)
+
+    agents_by_integration = agents_by_integration(integrations, agents, states)
+
+    socket
+    |> assign(:integrations, integrations)
+    |> assign(:agents_by_integration, agents_by_integration)
   end
 
   # Status indicator ring classes
@@ -657,6 +762,7 @@ defmodule SwatiWeb.AgentDataLive.Index do
   defp tag_filter_style(tag, false) do
     # Unselected: outline style
     bg = color_with_alpha(tag.color, "12")
+
     "background-color: #{bg}; color: #{tag.color}; border: 1px solid #{color_with_alpha(tag.color, "30")};"
   end
 
@@ -720,4 +826,120 @@ defmodule SwatiWeb.AgentDataLive.Index do
   end
 
   defp sort_tags(_tags), do: []
+
+  defp agents_by_integration(integrations, agents, states) do
+    state_map =
+      Enum.reduce(states, %{}, fn {agent_id, integration_id, enabled}, acc ->
+        Map.put(acc, {agent_id, integration_id}, enabled)
+      end)
+
+    sorted_agents = Enum.sort_by(agents, &String.downcase(&1.name))
+
+    integrations
+    |> Enum.map(fn integration ->
+      used_agents =
+        sorted_agents
+        |> Enum.filter(fn agent ->
+          Map.get(state_map, {agent.id, integration.id}, true)
+        end)
+        |> Enum.map(& &1.name)
+
+      {integration.id, used_agents}
+    end)
+    |> Map.new()
+  end
+
+  defp agents_by_webhook(webhooks, agents, states) do
+    state_map =
+      Enum.reduce(states, %{}, fn {agent_id, webhook_id, enabled}, acc ->
+        Map.put(acc, {agent_id, webhook_id}, enabled)
+      end)
+
+    sorted_agents = Enum.sort_by(agents, &String.downcase(&1.name))
+
+    webhooks
+    |> Enum.map(fn webhook ->
+      used_agents =
+        sorted_agents
+        |> Enum.filter(fn agent ->
+          Map.get(state_map, {agent.id, webhook.id}, true)
+        end)
+        |> Enum.map(& &1.name)
+
+      {webhook.id, used_agents}
+    end)
+    |> Map.new()
+  end
+
+  defp agents_preview(agents, limit \\ 3) do
+    shown = Enum.take(agents, limit)
+    remaining = max(length(agents) - length(shown), 0)
+    {shown, remaining}
+  end
+
+  defp agent_initial(name) when is_binary(name) do
+    trimmed = String.trim(name)
+
+    if trimmed == "" do
+      "?"
+    else
+      String.first(trimmed)
+    end
+  end
+
+  defp agent_initial(_), do: "?"
+
+  defp agent_avatar_class(name) do
+    colors = [
+      "bg-red-200/60 text-red-900",
+      "bg-blue-200/60 text-blue-900",
+      "bg-green-200/60 text-green-900",
+      "bg-yellow-200/60 text-yellow-900",
+      "bg-purple-200/60 text-purple-900",
+      "bg-pink-200/60 text-pink-900",
+      "bg-indigo-200/60 text-indigo-900",
+      "bg-teal-200/60 text-teal-900"
+    ]
+
+    index = :erlang.phash2(name) |> rem(length(colors))
+    Enum.at(colors, index)
+  end
+
+  defp integration_type_label(:mcp_streamable_http), do: "MCP"
+  defp integration_type_label("mcp_streamable_http"), do: "MCP"
+
+  defp integration_type_label(value) when is_atom(value),
+    do: value |> Atom.to_string() |> integration_type_label()
+
+  defp integration_type_label(value) when is_binary(value) do
+    value
+    |> String.split("_")
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
+
+  defp tools_summary(allowed_tools) do
+    tools =
+      allowed_tools
+      |> List.wrap()
+      |> Enum.map(&to_string/1)
+      |> Enum.reject(&(&1 == ""))
+
+    if tools == [] do
+      "Tools: All"
+    else
+      "Tools: #{length(tools)}"
+    end
+  end
+
+  defp auth_label(:bearer), do: "Bearer"
+  defp auth_label("bearer"), do: "Bearer"
+  defp auth_label(:none), do: "None"
+  defp auth_label("none"), do: "None"
+  defp auth_label(value) when is_atom(value), do: value |> Atom.to_string() |> auth_label()
+  defp auth_label(value) when is_binary(value), do: String.capitalize(value)
+
+  defp present?(nil), do: false
+  defp present?(value) when is_binary(value), do: String.trim(value) != ""
+  defp present?(_), do: true
 end
