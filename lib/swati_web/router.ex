@@ -84,7 +84,7 @@ defmodule SwatiWeb.Router do
       live "/agents/:id/edit", AgentsLive.Form, :edit
       live "/agents/:id/versions", AgentsLive.Versions, :index
       live "/agent-data", AgentDataLive.Index, :index
-      live "/integrations/new", IntegrationsLive.Form, :new
+      live "/integrations/new", AgentDataLive.Index, :new_integration
       live "/integrations/:id/edit", IntegrationsLive.Form, :edit
       live "/integrations/:id", IntegrationsLive.Show, :show
       live "/webhooks/new", AgentDataLive.Index, :new_webhook
