@@ -131,6 +131,65 @@ defmodule SwatiWeb.DashboardLive.Index do
           />
         </section>
 
+        <%!-- Timeline Chart --%>
+        <section class="dashboard-card timeline-card mb-6" data-animate>
+          <div class="timeline-card__month">{@timeline_month}</div>
+          <div class="timeline-card__days" role="list">
+            <%= for day <- @timeline_days do %>
+              <div
+                class={[
+                  "timeline-day",
+                  day.state == :active && "timeline-day--active",
+                  day.state == :muted && "timeline-day--muted",
+                  day.state == :faded && "timeline-day--faded"
+                ]}
+                role="listitem"
+              >
+                <span class="timeline-day__date">{day.date}</span>
+                <span class="timeline-day__label">{day.label}</span>
+              </div>
+            <% end %>
+          </div>
+          <div class="timeline-card__chart">
+            <div class="timeline-card__y-axis">
+              <%= for label <- @stats.timeline_chart.y_labels do %>
+                <span>{label}</span>
+              <% end %>
+            </div>
+            <div class="timeline-card__plot">
+              <canvas
+                id="timeline-chart"
+                phx-hook="TimelineChart"
+                data-chart-data={Jason.encode!(@stats.timeline_chart)}
+              />
+              <div class="timeline-card__marker" style="--marker-left: 66%;">
+                <div class="timeline-card__marker-line"></div>
+                <div class="timeline-card__callout">
+                  <div class="timeline-card__callout-bar">
+                    <span class="timeline-card__callout-chip timeline-card__callout-chip--green">
+                    </span>
+                    <span class="timeline-card__callout-chip timeline-card__callout-chip--red"></span>
+                  </div>
+                  <div class="timeline-card__callout-time" data-timeline-time>00:00:00</div>
+                  <div class="timeline-card__callout-meta">
+                    <span data-timeline-label>--</span>
+                    <span data-timeline-actual>0h</span>
+                  </div>
+                  <div class="timeline-card__callout-meta timeline-card__callout-meta--muted">
+                    <span>Trend</span>
+                    <span data-timeline-trend>0h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="timeline-card__x-axis">
+            <%= for label <- @stats.timeline_chart.labels do %>
+              <span class="timeline-card__x-label">{label}</span>
+            <% end %>
+          </div>
+        </section>
+
         <%!-- Main Charts Row --%>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <%!-- Calls Trend --%>
@@ -543,6 +602,8 @@ defmodule SwatiWeb.DashboardLive.Index do
     {start_date, end_date} = parse_date_range(date_range)
 
     stats = Dashboard.get_dashboard_stats(tenant.id, start_date: start_date, end_date: end_date)
+    timeline_days = build_timeline_days(end_date)
+    timeline_month = timeline_month_label(end_date)
 
     {:ok,
      socket
@@ -550,6 +611,8 @@ defmodule SwatiWeb.DashboardLive.Index do
      |> assign(:date_range, date_range)
      |> assign(:selected_agent_id, nil)
      |> assign(:stats, stats)
+     |> assign(:timeline_days, timeline_days)
+     |> assign(:timeline_month, timeline_month)
      |> assign(:filter_form, to_form(%{}))}
   end
 
@@ -568,7 +631,9 @@ defmodule SwatiWeb.DashboardLive.Index do
     {:noreply,
      socket
      |> assign(:date_range, range)
-     |> assign(:stats, stats)}
+     |> assign(:stats, stats)
+     |> assign(:timeline_days, build_timeline_days(end_date))
+     |> assign(:timeline_month, timeline_month_label(end_date))}
   end
 
   @impl true
@@ -628,6 +693,37 @@ defmodule SwatiWeb.DashboardLive.Index do
       nil -> "All agents"
       agent -> agent.name
     end
+  end
+
+  defp build_timeline_days(%DateTime{} = end_date, count \\ 15) do
+    active_date = DateTime.to_date(end_date)
+
+    (count - 1)..0
+    |> Enum.map(fn offset ->
+      date = Date.add(active_date, -offset)
+
+      %{
+        date: date.day |> Integer.to_string() |> String.pad_leading(2, "0"),
+        label: Calendar.strftime(date, "%a"),
+        state: timeline_day_state(date, active_date)
+      }
+    end)
+  end
+
+  defp timeline_day_state(date, active_date) do
+    cond do
+      date == active_date -> :active
+      weekend?(date) -> :muted
+      true -> :normal
+    end
+  end
+
+  defp weekend?(date) do
+    Date.day_of_week(date) in [6, 7]
+  end
+
+  defp timeline_month_label(%DateTime{} = end_date) do
+    Calendar.strftime(DateTime.to_date(end_date), "%B %Y")
   end
 
   defp format_duration_short(nil), do: "—"

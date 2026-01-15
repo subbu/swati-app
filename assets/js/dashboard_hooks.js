@@ -20,6 +20,23 @@ const waitForDimensions = (el, maxAttempts = 10) => {
   });
 };
 
+const formatDuration = (seconds) => {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
+const formatHours = (value) => {
+  const hours = Number(value) || 0;
+  const rounded = hours.toFixed(1);
+  const label = rounded.endsWith(".0") ? String(Math.round(hours)) : rounded;
+
+  return `${label}h`;
+};
+
 // Custom plugin for glowing effect on hover
 const glowPlugin = {
   id: "glow",
@@ -276,6 +293,160 @@ export const CallsTrendChart = {
   destroyed() {
     this.resizeObserver?.disconnect();
     this.chart?.destroy();
+  },
+};
+
+export const TimelineChart = {
+  async mounted() {
+    await waitForDimensions(this.el);
+    this.captureCalloutElements();
+    this.chartData = this.parseChartData();
+    this.chart = this.createChart();
+    this.setInitialCallout();
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.chart) {
+        this.chart.resize();
+        if (this.lastIndex != null) this.updateCallout(this.lastIndex);
+      }
+    });
+    this.resizeObserver.observe(this.el.parentElement);
+  },
+
+  updated() {
+    this.recreateChart();
+  },
+
+  destroyed() {
+    this.resizeObserver?.disconnect();
+    this.chart?.destroy();
+  },
+
+  parseChartData() {
+    return JSON.parse(this.el.dataset.chartData || "{}");
+  },
+
+  captureCalloutElements() {
+    const plot = this.el.closest(".timeline-card__plot");
+    this.markerEl = plot?.querySelector(".timeline-card__marker");
+    this.timeEl = plot?.querySelector("[data-timeline-time]");
+    this.labelEl = plot?.querySelector("[data-timeline-label]");
+    this.actualEl = plot?.querySelector("[data-timeline-actual]");
+    this.trendEl = plot?.querySelector("[data-timeline-trend]");
+  },
+
+  recreateChart() {
+    if (this.chart) this.chart.destroy();
+    this.captureCalloutElements();
+    this.chartData = this.parseChartData();
+    this.chart = this.createChart();
+    this.setInitialCallout();
+  },
+
+  setInitialCallout() {
+    const values = this.chartData.values || [];
+    if (!values.length) return;
+
+    let maxIndex = 0;
+    values.forEach((value, idx) => {
+      if (value > values[maxIndex]) maxIndex = idx;
+    });
+
+    this.updateCallout(maxIndex);
+  },
+
+  updateCallout(index) {
+    const labels = this.chartData.labels || [];
+    const totals = this.chartData.totals || [];
+    const trendTotals = this.chartData.trend_totals || [];
+    const values = this.chartData.values || [];
+    const trendValues = this.chartData.trend_values || [];
+
+    if (!labels[index]) return;
+
+    this.lastIndex = index;
+
+    if (this.timeEl) {
+      this.timeEl.textContent = formatDuration(totals[index] || 0);
+    }
+
+    if (this.labelEl) this.labelEl.textContent = labels[index];
+    if (this.actualEl) this.actualEl.textContent = formatHours(values[index]);
+    if (this.trendEl) this.trendEl.textContent = formatHours(trendValues[index]);
+
+    if (this.chart && this.markerEl) {
+      const meta = this.chart.getDatasetMeta(0);
+      const point = meta?.data?.[index];
+
+      if (point && this.chart.chartArea) {
+        const { left, right } = this.chart.chartArea;
+        const position = ((point.x - left) / (right - left)) * 100;
+        const clamped = Math.min(95, Math.max(5, position));
+        this.markerEl.style.setProperty("--marker-left", `${clamped}%`);
+      }
+    }
+  },
+
+  createChart() {
+    const ctx = this.el.getContext("2d");
+    const data = this.chartData;
+
+    return new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: data.labels || [],
+        datasets: [
+          {
+            label: "Actual",
+            data: data.values || [],
+            borderColor: colors.success,
+            backgroundColor: colors.successFaded,
+            borderWidth: 3,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+          },
+          {
+            label: "Trend",
+            data: data.trend_values || [],
+            borderColor: colors.error,
+            backgroundColor: colors.errorFaded,
+            borderDash: [2, 10],
+            borderWidth: 3,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        onHover: (_event, elements) => {
+          if (elements.length) {
+            this.updateCallout(elements[0].index);
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: {
+            display: false,
+            grid: { display: false },
+            border: { display: false },
+          },
+          y: {
+            display: false,
+            grid: { display: false },
+            border: { display: false },
+            suggestedMax: data.max_hours || undefined,
+          },
+        },
+      },
+    });
   },
 };
 
@@ -849,6 +1020,7 @@ export const AgentLeaderboardChart = {
 export const DashboardHooks = {
   KPISparkline,
   CallsTrendChart,
+  TimelineChart,
   StatusFunnelChart,
   PeakHoursHeatmap,
   DurationBucketsChart,

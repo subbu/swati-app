@@ -27,6 +27,7 @@ defmodule Swati.Calls.Dashboard do
       calls_trend: calculate_calls_trend(calls, start_date, end_date),
       peak_hours_matrix: calculate_peak_hours_matrix(calls),
       popular_times: calculate_popular_times(calls),
+      timeline_chart: calculate_timeline_chart(calls),
       duration_buckets: calculate_duration_buckets(calls),
       top_from_numbers: calculate_top_numbers(calls, :from_number),
       top_to_numbers: calculate_top_numbers(calls, :to_number),
@@ -259,6 +260,106 @@ defmodule Swati.Calls.Dashboard do
 
     %{labels: labels, values: values}
   end
+
+  @doc """
+  Calculate timeline chart data (avg talk time by hour).
+  """
+  def calculate_timeline_chart(calls) do
+    hours = Enum.to_list(7..22)
+
+    totals_by_hour =
+      Enum.reduce(calls, %{}, fn call, acc ->
+        duration = call.duration_seconds || 0
+
+        if call.started_at && duration > 0 do
+          hour = call.started_at.hour
+
+          if hour in hours do
+            Map.update(acc, hour, duration, &(&1 + duration))
+          else
+            acc
+          end
+        else
+          acc
+        end
+      end)
+
+    unique_days =
+      calls
+      |> Enum.filter(& &1.started_at)
+      |> Enum.map(&DateTime.to_date(&1.started_at))
+      |> Enum.uniq()
+      |> length()
+      |> max(1)
+
+    totals =
+      Enum.map(hours, fn hour ->
+        Map.get(totals_by_hour, hour, 0) / unique_days
+      end)
+
+    trend_totals = moving_average(totals, 3)
+
+    values = Enum.map(totals, &Float.round(&1 / 3600, 2))
+    trend_values = Enum.map(trend_totals, &Float.round(&1 / 3600, 2))
+
+    max_hours = compute_max_hours(values, trend_values)
+
+    %{
+      labels: Enum.map(hours, &format_hour_label/1),
+      values: values,
+      trend_values: trend_values,
+      totals: totals,
+      trend_totals: trend_totals,
+      y_labels: build_y_labels(max_hours),
+      max_hours: Float.round(max_hours, 2)
+    }
+  end
+
+  defp moving_average(values, window) when is_list(values) and window > 0 do
+    size = length(values)
+    radius = div(window, 2)
+
+    values
+    |> Enum.with_index()
+    |> Enum.map(fn {_value, idx} ->
+      start_index = max(idx - radius, 0)
+      end_index = min(idx + radius, size - 1)
+      slice = Enum.slice(values, start_index..end_index)
+      Enum.sum(slice) / max(length(slice), 1)
+    end)
+  end
+
+  defp compute_max_hours(values, trend_values) do
+    max_value =
+      [Enum.max(values, fn -> 0 end), Enum.max(trend_values, fn -> 0 end)]
+      |> Enum.max()
+
+    max_value = max(max_value, 1.0)
+    step = if max_value <= 1.5, do: 0.25, else: 0.5
+
+    :math.ceil(max_value / step) * step
+  end
+
+  defp build_y_labels(max_hours) do
+    Enum.map(4..1//-1, fn step ->
+      format_hours_label(max_hours * step / 4)
+    end)
+  end
+
+  defp format_hours_label(value) do
+    rounded = Float.round(value, 1)
+
+    if rounded == Float.round(rounded, 0) do
+      "#{trunc(rounded)}h"
+    else
+      "#{rounded}h"
+    end
+  end
+
+  defp format_hour_label(0), do: "12 am"
+  defp format_hour_label(12), do: "12 pm"
+  defp format_hour_label(hour) when hour < 12, do: "#{hour} am"
+  defp format_hour_label(hour), do: "#{hour - 12} pm"
 
   @doc """
   Calculate duration buckets distribution.
