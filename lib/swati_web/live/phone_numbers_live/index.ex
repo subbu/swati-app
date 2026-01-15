@@ -41,26 +41,77 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
               </:cell>
               <:cell>
                 <%= if agent = agent_for_number(number, @agents_by_id) do %>
-                  <div class="flex items-center gap-3">
-                    <div class="size-9 overflow-hidden rounded-full border border-base-300 bg-base-200">
-                      <%= if avatar_ready?(@avatars_by_agent, agent.id) do %>
-                        <img
-                          class="size-full object-cover"
-                          src={@avatars_by_agent[agent.id].output_url}
-                          alt=""
-                          loading="lazy"
-                        />
-                      <% else %>
-                        <span class="flex size-full items-center justify-center text-xs font-semibold text-base-content/70">
-                          {initials(agent.name)}
-                        </span>
-                      <% end %>
-                    </div>
-                    <div>
-                      <p class="font-medium">{agent.name}</p>
-                      <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
-                    </div>
-                  </div>
+                  <.popover placement="bottom-end" class="w-80 overflow-hidden rounded-2xl">
+                    <.button variant="ghost" class="btn btn-ghost btn-sm w-full justify-start px-0">
+                      <div class="flex items-center gap-3">
+                        <div class="size-9 overflow-hidden rounded-full border border-base-300 bg-base-200">
+                          <%= if avatar_ready?(@avatars_by_agent, agent.id) do %>
+                            <img
+                              class="size-full object-cover"
+                              src={@avatars_by_agent[agent.id].output_url}
+                              alt=""
+                              loading="lazy"
+                            />
+                          <% else %>
+                            <span class="flex size-full items-center justify-center text-xs font-semibold text-base-content/70">
+                              {initials(agent.name)}
+                            </span>
+                          <% end %>
+                        </div>
+                        <div class="text-left">
+                          <p class="font-medium">{agent.name}</p>
+                          <p class="text-xs text-base-content/60">{agent_meta(agent)}</p>
+                        </div>
+                      </div>
+                    </.button>
+                    <:content>
+                      <div class="space-y-3">
+                        <div class="flex items-start gap-3">
+                          <div class="size-14 overflow-hidden rounded-full border border-base-200 bg-base-100">
+                            <%= if avatar_ready?(@avatars_by_agent, agent.id) do %>
+                              <img
+                                class="size-full object-cover"
+                                src={@avatars_by_agent[agent.id].output_url}
+                                alt=""
+                                loading="lazy"
+                              />
+                            <% else %>
+                              <span class="flex size-full items-center justify-center text-sm font-semibold text-base-content/70">
+                                {initials(agent.name)}
+                              </span>
+                            <% end %>
+                          </div>
+                          <div class="min-w-0 space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                              <p class="font-semibold">{agent.name}</p>
+                              <.badge color={status_color(agent.status)} variant="soft">
+                                {agent.status}
+                              </.badge>
+                            </div>
+                            <p class="text-xs text-base-content/60 break-words">
+                              {agent_meta(agent)}
+                            </p>
+                          </div>
+                        </div>
+                        <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+                          <div class="flex items-center gap-2 text-sm font-medium text-base-content/80">
+                            <.icon name="hero-document-text" class="size-4" /> Instructions
+                          </div>
+                          <p class="mt-2 text-xs text-base-content/70 leading-relaxed break-words">
+                            {agent_summary(agent)}
+                          </p>
+                        </div>
+                        <div class="flex justify-end">
+                          <.link
+                            class="text-xs underline text-base-content/60"
+                            navigate={~p"/agents/#{agent.id}/edit"}
+                          >
+                            View profile
+                          </.link>
+                        </div>
+                      </div>
+                    </:content>
+                  </.popover>
                 <% else %>
                   <div class="flex items-center gap-2">
                     <span class="text-sm text-base-content/60">Unassigned</span>
