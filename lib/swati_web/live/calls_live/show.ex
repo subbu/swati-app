@@ -1505,6 +1505,120 @@ defmodule SwatiWeb.CallsLive.Show do
                 },
               };
             </script>
+
+            <script :type={Phoenix.LiveView.ColocatedHook} name=".ToolJsonFormatter">
+              const MAX_PARSE_DEPTH = 3;
+              const MAX_NORMALIZE_DEPTH = 4;
+
+              const looksLikeJson = (value) => {
+                if (!value) return false;
+                const first = value[0];
+                return first === "{" || first === "[" || first === "\"";
+              };
+
+              const decodeEscapedJsonString = (value) => {
+                if (!value.includes("\\\"")) return null;
+
+                try {
+                  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                  return JSON.parse(`"${escaped}"`);
+                } catch (_e) {
+                  return null;
+                }
+              };
+
+              const parseJsonValue = (raw) => {
+                if (typeof raw !== "string") return null;
+
+                let value = raw.trim();
+                if (value === "") return null;
+
+                let depth = 0;
+                while (depth < MAX_PARSE_DEPTH) {
+                  if (!looksLikeJson(value)) return null;
+
+                  try {
+                    const parsed = JSON.parse(value);
+                    if (typeof parsed === "string") {
+                      value = parsed.trim();
+                      depth += 1;
+                      continue;
+                    }
+                    return parsed;
+                  } catch (_e) {
+                    const unescaped = decodeEscapedJsonString(value);
+                    if (typeof unescaped === "string") {
+                      value = unescaped.trim();
+                      depth += 1;
+                      continue;
+                    }
+                    return null;
+                  }
+                }
+
+                return null;
+              };
+
+              const normalizeJsonStrings = (value, depth = 0) => {
+                if (depth > MAX_NORMALIZE_DEPTH) return value;
+
+                if (Array.isArray(value)) {
+                  return value.map((entry) => normalizeJsonStrings(entry, depth + 1));
+                }
+
+                if (value && typeof value === "object") {
+                  return Object.fromEntries(
+                    Object.entries(value).map(([key, val]) => [
+                      key,
+                      normalizeJsonStrings(val, depth + 1),
+                    ]),
+                  );
+                }
+
+                if (typeof value === "string") {
+                  const parsed = parseJsonValue(value);
+                  if (parsed) {
+                    return normalizeJsonStrings(parsed, depth + 1);
+                  }
+                }
+
+                return value;
+              };
+
+              const formatJsonText = (raw) => {
+                const parsed = parseJsonValue(raw);
+                if (!parsed || typeof parsed !== "object") return raw;
+
+                const normalized = normalizeJsonStrings(parsed);
+
+                try {
+                  return JSON.stringify(normalized, null, 2);
+                } catch (_e) {
+                  return raw;
+                }
+              };
+
+              export default {
+                mounted() {
+                  this.format();
+                },
+
+                updated() {
+                  this.format();
+                },
+
+                format() {
+                  const targets = this.el.querySelectorAll("[data-json-pre]");
+                  targets.forEach((el) => {
+                    const raw = el.textContent || "";
+                    const formatted = formatJsonText(raw);
+                    if (formatted && formatted !== raw) {
+                      el.textContent = formatted;
+                    }
+                  });
+                },
+              };
+            </script>
           </section>
 
           <section class="space-y-5">
@@ -1517,7 +1631,7 @@ defmodule SwatiWeb.CallsLive.Show do
               </span>
             </div>
             <div id="transcription-panel" class="space-y-5">
-              <div id="transcript-list" class="space-y-4">
+              <div id="transcript-list" phx-hook=".ToolJsonFormatter" class="space-y-4">
                 <%= if @transcript_items == [] do %>
                   <div class="flex flex-col items-center justify-center py-12 text-center">
                     <.icon
@@ -1637,18 +1751,20 @@ defmodule SwatiWeb.CallsLive.Show do
 
                                 <div class="rounded-lg border border-base-200/80 bg-base-200/40 p-3 space-y-2">
                                   <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
-                                    Parameters
+                                    Invokes
                                   </p>
                                   <pre
+                                    id={"tool-invokes-#{item.id}"}
+                                    data-json-pre
                                     phx-no-curly-interpolation
                                     class="swati-code-block whitespace-pre-wrap text-foreground"
-                                  >{item.args}</pre>
+                                  ><%= tool_detail_text(item.invokes || item.args) %></pre>
                                 </div>
 
                                 <div class="rounded-lg border border-base-200/80 bg-base-200/40 p-3 space-y-2">
                                   <div class="flex items-center justify-between">
                                     <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
-                                      Response
+                                      Results
                                     </p>
                                     <.button
                                       variant="ghost"
@@ -1659,9 +1775,11 @@ defmodule SwatiWeb.CallsLive.Show do
                                     </.button>
                                   </div>
                                   <pre
+                                    id={"tool-results-#{item.id}"}
+                                    data-json-pre
                                     phx-no-curly-interpolation
                                     class="swati-code-block whitespace-pre-wrap text-foreground"
-                                  >{item.response}</pre>
+                                  ><%= tool_detail_text(item.results || item.response) %></pre>
                                 </div>
                               </div>
                             </:panel>
@@ -1962,6 +2080,8 @@ defmodule SwatiWeb.CallsLive.Show do
         duration_ms = if latency > 0, do: latency, else: max(end_ms - start_ms, 0)
 
         id = Map.get(t, :id) || System.unique_integer([:positive])
+        invokes = extract_tool_invokes_from_timeline(t)
+        results = extract_tool_results_from_timeline(t)
 
         %{
           id: "tool-#{id}",
@@ -1969,7 +2089,9 @@ defmodule SwatiWeb.CallsLive.Show do
           name: to_string(Map.get(t, :name) || "tool"),
           status: to_string(Map.get(t, :status) || "succeeded"),
           duration_ms: duration_ms,
-          args: inspect_full(Map.get(t, :args) || %{}),
+          args: tool_detail_text(Map.get(t, :args)),
+          invokes: invokes,
+          results: results,
           response: tool_call_response_text_from_timeline(t),
           offset: format_duration(div(start_ms, 1000)),
           start_ms: start_ms,
@@ -2205,9 +2327,11 @@ defmodule SwatiWeb.CallsLive.Show do
   defp build_tool_item(id, tool_calls, payload, started_at, ts) do
     call_payload = Map.get(tool_calls, id, %{})
     name = map_value(payload, "name", :name) || map_value(call_payload, "name", :name) || "tool"
-    args = map_value(call_payload, "args", :args) || %{}
+    args = map_value(call_payload, "args", :args)
     duration_ms = map_value(payload, "ms", :ms) || 0
     status = if map_value(payload, "isError", :isError), do: "failed", else: "succeeded"
+    invokes = tool_invoke_payload(call_payload)
+    results = tool_result_payload(payload)
 
     # // REPOMARK:SCOPE: 6 - Show full tool args/response (avoid truncation) for non-timeline tool_call/tool_result event path
     call_ts = Map.get(call_payload, "_event_ts") || Map.get(call_payload, :_event_ts)
@@ -2232,7 +2356,9 @@ defmodule SwatiWeb.CallsLive.Show do
       name: name,
       status: status,
       duration_ms: duration_ms,
-      args: inspect_full(args),
+      args: tool_detail_text(args),
+      invokes: invokes,
+      results: results,
       response: tool_response_text(payload),
       offset: format_duration(div(start_ms, 1000)),
       start_ms: start_ms,
@@ -2302,6 +2428,73 @@ defmodule SwatiWeb.CallsLive.Show do
   defp normalize_string(nil), do: ""
   defp normalize_string(value) when is_binary(value), do: String.downcase(value)
   defp normalize_string(value), do: value |> to_string() |> String.downcase()
+
+  defp tool_detail_text(value) do
+    cond do
+      is_nil(value) ->
+        "—"
+
+      is_binary(value) ->
+        text = String.trim(value)
+        if text == "", do: "—", else: text
+
+      is_map(value) or is_list(value) ->
+        case Jason.encode(value) do
+          {:ok, encoded} ->
+            text = String.trim(encoded)
+            if text == "", do: "—", else: text
+
+          _ ->
+            inspect_full(value)
+        end
+
+      true ->
+        to_string(value)
+    end
+  end
+
+  defp tool_invoke_payload(payload) when is_map(payload) do
+    Map.drop(payload, ["_event_ts", :_event_ts])
+  end
+
+  defp tool_invoke_payload(payload), do: payload
+
+  defp tool_result_payload(payload), do: payload
+
+  defp fetch_first_value(map, keys) when is_map(map) do
+    Enum.find_value(keys, fn key ->
+      value = Map.get(map, key)
+      if is_nil(value), do: Map.get(map, to_string(key)), else: value
+    end)
+  end
+
+  defp fetch_first_value(_map, _keys), do: nil
+
+  defp extract_tool_invokes_from_timeline(t) do
+    fetch_first_value(t, [
+      :invokes,
+      :invocations,
+      :invoke,
+      :invocation,
+      :request,
+      :args,
+      :parameters,
+      :params,
+      :input
+    ])
+  end
+
+  defp extract_tool_results_from_timeline(t) do
+    fetch_first_value(t, [
+      :results,
+      :result,
+      :response,
+      :response_text,
+      :raw_response,
+      :output,
+      :response_summary
+    ])
+  end
 
   defp item_dom_id(%{type: :message, dom_index: index}), do: "transcript-item-#{index}"
   defp item_dom_id(%{type: :tool, dom_index: index}), do: "tool-item-#{index}"

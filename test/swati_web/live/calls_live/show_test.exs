@@ -82,4 +82,11 @@ defmodule SwatiWeb.CallsLive.ShowTest do
     assert has_element?(view, "#call-audio")
     assert has_element?(view, "#transcript-list")
   end
+
+  test "shows tool call invoke/result details", %{conn: conn, call: call} do
+    {:ok, view, _html} = live(conn, ~p"/calls/#{call.id}")
+
+    assert has_element?(view, "#tool-invokes-tool-1")
+    assert has_element?(view, "#tool-results-tool-1")
+  end
 end
