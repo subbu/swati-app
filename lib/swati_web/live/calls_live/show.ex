@@ -15,6 +15,7 @@ defmodule SwatiWeb.CallsLive.Show do
         transcript_items={@transcript_items}
         waveform_context_json={@waveform_context_json}
         waveform_duration_ms={@waveform_duration_ms}
+        current_scope={@current_scope}
         back_patch={~p"/calls"}
       />
     </Layouts.app>
@@ -28,6 +29,7 @@ defmodule SwatiWeb.CallsLive.Show do
   attr :transcript_items, :list, required: true
   attr :waveform_context_json, :string, required: true
   attr :waveform_duration_ms, :integer, required: true
+  attr :current_scope, :map, required: true
   attr :back_patch, :string, default: nil
 
   def call_detail(assigns) do

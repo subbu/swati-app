@@ -333,6 +333,7 @@ defmodule SwatiWeb.CallsLive.Index do
             transcript_items={@transcript_items}
             waveform_context_json={@waveform_context_json}
             waveform_duration_ms={@waveform_duration_ms}
+            current_scope={@current_scope}
             back_patch={~p"/calls"}
           />
         <% end %>
