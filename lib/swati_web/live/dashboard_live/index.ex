@@ -136,7 +136,10 @@ defmodule SwatiWeb.DashboardLive.Index do
           <div class="timeline-card__month">{@timeline_month}</div>
           <div class="timeline-card__days" role="list">
             <%= for day <- @timeline_days do %>
-              <div
+              <button
+                type="button"
+                phx-click="select_timeline_day"
+                phx-value-date={day.value}
                 class={[
                   "timeline-day",
                   day.state == :active && "timeline-day--active",
@@ -147,12 +150,12 @@ defmodule SwatiWeb.DashboardLive.Index do
               >
                 <span class="timeline-day__date">{day.date}</span>
                 <span class="timeline-day__label">{day.label}</span>
-              </div>
+              </button>
             <% end %>
           </div>
           <div class="timeline-card__chart">
             <div class="timeline-card__y-axis">
-              <%= for label <- @stats.timeline_chart.y_labels do %>
+              <%= for label <- @timeline_chart.y_labels do %>
                 <span>{label}</span>
               <% end %>
             </div>
@@ -160,7 +163,7 @@ defmodule SwatiWeb.DashboardLive.Index do
               <canvas
                 id="timeline-chart"
                 phx-hook="TimelineChart"
-                data-chart-data={Jason.encode!(@stats.timeline_chart)}
+                data-chart-data={Jason.encode!(@timeline_chart)}
               />
               <div class="timeline-card__marker" style="--marker-left: 66%;">
                 <div class="timeline-card__marker-line"></div>
@@ -184,7 +187,7 @@ defmodule SwatiWeb.DashboardLive.Index do
             </div>
           </div>
           <div class="timeline-card__x-axis">
-            <%= for label <- @stats.timeline_chart.labels do %>
+            <%= for label <- @timeline_chart.labels do %>
               <span class="timeline-card__x-label">{label}</span>
             <% end %>
           </div>
@@ -601,9 +604,14 @@ defmodule SwatiWeb.DashboardLive.Index do
     date_range = "30d"
     {start_date, end_date} = parse_date_range(date_range)
 
-    stats = Dashboard.get_dashboard_stats(tenant.id, start_date: start_date, end_date: end_date)
-    timeline_days = build_timeline_days(end_date)
-    timeline_month = timeline_month_label(end_date)
+    timeline_selected_date = DateTime.to_date(end_date)
+
+    stats =
+      Dashboard.get_dashboard_stats(tenant.id,
+        start_date: start_date,
+        end_date: end_date,
+        timeline_date: timeline_selected_date
+      )
 
     {:ok,
      socket
@@ -611,8 +619,8 @@ defmodule SwatiWeb.DashboardLive.Index do
      |> assign(:date_range, date_range)
      |> assign(:selected_agent_id, nil)
      |> assign(:stats, stats)
-     |> assign(:timeline_days, timeline_days)
-     |> assign(:timeline_month, timeline_month)
+     |> assign(:timeline_chart, stats.timeline_chart)
+     |> assign_timeline(end_date, timeline_selected_date, stats.timeline_dates)
      |> assign(:filter_form, to_form(%{}))}
   end
 
@@ -620,26 +628,29 @@ defmodule SwatiWeb.DashboardLive.Index do
   def handle_event("set_date_range", %{"range" => range}, socket) do
     {start_date, end_date} = parse_date_range(range)
     tenant = socket.assigns.current_scope.tenant
+    timeline_selected_date = DateTime.to_date(end_date)
 
     stats =
       Dashboard.get_dashboard_stats(tenant.id,
         start_date: start_date,
         end_date: end_date,
-        agent_id: socket.assigns.selected_agent_id
+        agent_id: socket.assigns.selected_agent_id,
+        timeline_date: timeline_selected_date
       )
 
     {:noreply,
      socket
      |> assign(:date_range, range)
      |> assign(:stats, stats)
-     |> assign(:timeline_days, build_timeline_days(end_date))
-     |> assign(:timeline_month, timeline_month_label(end_date))}
+     |> assign(:timeline_chart, stats.timeline_chart)
+     |> assign_timeline(end_date, timeline_selected_date, stats.timeline_dates)}
   end
 
   @impl true
   def handle_event("filter", %{"agent_id" => agent_id}, socket) do
     {start_date, end_date} = parse_date_range(socket.assigns.date_range)
     tenant = socket.assigns.current_scope.tenant
+    timeline_selected_date = socket.assigns.timeline_selected_date
 
     agent_id = if agent_id == "", do: nil, else: agent_id
 
@@ -647,18 +658,44 @@ defmodule SwatiWeb.DashboardLive.Index do
       Dashboard.get_dashboard_stats(tenant.id,
         start_date: start_date,
         end_date: end_date,
-        agent_id: agent_id
+        agent_id: agent_id,
+        timeline_date: timeline_selected_date
       )
 
     {:noreply,
      socket
      |> assign(:selected_agent_id, agent_id)
-     |> assign(:stats, stats)}
+     |> assign(:stats, stats)
+     |> assign(:timeline_chart, stats.timeline_chart)
+     |> assign_timeline(end_date, timeline_selected_date, stats.timeline_dates)}
   end
 
   @impl true
   def handle_event("filter", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_timeline_day", %{"date" => date}, socket) do
+    with {:ok, selected_date} <- Date.from_iso8601(date) do
+      {start_date, end_date} = parse_date_range(socket.assigns.date_range)
+      tenant = socket.assigns.current_scope.tenant
+
+      timeline_data =
+        Dashboard.get_timeline_data(tenant.id,
+          start_date: start_date,
+          end_date: end_date,
+          agent_id: socket.assigns.selected_agent_id,
+          timeline_date: selected_date
+        )
+
+      {:noreply,
+       socket
+       |> assign(:timeline_chart, timeline_data.timeline_chart)
+       |> assign_timeline(end_date, selected_date, timeline_data.timeline_dates)}
+    else
+      _ -> {:noreply, socket}
+    end
   end
 
   # Helpers
@@ -695,24 +732,37 @@ defmodule SwatiWeb.DashboardLive.Index do
     end
   end
 
-  defp build_timeline_days(%DateTime{} = end_date, count \\ 15) do
-    active_date = DateTime.to_date(end_date)
+  defp assign_timeline(socket, end_date, selected_date, timeline_dates) do
+    available_dates = MapSet.new(timeline_dates || [])
+
+    socket
+    |> assign(:timeline_selected_date, selected_date)
+    |> assign(:timeline_dates, timeline_dates)
+    |> assign(:timeline_days, build_timeline_days(end_date, selected_date, available_dates))
+    |> assign(:timeline_month, timeline_month_label(selected_date))
+  end
+
+  defp build_timeline_days(%DateTime{} = end_date, selected_date, available_dates, count \\ 15) do
+    selected_date = selected_date || DateTime.to_date(end_date)
+    anchor_date = DateTime.to_date(end_date)
 
     (count - 1)..0
     |> Enum.map(fn offset ->
-      date = Date.add(active_date, -offset)
+      date = Date.add(anchor_date, -offset)
 
       %{
         date: date.day |> Integer.to_string() |> String.pad_leading(2, "0"),
         label: Calendar.strftime(date, "%a"),
-        state: timeline_day_state(date, active_date)
+        value: Date.to_iso8601(date),
+        state: timeline_day_state(date, selected_date, available_dates)
       }
     end)
   end
 
-  defp timeline_day_state(date, active_date) do
+  defp timeline_day_state(date, selected_date, available_dates) do
     cond do
-      date == active_date -> :active
+      date == selected_date -> :active
+      MapSet.size(available_dates) > 0 && !MapSet.member?(available_dates, date) -> :faded
       weekend?(date) -> :muted
       true -> :normal
     end
@@ -722,8 +772,12 @@ defmodule SwatiWeb.DashboardLive.Index do
     Date.day_of_week(date) in [6, 7]
   end
 
-  defp timeline_month_label(%DateTime{} = end_date) do
-    Calendar.strftime(DateTime.to_date(end_date), "%B %Y")
+  defp timeline_month_label(%DateTime{} = date) do
+    Calendar.strftime(DateTime.to_date(date), "%B %Y")
+  end
+
+  defp timeline_month_label(%Date{} = date) do
+    Calendar.strftime(date, "%B %Y")
   end
 
   defp format_duration_short(nil), do: "—"

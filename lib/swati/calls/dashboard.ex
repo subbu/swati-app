@@ -21,19 +21,36 @@ defmodule Swati.Calls.Dashboard do
 
     calls = list_calls_in_range(tenant_id, start_date, end_date, agent_id)
 
+    timeline_date = Keyword.get(opts, :timeline_date)
+
     %{
       kpis: calculate_kpis(calls),
       status_breakdown: calculate_status_breakdown(calls),
       calls_trend: calculate_calls_trend(calls, start_date, end_date),
       peak_hours_matrix: calculate_peak_hours_matrix(calls),
       popular_times: calculate_popular_times(calls),
-      timeline_chart: calculate_timeline_chart(calls),
+      timeline_chart: calculate_timeline_chart(calls, timeline_date),
+      timeline_dates: calculate_timeline_dates(calls),
       duration_buckets: calculate_duration_buckets(calls),
       top_from_numbers: calculate_top_numbers(calls, :from_number),
       top_to_numbers: calculate_top_numbers(calls, :to_number),
       coverage: calculate_coverage(calls),
       outliers: calculate_outliers(calls),
       agent_leaderboard: calculate_agent_leaderboard(tenant_id, calls)
+    }
+  end
+
+  def get_timeline_data(tenant_id, opts \\ []) do
+    start_date = Keyword.get(opts, :start_date, default_start_date())
+    end_date = Keyword.get(opts, :end_date, DateTime.utc_now())
+    agent_id = Keyword.get(opts, :agent_id)
+    timeline_date = Keyword.get(opts, :timeline_date)
+
+    calls = list_calls_in_range(tenant_id, start_date, end_date, agent_id)
+
+    %{
+      timeline_chart: calculate_timeline_chart(calls, timeline_date),
+      timeline_dates: calculate_timeline_dates(calls)
     }
   end
 
@@ -264,8 +281,10 @@ defmodule Swati.Calls.Dashboard do
   @doc """
   Calculate timeline chart data (avg talk time by hour).
   """
-  def calculate_timeline_chart(calls) do
+  def calculate_timeline_chart(calls, timeline_date \\ nil) do
     hours = Enum.to_list(7..22)
+
+    calls = filter_calls_for_date(calls, timeline_date)
 
     totals_by_hour =
       Enum.reduce(calls, %{}, fn call, acc ->
@@ -285,12 +304,16 @@ defmodule Swati.Calls.Dashboard do
       end)
 
     unique_days =
-      calls
-      |> Enum.filter(& &1.started_at)
-      |> Enum.map(&DateTime.to_date(&1.started_at))
-      |> Enum.uniq()
-      |> length()
-      |> max(1)
+      if timeline_date do
+        1
+      else
+        calls
+        |> Enum.filter(& &1.started_at)
+        |> Enum.map(&DateTime.to_date(&1.started_at))
+        |> Enum.uniq()
+        |> length()
+        |> max(1)
+      end
 
     totals =
       Enum.map(hours, fn hour ->
@@ -313,6 +336,21 @@ defmodule Swati.Calls.Dashboard do
       y_labels: build_y_labels(max_hours),
       max_hours: Float.round(max_hours, 2)
     }
+  end
+
+  defp filter_calls_for_date(calls, %Date{} = timeline_date) do
+    Enum.filter(calls, fn call ->
+      call.started_at && DateTime.to_date(call.started_at) == timeline_date
+    end)
+  end
+
+  defp filter_calls_for_date(calls, _timeline_date), do: calls
+
+  defp calculate_timeline_dates(calls) do
+    calls
+    |> Enum.filter(& &1.started_at)
+    |> Enum.map(&DateTime.to_date(&1.started_at))
+    |> Enum.uniq()
   end
 
   defp moving_average(values, window) when is_list(values) and window > 0 do

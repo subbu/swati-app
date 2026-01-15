@@ -625,6 +625,9 @@
     display: grid;
     gap: 2px;
     transition: transform var(--dash-duration-fast) var(--dash-ease-out);
+    appearance: none;
+    cursor: pointer;
+    font: inherit;
 }
 
 .timeline-day__date {
@@ -645,6 +648,17 @@
     border-color: var(--dash-border-interactive);
     box-shadow: var(--dash-shadow-sm);
     transform: translateY(-2px);
+}
+
+.timeline-day:hover {
+    background: var(--dash-surface-1);
+    border-color: var(--dash-border-interactive);
+    transform: translateY(-1px);
+}
+
+.timeline-day:focus-visible {
+    outline: 2px solid var(--dash-accent-blue);
+    outline-offset: 2px;
 }
 
 .timeline-day--muted .timeline-day__date,
