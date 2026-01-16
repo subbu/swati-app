@@ -391,6 +391,13 @@ export const TimelineChart = {
     const ctx = this.el.getContext("2d");
     const data = this.chartData;
 
+    // Teal/cyan color for actual line (matching screenshot)
+    const tealColor = "rgba(75, 145, 135, 1)";
+    const tealFaded = "rgba(75, 145, 135, 0.1)";
+    // Red color for trend line
+    const redColor = "rgba(220, 90, 90, 1)";
+    const redFaded = "rgba(220, 90, 90, 0.05)";
+
     return new Chart(ctx, {
       type: "line",
       data: {
@@ -399,23 +406,25 @@ export const TimelineChart = {
           {
             label: "Actual",
             data: data.values || [],
-            borderColor: colors.success,
-            backgroundColor: colors.successFaded,
-            borderWidth: 3,
-            tension: 0.4,
+            borderColor: tealColor,
+            backgroundColor: tealFaded,
+            borderWidth: 2.5,
+            tension: 0.35,
             pointRadius: 0,
-            pointHoverRadius: 5,
+            pointHoverRadius: 0,
+            fill: false,
           },
           {
             label: "Trend",
             data: data.trend_values || [],
-            borderColor: colors.error,
-            backgroundColor: colors.errorFaded,
-            borderDash: [2, 10],
-            borderWidth: 3,
-            tension: 0.4,
+            borderColor: redColor,
+            backgroundColor: redFaded,
+            borderDash: [3, 8],
+            borderWidth: 2,
+            tension: 0.35,
             pointRadius: 0,
-            pointHoverRadius: 4,
+            pointHoverRadius: 0,
+            fill: false,
           },
         ],
       },
@@ -443,6 +452,15 @@ export const TimelineChart = {
             grid: { display: false },
             border: { display: false },
             suggestedMax: data.max_hours || undefined,
+            suggestedMin: 0,
+          },
+        },
+        layout: {
+          padding: {
+            top: 80,
+            right: 20,
+            bottom: 10,
+            left: 10,
           },
         },
       },
