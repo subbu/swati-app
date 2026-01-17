@@ -13,9 +13,6 @@ defmodule SwatiWeb.DashboardLive.Index do
         <%!-- Header --%>
         <header class="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
           <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <.icon name="hero-chart-bar-square" class="w-6 h-6 text-white" />
-            </div>
             <div>
               <h1 class="text-2xl font-bold tracking-tight" style="color: var(--dash-text-primary)">
                 Dashboard

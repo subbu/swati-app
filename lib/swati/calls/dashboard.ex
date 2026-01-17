@@ -110,9 +110,10 @@ defmodule Swati.Calls.Dashboard do
     }
   end
 
-  defp calculate_median([]), do: 0.0
+  defp calculate_median(list, precision \\ 0)
+  defp calculate_median([], _precision), do: 0.0
 
-  defp calculate_median(list) do
+  defp calculate_median(list, precision) do
     sorted = Enum.sort(list)
     len = length(sorted)
     mid = div(len, 2)
@@ -124,7 +125,7 @@ defmodule Swati.Calls.Dashboard do
         Enum.at(sorted, mid) * 1.0
       end
 
-    Float.round(result, 0)
+    Float.round(result, precision)
   end
 
   defp calculate_daily_trend(calls, days) do
@@ -372,10 +373,13 @@ defmodule Swati.Calls.Dashboard do
       [Enum.max(values, fn -> 0 end), Enum.max(trend_values, fn -> 0 end)]
       |> Enum.max()
 
-    max_value = max(max_value, 1.0)
     step = if max_value <= 1.5, do: 0.25, else: 0.5
 
-    :math.ceil(max_value / step) * step
+    if max_value > 0 do
+      :math.ceil(max_value / step) * step
+    else
+      0.0
+    end
   end
 
   defp build_y_labels(max_hours) do
@@ -385,12 +389,14 @@ defmodule Swati.Calls.Dashboard do
   end
 
   defp format_hours_label(value) do
-    rounded = Float.round(value, 1)
+    total_minutes = Float.round(value * 60, 0) |> trunc()
 
-    if rounded == Float.round(rounded, 0) do
-      "#{trunc(rounded)}h"
+    if total_minutes >= 60 do
+      hours = div(total_minutes, 60)
+      minutes = rem(total_minutes, 60)
+      "#{hours}h #{minutes}m"
     else
-      "#{rounded}h"
+      "#{total_minutes}m"
     end
   end
 

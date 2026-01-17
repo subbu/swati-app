@@ -53,57 +53,87 @@ const glowPlugin = {
   },
 };
 
-// Shared chart defaults for light theme (matching dashboard CSS)
-const chartDefaults = {
-  color: "rgba(60, 60, 70, 0.7)",
-  borderColor: "rgba(60, 60, 70, 0.1)",
-  font: {
-    family: "system-ui, -apple-system, sans-serif",
-    weight: 400,
-  },
+const getThemeMode = () => {
+  const theme = document.documentElement?.getAttribute("data-theme");
+  if (theme === "dark" || theme === "light") return theme;
+  return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches
+    ? "dark"
+    : "light";
 };
 
-// Color palette matching the app's design system
-const colors = {
-  primary: "rgba(99, 102, 241, 1)",
-  primaryFaded: "rgba(99, 102, 241, 0.2)",
-  success: "rgba(34, 197, 94, 1)",
-  successFaded: "rgba(34, 197, 94, 0.2)",
-  warning: "rgba(245, 158, 11, 1)",
-  warningFaded: "rgba(245, 158, 11, 0.2)",
-  error: "rgba(239, 68, 68, 1)",
-  errorFaded: "rgba(239, 68, 68, 0.2)",
-  info: "rgba(59, 130, 246, 1)",
-  infoFaded: "rgba(59, 130, 246, 0.2)",
-  neutral: "rgba(113, 113, 122, 1)",
-  neutralFaded: "rgba(113, 113, 122, 0.2)",
-  accent: "rgba(168, 85, 247, 1)",
-  accentFaded: "rgba(168, 85, 247, 0.2)",
+const baseColors = {
+  primary: [99, 102, 241],
+  success: [34, 197, 94],
+  warning: [245, 158, 11],
+  error: [239, 68, 68],
+  info: [59, 130, 246],
+  neutral: [113, 113, 122],
+  accent: [168, 85, 247],
 };
 
-// Status colors mapping
-const statusColors = {
-  ended: colors.success,
-  in_progress: colors.info,
-  started: colors.primary,
-  failed: colors.error,
-  cancelled: colors.neutral,
-  error: colors.warning,
+const rgba = (rgb, alpha = 1) =>
+  `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+
+const getPalette = (mode = getThemeMode()) => {
+  const fadedAlpha = mode === "dark" ? 0.42 : 0.2;
+  return {
+    primary: rgba(baseColors.primary, 1),
+    primaryFaded: rgba(baseColors.primary, fadedAlpha),
+    success: rgba(baseColors.success, 1),
+    successFaded: rgba(baseColors.success, fadedAlpha),
+    warning: rgba(baseColors.warning, 1),
+    warningFaded: rgba(baseColors.warning, fadedAlpha),
+    error: rgba(baseColors.error, 1),
+    errorFaded: rgba(baseColors.error, fadedAlpha),
+    info: rgba(baseColors.info, 1),
+    infoFaded: rgba(baseColors.info, fadedAlpha),
+    neutral: rgba(baseColors.neutral, 1),
+    neutralFaded: rgba(baseColors.neutral, fadedAlpha),
+    accent: rgba(baseColors.accent, 1),
+    accentFaded: rgba(baseColors.accent, fadedAlpha),
+  };
 };
 
-const statusColorsFaded = {
-  ended: colors.successFaded,
-  in_progress: colors.infoFaded,
-  started: colors.primaryFaded,
-  failed: colors.errorFaded,
-  cancelled: colors.neutralFaded,
-  error: colors.warningFaded,
+const getStatusColors = (mode = getThemeMode()) => {
+  const palette = getPalette(mode);
+  return {
+    ended: palette.success,
+    in_progress: palette.info,
+    started: palette.primary,
+    failed: palette.error,
+    cancelled: palette.neutral,
+    error: palette.warning,
+  };
 };
 
-// Apply defaults
-Chart.defaults.color = chartDefaults.color;
-Chart.defaults.borderColor = chartDefaults.borderColor;
-Chart.defaults.font.family = chartDefaults.font.family;
+const getStatusFadedColors = (mode = getThemeMode()) => {
+  const palette = getPalette(mode);
+  return {
+    ended: palette.successFaded,
+    in_progress: palette.infoFaded,
+    started: palette.primaryFaded,
+    failed: palette.errorFaded,
+    cancelled: palette.neutralFaded,
+    error: palette.warningFaded,
+  };
+};
+
+const getChartTheme = (mode = getThemeMode()) => {
+  const isDark = mode === "dark";
+  return {
+    color: isDark ? "rgba(226, 232, 240, 0.85)" : "rgba(60, 60, 70, 0.7)",
+    muted: isDark ? "rgba(148, 163, 184, 0.75)" : "rgba(60, 60, 70, 0.6)",
+    grid: isDark ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.06)",
+    border: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(60, 60, 70, 0.1)",
+    tooltipBg: isDark ? "rgba(10, 14, 24, 0.95)" : "rgba(30, 30, 40, 0.95)",
+  };
+};
+
+const chartTheme = getChartTheme();
+
+Chart.defaults.color = chartTheme.color;
+Chart.defaults.borderColor = chartTheme.border;
+Chart.defaults.font.family = "system-ui, -apple-system, sans-serif";
 
 // KPI Sparkline Mini Chart
 export const KPISparkline = {
@@ -205,6 +235,10 @@ export const CallsTrendChart = {
   createChart() {
     const ctx = this.el.getContext("2d");
     const data = JSON.parse(this.el.dataset.chartData || "{}");
+    const palette = getPalette();
+    const statusColors = getStatusColors();
+    const statusColorsFaded = getStatusFadedColors();
+    const theme = getChartTheme();
 
     return new Chart(ctx, {
       type: "line",
@@ -212,14 +246,14 @@ export const CallsTrendChart = {
         labels: data.labels || [],
         datasets: (data.datasets || []).map((ds, i) => ({
           ...ds,
-          borderColor: statusColors[ds.status] || colors.primary,
-          backgroundColor: statusColorsFaded[ds.status] || colors.primaryFaded,
+          borderColor: statusColors[ds.status] || palette.primary,
+          backgroundColor: statusColorsFaded[ds.status] || palette.primaryFaded,
           borderWidth: 2,
           fill: true,
           tension: 0.3,
           pointRadius: 0,
           pointHoverRadius: 4,
-          pointHoverBackgroundColor: statusColors[ds.status] || colors.primary,
+          pointHoverBackgroundColor: statusColors[ds.status] || palette.primary,
         })),
       },
       options: {
@@ -242,7 +276,7 @@ export const CallsTrendChart = {
             },
           },
           tooltip: {
-            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            backgroundColor: theme.tooltipBg,
             titleColor: "rgba(255, 255, 255, 0.95)",
             bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
@@ -259,16 +293,16 @@ export const CallsTrendChart = {
           x: {
             grid: { display: false },
             border: { display: false },
-            ticks: { padding: 8 },
+            ticks: { padding: 8, color: theme.muted },
           },
           y: {
             beginAtZero: true,
             grid: {
-              color: "rgba(0, 0, 0, 0.06)",
+              color: theme.grid,
               drawTicks: false,
             },
             border: { display: false },
-            ticks: { padding: 12, stepSize: 5 },
+            ticks: { padding: 12, stepSize: 5, color: theme.muted },
           },
         },
       },
@@ -276,11 +310,14 @@ export const CallsTrendChart = {
   },
 
   updateChart(data) {
+    const palette = getPalette();
+    const statusColors = getStatusColors();
+    const statusColorsFaded = getStatusFadedColors();
     this.chart.data.labels = data.labels;
     this.chart.data.datasets = (data.datasets || []).map((ds) => ({
       ...ds,
-      borderColor: statusColors[ds.status] || colors.primary,
-      backgroundColor: statusColorsFaded[ds.status] || colors.primaryFaded,
+      borderColor: statusColors[ds.status] || palette.primary,
+      backgroundColor: statusColorsFaded[ds.status] || palette.primaryFaded,
       borderWidth: 2,
       fill: true,
       tension: 0.3,
@@ -451,8 +488,8 @@ export const TimelineChart = {
             display: false,
             grid: { display: false },
             border: { display: false },
-            suggestedMax: data.max_hours || undefined,
-            suggestedMin: 0,
+            max: data.max_hours ?? undefined,
+            min: 0,
           },
         },
         layout: {
@@ -495,6 +532,9 @@ export const StatusFunnelChart = {
   createChart() {
     const ctx = this.el.getContext("2d");
     const data = JSON.parse(this.el.dataset.chartData || "{}");
+    const palette = getPalette();
+    const statusColors = getStatusColors();
+    const theme = getChartTheme();
 
     return new Chart(ctx, {
       type: "doughnut",
@@ -504,7 +544,7 @@ export const StatusFunnelChart = {
           {
             data: data.values || [],
             backgroundColor: (data.statuses || []).map(
-              (s) => statusColors[s] || colors.neutral
+              (s) => statusColors[s] || palette.neutral
             ),
             borderWidth: 0,
             hoverOffset: 8,
@@ -527,7 +567,7 @@ export const StatusFunnelChart = {
             },
           },
           tooltip: {
-            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            backgroundColor: theme.tooltipBg,
             titleColor: "rgba(255, 255, 255, 0.95)",
             bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
@@ -541,10 +581,12 @@ export const StatusFunnelChart = {
   },
 
   updateChart(data) {
+    const palette = getPalette();
+    const statusColors = getStatusColors();
     this.chart.data.labels = data.labels;
     this.chart.data.datasets[0].data = data.values;
     this.chart.data.datasets[0].backgroundColor = (data.statuses || []).map(
-      (s) => statusColors[s] || colors.neutral
+      (s) => statusColors[s] || palette.neutral
     );
     this.chart.update();
   },
@@ -582,6 +624,12 @@ export const PeakHoursHeatmap = {
   createChart() {
     const ctx = this.el.getContext("2d");
     const data = JSON.parse(this.el.dataset.chartData || "{}");
+    const theme = getChartTheme();
+    const mode = getThemeMode();
+    const emptyAlpha = mode === "dark" ? 0.18 : 0.08;
+    const minBorder = mode === "dark" ? 0.2 : 0.1;
+    const maxAlpha = mode === "dark" ? 0.92 : 0.75;
+    const maxBorder = mode === "dark" ? 0.65 : 0.5;
     const matrix = data.matrix || [];
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const hours = Array.from({ length: 24 }, (_, i) =>
@@ -612,17 +660,20 @@ export const PeakHoursHeatmap = {
             backgroundColor: (ctx) => {
               const val = ctx.raw?.v || 0;
               const intensity = val / maxVal;
-              if (intensity === 0) return "rgba(99, 102, 241, 0.08)";
+              if (intensity === 0) return rgba(baseColors.primary, emptyAlpha);
               // Use a gradient from light to saturated
-              const alpha = 0.25 + intensity * 0.75;
-              return `rgba(99, 102, 241, ${alpha})`;
+              const alpha = emptyAlpha + intensity * (maxAlpha - emptyAlpha);
+              return rgba(baseColors.primary, alpha);
             },
             borderWidth: 1,
             borderColor: (ctx) => {
               const val = ctx.raw?.v || 0;
               const intensity = val / maxVal;
-              if (intensity === 0) return "rgba(99, 102, 241, 0.1)";
-              return `rgba(99, 102, 241, ${0.3 + intensity * 0.5})`;
+              if (intensity === 0) return rgba(baseColors.primary, minBorder);
+              return rgba(
+                baseColors.primary,
+                minBorder + intensity * (maxBorder - minBorder)
+              );
             },
             pointRadius: (ctx) => {
               const chartArea = ctx.chart.chartArea;
@@ -641,7 +692,7 @@ export const PeakHoursHeatmap = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            backgroundColor: theme.tooltipBg,
             titleColor: "rgba(255, 255, 255, 0.95)",
             bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
@@ -676,7 +727,7 @@ export const PeakHoursHeatmap = {
               },
               padding: 8,
               font: { size: 10, weight: 500 },
-              color: "rgba(60, 60, 70, 0.6)",
+              color: theme.muted,
             },
           },
           y: {
@@ -694,7 +745,7 @@ export const PeakHoursHeatmap = {
               },
               padding: 8,
               font: { size: 10, weight: 500 },
-              color: "rgba(60, 60, 70, 0.6)",
+              color: theme.muted,
             },
           },
         },
@@ -703,6 +754,11 @@ export const PeakHoursHeatmap = {
   },
 
   updateChart(data) {
+    const mode = getThemeMode();
+    const emptyAlpha = mode === "dark" ? 0.18 : 0.08;
+    const minBorder = mode === "dark" ? 0.2 : 0.1;
+    const maxAlpha = mode === "dark" ? 0.92 : 0.75;
+    const maxBorder = mode === "dark" ? 0.65 : 0.5;
     const matrix = data.matrix || [];
     const maxVal = Math.max(1, ...matrix.flat());
 
@@ -717,14 +773,17 @@ export const PeakHoursHeatmap = {
     this.chart.data.datasets[0].backgroundColor = (ctx) => {
       const val = ctx.raw?.v || 0;
       const intensity = val / maxVal;
-      if (intensity === 0) return "rgba(99, 102, 241, 0.08)";
-      return `rgba(99, 102, 241, ${0.25 + intensity * 0.75})`;
+      if (intensity === 0) return rgba(baseColors.primary, emptyAlpha);
+      return rgba(baseColors.primary, emptyAlpha + intensity * (maxAlpha - emptyAlpha));
     };
     this.chart.data.datasets[0].borderColor = (ctx) => {
       const val = ctx.raw?.v || 0;
       const intensity = val / maxVal;
-      if (intensity === 0) return "rgba(99, 102, 241, 0.1)";
-      return `rgba(99, 102, 241, ${0.3 + intensity * 0.5})`;
+      if (intensity === 0) return rgba(baseColors.primary, minBorder);
+      return rgba(
+        baseColors.primary,
+        minBorder + intensity * (maxBorder - minBorder)
+      );
     };
     this.chart.update();
   },
@@ -762,6 +821,8 @@ export const DurationBucketsChart = {
   createChart() {
     const ctx = this.el.getContext("2d");
     const data = JSON.parse(this.el.dataset.chartData || "{}");
+    const palette = getPalette();
+    const theme = getChartTheme();
 
     return new Chart(ctx, {
       type: "bar",
@@ -770,11 +831,11 @@ export const DurationBucketsChart = {
         datasets: [
           {
             data: data.values || [],
-            backgroundColor: colors.primaryFaded,
-            borderColor: colors.primary,
+            backgroundColor: palette.primaryFaded,
+            borderColor: palette.primary,
             borderWidth: 1,
             borderRadius: 4,
-            hoverBackgroundColor: colors.primary,
+            hoverBackgroundColor: palette.primary,
           },
         ],
       },
@@ -784,7 +845,7 @@ export const DurationBucketsChart = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            backgroundColor: theme.tooltipBg,
             titleColor: "rgba(255, 255, 255, 0.95)",
             bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
@@ -800,16 +861,16 @@ export const DurationBucketsChart = {
           x: {
             grid: { display: false },
             border: { display: false },
-            ticks: { padding: 8 },
+            ticks: { padding: 8, color: theme.muted },
           },
           y: {
             beginAtZero: true,
             grid: {
-              color: "rgba(0, 0, 0, 0.06)",
+              color: theme.grid,
               drawTicks: false,
             },
             border: { display: false },
-            ticks: { padding: 12 },
+            ticks: { padding: 12, color: theme.muted },
           },
         },
       },
@@ -856,6 +917,8 @@ export const PopularTimesChart = {
     const ctx = this.el.getContext("2d");
     const data = JSON.parse(this.el.dataset.chartData || "{}");
     const currentHour = new Date().getHours();
+    const palette = getPalette();
+    const theme = getChartTheme();
 
     return new Chart(ctx, {
       type: "bar",
@@ -871,7 +934,9 @@ export const PopularTimesChart = {
             data: data.values || [],
             backgroundColor: (ctx) => {
               const hour = parseInt(data.labels?.[ctx.dataIndex] || "0");
-              return hour === currentHour ? colors.primary : colors.primaryFaded;
+              return hour === currentHour
+                ? palette.primary
+                : palette.primaryFaded;
             },
             borderRadius: 4,
             borderSkipped: false,
@@ -884,7 +949,7 @@ export const PopularTimesChart = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            backgroundColor: theme.tooltipBg,
             titleColor: "rgba(255, 255, 255, 0.95)",
             bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
@@ -911,6 +976,7 @@ export const PopularTimesChart = {
                 // Show every 3rd label
                 return index % 3 === 0 ? this.getLabelForValue(val) : "";
               },
+              color: theme.muted,
             },
           },
           y: {
@@ -924,6 +990,7 @@ export const PopularTimesChart = {
 
   updateChart(data) {
     const currentHour = new Date().getHours();
+    const palette = getPalette();
     this.chart.data.labels = (data.labels || []).map((h) => {
       const hour = parseInt(h);
       if (hour === 0) return "12a";
@@ -933,7 +1000,7 @@ export const PopularTimesChart = {
     this.chart.data.datasets[0].data = data.values;
     this.chart.data.datasets[0].backgroundColor = (ctx) => {
       const hour = parseInt(data.labels?.[ctx.dataIndex] || "0");
-      return hour === currentHour ? colors.primary : colors.primaryFaded;
+      return hour === currentHour ? palette.primary : palette.primaryFaded;
     };
     this.chart.update();
   },
@@ -971,6 +1038,8 @@ export const AgentLeaderboardChart = {
   createChart() {
     const ctx = this.el.getContext("2d");
     const data = JSON.parse(this.el.dataset.chartData || "{}");
+    const palette = getPalette();
+    const theme = getChartTheme();
 
     return new Chart(ctx, {
       type: "bar",
@@ -979,11 +1048,11 @@ export const AgentLeaderboardChart = {
         datasets: [
           {
             data: data.values || [],
-            backgroundColor: colors.primaryFaded,
-            borderColor: colors.primary,
+            backgroundColor: palette.primaryFaded,
+            borderColor: palette.primary,
             borderWidth: 1,
             borderRadius: 4,
-            hoverBackgroundColor: colors.primary,
+            hoverBackgroundColor: palette.primary,
           },
         ],
       },
@@ -994,7 +1063,7 @@ export const AgentLeaderboardChart = {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "rgba(30, 30, 40, 0.95)",
+            backgroundColor: theme.tooltipBg,
             titleColor: "rgba(255, 255, 255, 0.95)",
             bodyColor: "rgba(255, 255, 255, 0.8)",
             borderColor: "rgba(255, 255, 255, 0.1)",
@@ -1007,16 +1076,16 @@ export const AgentLeaderboardChart = {
           x: {
             beginAtZero: true,
             grid: {
-              color: "rgba(0, 0, 0, 0.06)",
+              color: theme.grid,
               drawTicks: false,
             },
             border: { display: false },
-            ticks: { padding: 8 },
+            ticks: { padding: 8, color: theme.muted },
           },
           y: {
             grid: { display: false },
             border: { display: false },
-            ticks: { padding: 8 },
+            ticks: { padding: 8, color: theme.muted },
           },
         },
       },
