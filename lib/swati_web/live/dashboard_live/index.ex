@@ -169,9 +169,11 @@ defmodule SwatiWeb.DashboardLive.Index do
                 <div class="timeline-card__marker-line"></div>
                 <div class="timeline-card__callout">
                   <div class="timeline-card__callout-bar">
-                    <span class="timeline-card__callout-chip timeline-card__callout-chip--green"></span>
+                    <span class="timeline-card__callout-chip timeline-card__callout-chip--green">
+                    </span>
                     <span class="timeline-card__callout-chip timeline-card__callout-chip--red"></span>
-                    <span class="timeline-card__callout-chip timeline-card__callout-chip--amber"></span>
+                    <span class="timeline-card__callout-chip timeline-card__callout-chip--amber">
+                    </span>
                   </div>
                   <div class="timeline-card__callout-time" data-timeline-time>00:00:00</div>
                   <div class="timeline-card__callout-avatars">

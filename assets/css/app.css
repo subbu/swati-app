@@ -323,6 +323,37 @@
     --dash-text-muted: oklch(50% 0.005 260);
 }
 
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .dashboard-container {
+        --dash-surface-0: oklch(16% 0.015 260);
+        --dash-surface-1: oklch(20% 0.015 260);
+        --dash-surface-2: oklch(24% 0.012 260);
+        --dash-surface-elevated: oklch(22% 0.015 260);
+
+        --dash-border: oklch(30% 0.015 260);
+        --dash-border-subtle: oklch(26% 0.012 260);
+        --dash-border-interactive: oklch(40% 0.02 260);
+
+        --dash-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.2);
+        --dash-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.2), 0 4px 12px oklch(0% 0 0 / 0.3);
+        --dash-shadow-lg: 0 4px 6px oklch(0% 0 0 / 0.15), 0 12px 24px oklch(0% 0 0 / 0.35);
+        --dash-shadow-xl: 0 8px 16px oklch(0% 0 0 / 0.2), 0 24px 48px oklch(0% 0 0 / 0.4);
+        --dash-shadow-hover: 0 4px 8px oklch(0% 0 0 / 0.25), 0 16px 32px oklch(0% 0 0 / 0.35);
+
+        --dash-accent-blue-soft: oklch(25% 0.06 255);
+        --dash-accent-green-soft: oklch(25% 0.05 155);
+        --dash-accent-amber-soft: oklch(28% 0.06 75);
+        --dash-accent-red-soft: oklch(25% 0.06 25);
+        --dash-accent-purple-soft: oklch(25% 0.06 295);
+        --dash-accent-cyan-soft: oklch(25% 0.05 200);
+
+        --dash-text-primary: oklch(95% 0.005 260);
+        --dash-text-secondary: oklch(75% 0.008 260);
+        --dash-text-tertiary: oklch(60% 0.006 260);
+        --dash-text-muted: oklch(50% 0.005 260);
+    }
+}
+
 /* Container */
 .dashboard-container {
     background: var(--dash-surface-0);
