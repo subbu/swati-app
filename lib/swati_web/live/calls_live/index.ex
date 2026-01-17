@@ -288,7 +288,30 @@ defmodule SwatiWeb.CallsLive.Index do
                     </span>
                   </:cell>
                   <:cell :if={"duration_seconds" in @visible_columns} class="py-2 align-middle">
-                    {CallsHelpers.format_duration(call)}
+                    <% duration_seconds = CallsHelpers.call_duration_seconds(call) %>
+                    <% max_duration = @max_duration_seconds %>
+                    <% bar_percent =
+                      if is_integer(duration_seconds) and is_integer(max_duration) and
+                           max_duration > 0 do
+                        min(div(duration_seconds * 100, max_duration), 100)
+                      else
+                        0
+                      end %>
+                    <div class="flex flex-col gap-1.5">
+                      <span class="font-medium text-foreground tabular-nums">
+                        {CallsHelpers.format_duration(call)}
+                      </span>
+                      <div class="h-1.5 w-24 rounded-full bg-foreground/10 overflow-hidden">
+                        <div
+                          class={[
+                            "h-full rounded-full transition-all",
+                            CallsHelpers.duration_bar_class(call.status)
+                          ]}
+                          style={"width: #{bar_percent}%"}
+                        >
+                        </div>
+                      </div>
+                    </div>
                   </:cell>
                   <:cell :if={"status" in @visible_columns} class="py-2 align-middle">
                     <% status_info = CallsHelpers.status_display(call.status) %>
@@ -394,7 +417,7 @@ defmodule SwatiWeb.CallsLive.Index do
      |> assign(:agents, agents)
      |> assign(:avatars_by_agent, avatars_by_agent)
      |> assign(:phone_number_e164s, phone_number_e164s)
-     |> assign(:calls, calls)
+     |> assign_calls(calls)
      |> assign(:filters, filters)
      |> assign(:filters_active, filters_active)
      |> assign(:visible_columns, visible_columns)
@@ -451,7 +474,7 @@ defmodule SwatiWeb.CallsLive.Index do
 
     {:noreply,
      socket
-     |> assign(:calls, calls)
+     |> assign_calls(calls)
      |> assign(:filters, merged_filters)
      |> assign(:filters_active, filters_active)
      |> assign(:filter_form, to_form(merged_filters, as: :filters))}
@@ -466,7 +489,7 @@ defmodule SwatiWeb.CallsLive.Index do
 
     {:noreply,
      socket
-     |> assign(:calls, calls)
+     |> assign_calls(calls)
      |> assign(:sort, sort)}
   end
 
@@ -542,7 +565,7 @@ defmodule SwatiWeb.CallsLive.Index do
 
     {:noreply,
      socket
-     |> assign(:calls, calls)
+     |> assign_calls(calls)
      |> assign(:filters, merged_filters)
      |> assign(:filters_active, false)
      |> assign(:filter_form, to_form(merged_filters, as: :filters))}
@@ -607,5 +630,19 @@ defmodule SwatiWeb.CallsLive.Index do
   defp filters_active?(filters) do
     Map.get(filters, "status") not in [nil, ""] or
       Map.get(filters, "agent_id") not in [nil, ""]
+  end
+
+  defp assign_calls(socket, calls) do
+    assign(socket, calls: calls, max_duration_seconds: max_duration_seconds(calls))
+  end
+
+  defp max_duration_seconds(calls) do
+    calls
+    |> Enum.map(&CallsHelpers.call_duration_seconds/1)
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> 0
+      durations -> Enum.max(durations)
+    end
   end
 end

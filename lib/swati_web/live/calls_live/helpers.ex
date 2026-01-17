@@ -85,7 +85,30 @@ defmodule SwatiWeb.CallsLive.Helpers do
     max(DateTime.diff(ended_at, started_at, :second), 0)
   end
 
+  def call_duration_seconds(%{started_at: %DateTime{} = started_at, status: status})
+      when status in [:started, :in_progress, "started", "in_progress"] do
+    max(DateTime.diff(DateTime.utc_now(), started_at, :second), 0)
+  end
+
   def call_duration_seconds(_call), do: nil
+
+  def duration_bar_class(status) do
+    case status do
+      :ended -> "bg-emerald-500"
+      "ended" -> "bg-emerald-500"
+      :in_progress -> "bg-sky-500"
+      "in_progress" -> "bg-sky-500"
+      :started -> "bg-sky-400"
+      "started" -> "bg-sky-400"
+      :failed -> "bg-rose-500"
+      "failed" -> "bg-rose-500"
+      :error -> "bg-rose-500"
+      "error" -> "bg-rose-500"
+      :cancelled -> "bg-zinc-400"
+      "cancelled" -> "bg-zinc-400"
+      _ -> "bg-foreground/40"
+    end
+  end
 
   def direction_display(call, phone_number_e164s) do
     case call_direction(call, phone_number_e164s) do
