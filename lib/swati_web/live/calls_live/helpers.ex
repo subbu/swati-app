@@ -119,6 +119,23 @@ defmodule SwatiWeb.CallsLive.Helpers do
     end
   end
 
+  def agent_avatar_url(avatars_by_agent, agent_id, agent_name) do
+    case Map.get(avatars_by_agent, agent_id) do
+      %{status: :ready, output_url: url} when is_binary(url) ->
+        url
+
+      _ ->
+        name =
+          if is_binary(agent_name) and agent_name != "" do
+            agent_name
+          else
+            "Agent"
+          end
+
+        "https://ui-avatars.com/api/?name=#{URI.encode_www_form(name)}"
+    end
+  end
+
   def avatar_color(name) do
     colors = [
       "bg-red-200/60 text-red-900",

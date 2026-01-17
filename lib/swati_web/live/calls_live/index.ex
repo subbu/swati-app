@@ -2,6 +2,7 @@ defmodule SwatiWeb.CallsLive.Index do
   use SwatiWeb, :live_view
 
   alias Swati.Agents
+  alias Swati.Avatars
   alias Swati.Calls
   alias Swati.Telephony
   alias SwatiWeb.CallsLive.Helpers, as: CallsHelpers
@@ -116,19 +117,11 @@ defmodule SwatiWeb.CallsLive.Index do
                     />
                   </div>
                   <div class="flex items-center justify-between mt-3">
-                    <.label for="started_at" class="text-foreground">Started</.label>
+                    <.label for="started_at" class="text-foreground">Date</.label>
                     <.switch
                       id="started_at"
                       field={f[:started_at]}
                       value={@visible_columns |> Enum.member?("started_at")}
-                    />
-                  </div>
-                  <div class="flex items-center justify-between mt-3">
-                    <.label for="age" class="text-foreground">Age</.label>
-                    <.switch
-                      id="age"
-                      field={f[:age]}
-                      value={@visible_columns |> Enum.member?("age")}
                     />
                   </div>
                   <div class="flex items-center justify-between mt-3">
@@ -137,14 +130,6 @@ defmodule SwatiWeb.CallsLive.Index do
                       id="from_number"
                       field={f[:from_number]}
                       value={@visible_columns |> Enum.member?("from_number")}
-                    />
-                  </div>
-                  <div class="flex items-center justify-between mt-3">
-                    <.label for="to_number" class="text-foreground">To</.label>
-                    <.switch
-                      id="to_number"
-                      field={f[:to_number]}
-                      value={@visible_columns |> Enum.member?("to_number")}
                     />
                   </div>
                   <div class="flex items-center justify-between mt-3">
@@ -187,10 +172,9 @@ defmodule SwatiWeb.CallsLive.Index do
                   phx-value-column="started_at"
                 >
                   <button type="button" class={CallsHelpers.sort_button_class("started_at", @sort)}>
-                    Started <CallsHelpers.sort_icon column="started_at" sort={@sort} />
+                    Date <CallsHelpers.sort_icon column="started_at" sort={@sort} />
                   </button>
                 </:col>
-                <:col :if={"age" in @visible_columns} class="py-2">Age</:col>
                 <:col
                   :if={"from_number" in @visible_columns}
                   class="py-2"
@@ -199,16 +183,6 @@ defmodule SwatiWeb.CallsLive.Index do
                 >
                   <button type="button" class={CallsHelpers.sort_button_class("from_number", @sort)}>
                     From <CallsHelpers.sort_icon column="from_number" sort={@sort} />
-                  </button>
-                </:col>
-                <:col
-                  :if={"to_number" in @visible_columns}
-                  class="py-2"
-                  phx-click="sort"
-                  phx-value-column="to_number"
-                >
-                  <button type="button" class={CallsHelpers.sort_button_class("to_number", @sort)}>
-                    To <CallsHelpers.sort_icon column="to_number" sort={@sort} />
                   </button>
                 </:col>
                 <:col
@@ -236,7 +210,7 @@ defmodule SwatiWeb.CallsLive.Index do
                 </:col>
                 <:col
                   :if={"agent_id" in @visible_columns}
-                  class="py-2"
+                  class="py-2 w-full"
                   phx-click="sort"
                   phx-value-column="agent_id"
                 >
@@ -259,27 +233,23 @@ defmodule SwatiWeb.CallsLive.Index do
                     </span>
                   </:cell>
                   <:cell :if={"started_at" in @visible_columns} class="py-2 align-middle">
-                    <div class="flex items-center">
-                      <span class="text-foreground">
-                        {CallsHelpers.format_datetime(call.started_at, @current_scope.tenant)}
-                      </span>
+                    <% started_at =
+                      CallsHelpers.format_datetime(call.started_at, @current_scope.tenant) %>
+                    <% age = CallsHelpers.format_relative(call.started_at, @current_scope.tenant) %>
+                    <div class="flex items-center justify-between gap-3">
+                      <div class="flex flex-col gap-0.5">
+                        <span class="text-foreground font-medium">{age}</span>
+                        <span class="text-foreground-softest text-xs">{started_at}</span>
+                      </div>
                       <.icon
                         name="hero-chevron-right"
-                        class="ml-auto size-4 text-foreground-softer opacity-0 group-hover:opacity-100"
+                        class="size-4 text-foreground-softer opacity-0 group-hover:opacity-100"
                       />
                     </div>
-                  </:cell>
-                  <:cell :if={"age" in @visible_columns} class="py-2 align-middle">
-                    {CallsHelpers.format_relative(call.started_at, @current_scope.tenant)}
                   </:cell>
                   <:cell :if={"from_number" in @visible_columns} class="py-2 align-middle">
                     <span class="font-medium text-foreground">
                       {CallsHelpers.format_phone(call.from_number, @current_scope.tenant)}
-                    </span>
-                  </:cell>
-                  <:cell :if={"to_number" in @visible_columns} class="py-2 align-middle">
-                    <span class="font-medium text-foreground">
-                      {CallsHelpers.format_phone(call.to_number, @current_scope.tenant)}
                     </span>
                   </:cell>
                   <:cell :if={"duration_seconds" in @visible_columns} class="py-2 align-middle">
@@ -292,13 +262,21 @@ defmodule SwatiWeb.CallsLive.Index do
                       <span>{status_info.label}</span>
                     </div>
                   </:cell>
-                  <:cell :if={"agent_id" in @visible_columns} class="py-2 align-middle">
+                  <:cell :if={"agent_id" in @visible_columns} class="py-2 align-middle w-full">
                     <% agent = CallsHelpers.agent_display(call.agent_id, @agents) %>
-                    <div class="flex items-center gap-2">
-                      <div class={"size-6 rounded-full text-xs font-semibold flex items-center justify-center #{agent.color}"}>
-                        {agent.initial}
+                    <% to_number = CallsHelpers.format_phone(call.to_number, @current_scope.tenant) %>
+                    <% avatar_url =
+                      CallsHelpers.agent_avatar_url(
+                        @avatars_by_agent,
+                        call.agent_id,
+                        agent.name
+                      ) %>
+                    <div class="flex items-center gap-3">
+                      <img src={avatar_url} class="size-9 rounded-full" alt="" loading="lazy" />
+                      <div class="flex flex-col gap-0.5">
+                        <span class="font-semibold text-foreground">{agent.name}</span>
+                        <span class="text-foreground-softest text-xs">{to_number}</span>
                       </div>
-                      <span class="font-medium text-foreground">{agent.name}</span>
                     </div>
                   </:cell>
                   <:cell class="py-2 align-middle text-right">
@@ -346,19 +324,23 @@ defmodule SwatiWeb.CallsLive.Index do
   def mount(_params, _session, socket) do
     tenant = socket.assigns.current_scope.tenant
     agents = Agents.list_agents(tenant.id)
+
+    avatars_by_agent =
+      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+
     phone_numbers = Telephony.list_phone_numbers(tenant.id)
     phone_number_e164s = MapSet.new(Enum.map(phone_numbers, & &1.e164))
     filters = %{"status" => "", "agent_id" => "", "query" => ""}
     sort = %{column: "started_at", direction: "desc"}
 
-    visible_columns =
-      ~w(direction started_at age from_number to_number duration_seconds status agent_id)
+    visible_columns = ~w(direction started_at from_number duration_seconds status agent_id)
 
     calls = Calls.list_calls(tenant.id, Map.put(filters, "sort", sort))
 
     {:ok,
      socket
      |> assign(:agents, agents)
+     |> assign(:avatars_by_agent, avatars_by_agent)
      |> assign(:phone_number_e164s, phone_number_e164s)
      |> assign(:calls, calls)
      |> assign(:filters, filters)
@@ -368,9 +350,7 @@ defmodule SwatiWeb.CallsLive.Index do
        to_form(%{
          "direction" => true,
          "started_at" => true,
-         "age" => true,
          "from_number" => true,
-         "to_number" => true,
          "duration_seconds" => true,
          "status" => true,
          "agent_id" => true
@@ -383,6 +363,8 @@ defmodule SwatiWeb.CallsLive.Index do
      |> assign(:call_sheet_open, false)
      |> assign(:call, nil)}
   end
+
+  defp agent_ids(agents), do: Enum.map(agents, & &1.id)
 
   @impl true
   def handle_params(%{"id" => id}, _uri, socket) do

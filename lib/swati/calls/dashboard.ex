@@ -9,6 +9,7 @@ defmodule Swati.Calls.Dashboard do
   alias Swati.Tenancy
   alias Swati.Calls.Call
   alias Swati.Agents.Agent
+  alias SwatiWeb.CallsLive.Helpers, as: CallsHelpers
 
   @doc """
   Get all dashboard statistics for a tenant within a date range.
@@ -18,6 +19,7 @@ defmodule Swati.Calls.Dashboard do
     start_date = Keyword.get(opts, :start_date, default_start_date())
     end_date = Keyword.get(opts, :end_date, DateTime.utc_now())
     agent_id = Keyword.get(opts, :agent_id)
+    tenant = Tenancy.get_tenant!(tenant_id)
 
     calls = list_calls_in_range(tenant_id, start_date, end_date, agent_id)
 
@@ -32,8 +34,8 @@ defmodule Swati.Calls.Dashboard do
       timeline_chart: calculate_timeline_chart(calls, timeline_date),
       timeline_dates: calculate_timeline_dates(calls),
       duration_buckets: calculate_duration_buckets(calls),
-      top_from_numbers: calculate_top_numbers(calls, :from_number),
-      top_to_numbers: calculate_top_numbers(calls, :to_number),
+      top_from_numbers: calculate_top_numbers(calls, :from_number, tenant),
+      top_to_numbers: calculate_top_numbers(calls, :to_number, tenant),
       coverage: calculate_coverage(calls),
       outliers: calculate_outliers(calls),
       agent_leaderboard: calculate_agent_leaderboard(tenant_id, calls)
@@ -437,13 +439,15 @@ defmodule Swati.Calls.Dashboard do
   @doc """
   Calculate top phone numbers (callers or receivers).
   """
-  def calculate_top_numbers(calls, field, limit \\ 10) do
+  def calculate_top_numbers(calls, field, tenant, limit \\ 10) do
     calls
     |> Enum.filter(&Map.get(&1, field))
     |> Enum.group_by(&Map.get(&1, field))
     |> Enum.map(fn {number, calls_list} ->
+      formatted_number = CallsHelpers.format_phone(number, tenant)
+
       %{
-        number: number,
+        number: formatted_number,
         count: length(calls_list),
         total_duration: Enum.sum(Enum.map(calls_list, &(&1.duration_seconds || 0))),
         last_call: calls_list |> Enum.max_by(& &1.started_at, DateTime, fn -> nil end)
