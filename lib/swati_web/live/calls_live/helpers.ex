@@ -195,14 +195,27 @@ defmodule SwatiWeb.CallsLive.Helpers do
 
   def sort_icon(assigns) do
     ~H"""
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 16 16"
-      class={["size-4", sort_icon_class(@column, @sort)]}
-    >
-      <path fill="currentColor" d="M11 7H5l3-4z" />
-      <path fill="currentColor" d="M5 9h6l-3 4z" />
-    </svg>
+    <%= if @sort.column == @column do %>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 16 16"
+        class={["size-4", sort_icon_class(@column, @sort)]}
+      >
+        <path
+          fill="currentColor"
+          d={if @sort.direction == "asc", do: "M11 7H5l3-4z", else: "M5 9h6l-3 4z"}
+        />
+      </svg>
+    <% else %>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 16 16"
+        class={["size-4", sort_icon_class(@column, @sort)]}
+      >
+        <path fill="currentColor" d="M11 7H5l3-4z" />
+        <path fill="currentColor" d="M5 9h6l-3 4z" />
+      </svg>
+    <% end %>
     """
   end
 

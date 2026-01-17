@@ -4,6 +4,7 @@ defmodule SwatiWeb.CallsLive.Index do
   alias Swati.Agents
   alias Swati.Avatars
   alias Swati.Calls
+  alias Swati.Preferences
   alias Swati.Telephony
   alias SwatiWeb.CallsLive.Helpers, as: CallsHelpers
   alias SwatiWeb.CallsLive.Show, as: CallsShow
@@ -98,6 +99,15 @@ defmodule SwatiWeb.CallsLive.Index do
               <.button variant="dashed">
                 <.icon name="hero-view-columns" class="icon" />
                 <span class="hidden lg:inline ml-1">Columns</span>
+                <.badge
+                  :if={@hidden_columns_count > 0}
+                  size="xs"
+                  variant="solid"
+                  color="info"
+                  class="ml-2"
+                >
+                  {@hidden_columns_count}
+                </.badge>
               </.button>
               <:content>
                 <div
@@ -106,13 +116,18 @@ defmodule SwatiWeb.CallsLive.Index do
                 >
                   <.loading class="text-foreground-softer" />
                 </div>
-                <h3 class="font-medium">Columns</h3>
-                <.form :let={f} for={@columns_form} phx-change="update_columns">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-medium">Columns</h3>
+                  <.button size="xs" variant="ghost" type="button" phx-click="reset_columns">
+                    Reset
+                  </.button>
+                </div>
+                <.form for={@columns_form} id="calls-columns-form" phx-change="update_columns">
                   <div class="flex items-center justify-between mt-3">
                     <.label for="direction" class="text-foreground">Direction</.label>
                     <.switch
                       id="direction"
-                      field={f[:direction]}
+                      field={@columns_form[:direction]}
                       value={@visible_columns |> Enum.member?("direction")}
                     />
                   </div>
@@ -120,7 +135,7 @@ defmodule SwatiWeb.CallsLive.Index do
                     <.label for="started_at" class="text-foreground">Date</.label>
                     <.switch
                       id="started_at"
-                      field={f[:started_at]}
+                      field={@columns_form[:started_at]}
                       value={@visible_columns |> Enum.member?("started_at")}
                     />
                   </div>
@@ -128,7 +143,7 @@ defmodule SwatiWeb.CallsLive.Index do
                     <.label for="from_number" class="text-foreground">From</.label>
                     <.switch
                       id="from_number"
-                      field={f[:from_number]}
+                      field={@columns_form[:from_number]}
                       value={@visible_columns |> Enum.member?("from_number")}
                     />
                   </div>
@@ -136,7 +151,7 @@ defmodule SwatiWeb.CallsLive.Index do
                     <.label for="duration_seconds" class="text-foreground">Duration</.label>
                     <.switch
                       id="duration_seconds"
-                      field={f[:duration_seconds]}
+                      field={@columns_form[:duration_seconds]}
                       value={@visible_columns |> Enum.member?("duration_seconds")}
                     />
                   </div>
@@ -144,7 +159,7 @@ defmodule SwatiWeb.CallsLive.Index do
                     <.label for="status" class="text-foreground">Status</.label>
                     <.switch
                       id="status"
-                      field={f[:status]}
+                      field={@columns_form[:status]}
                       value={@visible_columns |> Enum.member?("status")}
                     />
                   </div>
@@ -152,24 +167,40 @@ defmodule SwatiWeb.CallsLive.Index do
                     <.label for="agent_id" class="text-foreground">Agent</.label>
                     <.switch
                       id="agent_id"
-                      field={f[:agent_id]}
+                      field={@columns_form[:agent_id]}
                       value={@visible_columns |> Enum.member?("agent_id")}
                     />
                   </div>
                 </.form>
               </:content>
             </.popover>
+
+            <%= if @filters_active do %>
+              <.button
+                size="xs"
+                variant="ghost"
+                type="button"
+                phx-click="reset_filters"
+                aria-label="Reset filters"
+              >
+                <.icon name="hero-x-mark" class="icon" />
+                <span class="hidden lg:inline ml-1">Reset filters</span>
+              </.button>
+            <% end %>
           </div>
 
           <div class="overflow-x-auto">
-            <.table>
+            <.table id="calls-table">
               <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
-                <:col :if={"direction" in @visible_columns} class="py-2">Direction</:col>
+                <:col :if={"direction" in @visible_columns} class="py-2" data-column="direction">
+                  Direction
+                </:col>
                 <:col
                   :if={"started_at" in @visible_columns}
                   class="py-2"
                   phx-click="sort"
                   phx-value-column="started_at"
+                  data-column="started_at"
                 >
                   <button type="button" class={CallsHelpers.sort_button_class("started_at", @sort)}>
                     Date <CallsHelpers.sort_icon column="started_at" sort={@sort} />
@@ -180,6 +211,7 @@ defmodule SwatiWeb.CallsLive.Index do
                   class="py-2"
                   phx-click="sort"
                   phx-value-column="from_number"
+                  data-column="from_number"
                 >
                   <button type="button" class={CallsHelpers.sort_button_class("from_number", @sort)}>
                     From <CallsHelpers.sort_icon column="from_number" sort={@sort} />
@@ -190,6 +222,7 @@ defmodule SwatiWeb.CallsLive.Index do
                   class="py-2"
                   phx-click="sort"
                   phx-value-column="duration_seconds"
+                  data-column="duration_seconds"
                 >
                   <button
                     type="button"
@@ -203,6 +236,7 @@ defmodule SwatiWeb.CallsLive.Index do
                   class="py-2"
                   phx-click="sort"
                   phx-value-column="status"
+                  data-column="status"
                 >
                   <button type="button" class={CallsHelpers.sort_button_class("status", @sort)}>
                     Status <CallsHelpers.sort_icon column="status" sort={@sort} />
@@ -213,6 +247,7 @@ defmodule SwatiWeb.CallsLive.Index do
                   class="py-2 w-full"
                   phx-click="sort"
                   phx-value-column="agent_id"
+                  data-column="agent_id"
                 >
                   <button type="button" class={CallsHelpers.sort_button_class("agent_id", @sort)}>
                     Agent <CallsHelpers.sort_icon column="agent_id" sort={@sort} />
@@ -324,18 +359,35 @@ defmodule SwatiWeb.CallsLive.Index do
   def mount(_params, _session, socket) do
     tenant = socket.assigns.current_scope.tenant
     agents = Agents.list_agents(tenant.id)
+    view_state = Preferences.calls_index_state(socket.assigns.current_scope)
+    allowed_columns = Preferences.calls_index_columns()
+    default_sort = Map.get(Preferences.calls_index_defaults(), "sort", %{})
 
     avatars_by_agent =
       Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
 
     phone_numbers = Telephony.list_phone_numbers(tenant.id)
     phone_number_e164s = MapSet.new(Enum.map(phone_numbers, & &1.e164))
-    filters = %{"status" => "", "agent_id" => "", "query" => ""}
-    sort = %{column: "started_at", direction: "desc"}
 
-    visible_columns = ~w(direction started_at from_number duration_seconds status agent_id)
+    filters =
+      %{"status" => "", "agent_id" => "", "query" => ""}
+      |> Map.merge(Map.get(view_state, "filters", %{}))
+
+    sort =
+      view_state
+      |> Map.get("sort", default_sort)
+      |> sort_assign()
+
+    visible_columns = Map.get(view_state, "columns", allowed_columns)
+    hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
+    {filters, filters_changed?} = normalize_agent_filter(filters, agents)
+    filters_active = filters_active?(filters)
 
     calls = Calls.list_calls(tenant.id, Map.put(filters, "sort", sort))
+
+    if filters_changed? do
+      persist_call_filters(socket, Map.take(filters, ["status", "agent_id"]))
+    end
 
     {:ok,
      socket
@@ -344,17 +396,14 @@ defmodule SwatiWeb.CallsLive.Index do
      |> assign(:phone_number_e164s, phone_number_e164s)
      |> assign(:calls, calls)
      |> assign(:filters, filters)
+     |> assign(:filters_active, filters_active)
      |> assign(:visible_columns, visible_columns)
+     |> assign(:hidden_columns_count, hidden_columns_count)
      |> assign(
        :columns_form,
-       to_form(%{
-         "direction" => true,
-         "started_at" => true,
-         "from_number" => true,
-         "duration_seconds" => true,
-         "status" => true,
-         "agent_id" => true
-       })
+       visible_columns
+       |> columns_form_map(allowed_columns)
+       |> to_form()
      )
      |> assign(:sort, sort)
      |> assign(:filter_form, to_form(filters, as: :filters))
@@ -393,11 +442,18 @@ defmodule SwatiWeb.CallsLive.Index do
     tenant = socket.assigns.current_scope.tenant
     merged_filters = Map.merge(socket.assigns.filters, filters)
     calls = Calls.list_calls(tenant.id, Map.put(merged_filters, "sort", socket.assigns.sort))
+    allowed_filters = Map.take(merged_filters, ["status", "agent_id"])
+    filters_active = filters_active?(merged_filters)
+
+    if allowed_filters != Map.take(socket.assigns.filters, ["status", "agent_id"]) do
+      persist_call_filters(socket, allowed_filters)
+    end
 
     {:noreply,
      socket
      |> assign(:calls, calls)
      |> assign(:filters, merged_filters)
+     |> assign(:filters_active, filters_active)
      |> assign(:filter_form, to_form(merged_filters, as: :filters))}
   end
 
@@ -406,6 +462,7 @@ defmodule SwatiWeb.CallsLive.Index do
     tenant = socket.assigns.current_scope.tenant
     sort = CallsHelpers.next_sort(socket.assigns.sort, column)
     calls = Calls.list_calls(tenant.id, Map.put(socket.assigns.filters, "sort", sort))
+    persist_sort(socket, sort)
 
     {:noreply,
      socket
@@ -415,12 +472,80 @@ defmodule SwatiWeb.CallsLive.Index do
 
   @impl true
   def handle_event("update_columns", columns, socket) do
-    visible_columns =
-      columns
-      |> Map.keys()
-      |> Enum.filter(&Phoenix.HTML.Form.normalize_value("checkbox", columns[&1]))
+    allowed_columns = Preferences.calls_index_columns()
 
-    {:noreply, assign(socket, columns_form: to_form(columns), visible_columns: visible_columns)}
+    visible_columns =
+      Enum.filter(allowed_columns, fn column ->
+        Phoenix.HTML.Form.normalize_value("checkbox", Map.get(columns, column))
+      end)
+
+    hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
+
+    if visible_columns != socket.assigns.visible_columns do
+      _ =
+        Preferences.update_calls_index_state(socket.assigns.current_scope, %{
+          "columns" => visible_columns
+        })
+    end
+
+    columns_form =
+      visible_columns
+      |> columns_form_map(allowed_columns)
+      |> to_form()
+
+    {:noreply,
+     assign(socket,
+       columns_form: columns_form,
+       visible_columns: visible_columns,
+       hidden_columns_count: hidden_columns_count
+     )}
+  end
+
+  @impl true
+  def handle_event("reset_columns", _params, socket) do
+    default_columns = Preferences.calls_index_columns()
+    hidden_columns_count = 0
+
+    _ =
+      Preferences.update_calls_index_state(socket.assigns.current_scope, %{
+        "columns" => default_columns
+      })
+
+    columns_form =
+      default_columns
+      |> columns_form_map(default_columns)
+      |> to_form()
+
+    {:noreply,
+     assign(socket,
+       columns_form: columns_form,
+       visible_columns: default_columns,
+       hidden_columns_count: hidden_columns_count
+     )}
+  end
+
+  @impl true
+  def handle_event("reset_filters", _params, socket) do
+    default_filters = Map.get(Preferences.calls_index_defaults(), "filters", %{})
+
+    merged_filters =
+      socket.assigns.filters
+      |> Map.merge(default_filters)
+
+    calls =
+      Calls.list_calls(
+        socket.assigns.current_scope.tenant.id,
+        Map.put(merged_filters, "sort", socket.assigns.sort)
+      )
+
+    persist_call_filters(socket, default_filters)
+
+    {:noreply,
+     socket
+     |> assign(:calls, calls)
+     |> assign(:filters, merged_filters)
+     |> assign(:filters_active, false)
+     |> assign(:filter_form, to_form(merged_filters, as: :filters))}
   end
 
   @impl true
@@ -437,5 +562,50 @@ defmodule SwatiWeb.CallsLive.Index do
   @impl true
   def handle_event("close-call-sheet", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/calls")}
+  end
+
+  defp columns_form_map(visible_columns, allowed_columns) do
+    Map.new(allowed_columns, fn column -> {column, column in visible_columns} end)
+  end
+
+  defp normalize_agent_filter(filters, agents) do
+    agent_ids = MapSet.new(Enum.map(agents, &to_string(&1.id)))
+    agent_id = Map.get(filters, "agent_id", "")
+
+    if agent_id != "" and not MapSet.member?(agent_ids, to_string(agent_id)) do
+      {Map.put(filters, "agent_id", ""), true}
+    else
+      {filters, false}
+    end
+  end
+
+  defp sort_assign(sort) do
+    column = Map.get(sort, "column") || Map.get(sort, :column) || "started_at"
+    direction = Map.get(sort, "direction") || Map.get(sort, :direction) || "desc"
+
+    %{column: to_string(column), direction: to_string(direction)}
+  end
+
+  defp persist_call_filters(socket, filters) do
+    case Preferences.update_calls_index_state(socket.assigns.current_scope, %{
+           "filters" => filters
+         }) do
+      {:ok, _preference} -> :ok
+      {:error, _reason} -> :ok
+    end
+  end
+
+  defp persist_sort(socket, sort) do
+    case Preferences.update_calls_index_state(socket.assigns.current_scope, %{
+           "sort" => sort
+         }) do
+      {:ok, _preference} -> :ok
+      {:error, _reason} -> :ok
+    end
+  end
+
+  defp filters_active?(filters) do
+    Map.get(filters, "status") not in [nil, ""] or
+      Map.get(filters, "agent_id") not in [nil, ""]
   end
 end
