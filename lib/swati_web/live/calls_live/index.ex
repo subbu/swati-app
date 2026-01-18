@@ -352,25 +352,25 @@ defmodule SwatiWeb.CallsLive.Index do
                         </.button>
                       </:toggle>
                       <.dropdown_button phx-click={JS.push("open-call-sheet", value: %{id: call.id})}>
-                        Show call details
+                        <.icon name="hero-eye" class="icon" /> Show call details
                       </.dropdown_button>
                       <.dropdown_link
                         :if={transcript_url}
                         href={~p"/calls/#{call.id}/transcript"}
                       >
-                        Download transcript
+                        <.icon name="hero-document-text" class="icon" /> Download transcript
                       </.dropdown_link>
                       <.dropdown_button :if={!transcript_url} disabled>
-                        Download transcript
+                        <.icon name="hero-document-text" class="icon" /> Download transcript
                       </.dropdown_button>
                       <.dropdown_link
                         :if={recording_url}
                         href={~p"/calls/#{call.id}/recording"}
                       >
-                        Download recording
+                        <.icon name="hero-play-circle" class="icon" /> Download recording
                       </.dropdown_link>
                       <.dropdown_button :if={!recording_url} disabled>
-                        Download recording
+                        <.icon name="hero-play-circle" class="icon" /> Download recording
                       </.dropdown_button>
                     </.dropdown>
                   </:cell>
