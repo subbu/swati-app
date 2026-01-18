@@ -1621,7 +1621,7 @@ defmodule SwatiWeb.CallsLive.Show do
             </script>
           </section>
 
-          <section class="space-y-5">
+          <section class="space-y-4">
             <div class="flex items-center justify-between">
               <h3 class="text-[15px] font-semibold text-foreground tracking-[-0.01em]">
                 Conversation transcript
@@ -1630,8 +1630,8 @@ defmodule SwatiWeb.CallsLive.Show do
                 {length(@transcript_items)} messages
               </span>
             </div>
-            <div id="transcription-panel" class="space-y-5">
-              <div id="transcript-list" phx-hook=".ToolJsonFormatter" class="space-y-4">
+            <div id="transcription-panel" class="space-y-3">
+              <div id="transcript-list" phx-hook=".ToolJsonFormatter" class="space-y-3">
                 <%= if @transcript_items == [] do %>
                   <div class="flex flex-col items-center justify-center py-12 text-center">
                     <.icon
@@ -1656,7 +1656,7 @@ defmodule SwatiWeb.CallsLive.Show do
                           data-end-ms={item.end_ms || item.start_ms || 0}
                           data-speaker={if(item.role == :caller, do: "customer", else: "agent")}
                           class={[
-                            "max-w-[78%] md:max-w-[72%] rounded-[1.25rem] px-4 py-3.5 cursor-pointer",
+                            "max-w-[78%] md:max-w-[72%] rounded-[1.25rem] px-3.5 py-2.5 cursor-pointer",
                             item.role == :caller &&
                               "bg-gradient-to-br from-base-100 to-base-100/95 border border-base-300/80 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_-2px_rgba(0,0,0,0.06)]",
                             item.role == :agent &&
@@ -1664,7 +1664,7 @@ defmodule SwatiWeb.CallsLive.Show do
                           ]}
                         >
                           <p class="text-[14px] leading-relaxed tracking-[-0.005em]">{item.text}</p>
-                          <div class="mt-2.5 flex items-center gap-2 text-[11px] text-foreground-softer">
+                          <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
                             <span
                               class="inline-block size-1.5 rounded-full"
                               style={
@@ -1686,7 +1686,7 @@ defmodule SwatiWeb.CallsLive.Show do
                         data-start-ms={item.start_ms || 0}
                         data-end-ms={item.end_ms || item.start_ms || 0}
                         data-speaker="tool"
-                        class="rounded-[1.25rem] border border-base-300/70 bg-gradient-to-b from-base-100 to-base-100/95 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_-2px_rgba(0,0,0,0.05)] space-y-3"
+                        class="rounded-[1.25rem] border border-base-300/70 bg-gradient-to-b from-base-100 to-base-100/95 p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_-2px_rgba(0,0,0,0.05)] space-y-2.5"
                       >
                         <div class="flex flex-wrap items-center justify-between gap-3">
                           <div class="flex items-center gap-2.5">
