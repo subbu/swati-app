@@ -270,7 +270,7 @@ defmodule SwatiWeb.CallsLive.Show do
             data-agent-label={@agent_name}
             data-waveform-context={@waveform_context_json}
             data-seed={@call.id}
-            class="rounded-[1.75rem] border border-base-300/80 p-6 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
+            class="rounded-[1.75rem] border border-base-300/80 bg-base-100/95 p-6 md:sticky md:top-6 md:z-30 md:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_-2px_rgba(0,0,0,0.06)] space-y-5"
           >
             <%= if @primary_audio_url do %>
               <div class="flex items-center justify-between gap-4 text-[11px] text-foreground-softer pt-1">
