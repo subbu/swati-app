@@ -21,4 +21,24 @@ defmodule SwatiWeb.CallsLive.HelpersTest do
     assert is_integer(duration)
     assert duration >= 0
   end
+
+  test "transcript_text returns merged lines" do
+    events = [
+      %{type: "transcript", payload: %{tag: "AGENT", text: "Hello"}},
+      %{type: "transcript", payload: %{tag: "AGENT", text: "there"}},
+      %{type: "tool_call", payload: %{name: "lookup"}},
+      %{type: "transcript", payload: %{tag: "CALLER", text: "Hi"}}
+    ]
+
+    assert Helpers.transcript_text(%{events: events}) == "Agent: Hello there\nCustomer: Hi"
+  end
+
+  test "transcript_text returns nil when empty" do
+    events = [
+      %{type: "tool_call", payload: %{name: "lookup"}},
+      %{type: "transcript", payload: %{tag: "AGENT", text: "   "}}
+    ]
+
+    assert Helpers.transcript_text(%{events: events}) == nil
+  end
 end

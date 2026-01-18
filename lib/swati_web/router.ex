@@ -71,6 +71,9 @@ defmodule SwatiWeb.Router do
   scope "/", SwatiWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    get "/calls/:id/transcript", CallsDownloadController, :transcript
+    get "/calls/:id/recording", CallsDownloadController, :recording
+
     live_session :require_authenticated_user,
       on_mount: [{SwatiWeb.UserAuth, :require_authenticated}] do
       live "/users/settings", UserLive.Settings, :edit

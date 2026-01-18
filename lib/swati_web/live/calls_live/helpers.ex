@@ -266,6 +266,102 @@ defmodule SwatiWeb.CallsLive.Helpers do
 
   def parse_id(_id), do: nil
 
+  def transcript_download_url(%{transcript: transcript}) do
+    artifact_url(transcript, [{"text_url", :text_url}, {"jsonl_url", :jsonl_url}])
+  end
+
+  def transcript_download_url(_call), do: nil
+
+  def recording_download_url(%{recording: recording}) do
+    artifact_url(recording, [
+      {"stereo_url", :stereo_url},
+      {"caller_url", :caller_url},
+      {"agent_url", :agent_url}
+    ])
+  end
+
+  def recording_download_url(_call), do: nil
+
+  def transcript_text(%{events: events}) when is_list(events) do
+    events
+    |> transcript_lines()
+    |> case do
+      [] -> nil
+      lines -> Enum.join(lines, "\n")
+    end
+  end
+
+  def transcript_text(_call), do: nil
+
+  defp artifact_url(nil, _keys), do: nil
+
+  defp artifact_url(map, keys) when is_map(map) do
+    Enum.find_value(keys, fn {string_key, atom_key} ->
+      Map.get(map, string_key) || Map.get(map, atom_key)
+    end)
+  end
+
+  defp artifact_url(_value, _keys), do: nil
+
+  defp transcript_lines(events) do
+    {lines, current} =
+      Enum.reduce(events, {[], nil}, fn event, {lines, current} ->
+        type = event.type
+
+        if type in ["transcript", :transcript] do
+          payload = event.payload || %{}
+          tag = normalize_transcript_tag(Map.get(payload, "tag") || Map.get(payload, :tag))
+          text = Map.get(payload, "text") || Map.get(payload, :text) || ""
+          text = text |> to_string() |> String.trim()
+
+          if text == "" do
+            {lines, current}
+          else
+            case current do
+              %{tag: ^tag} = entry ->
+                {lines, %{entry | text: append_transcript_text(entry.text, text)}}
+
+              _ ->
+                {flush_transcript_line(lines, current), %{tag: tag, text: text}}
+            end
+          end
+        else
+          {lines, current}
+        end
+      end)
+
+    lines
+    |> flush_transcript_line(current)
+    |> Enum.reverse()
+    |> Enum.map(&format_transcript_line/1)
+  end
+
+  defp flush_transcript_line(lines, nil), do: lines
+  defp flush_transcript_line(lines, entry), do: [entry | lines]
+
+  defp append_transcript_text(existing, next) do
+    if existing == "" do
+      next
+    else
+      existing <> " " <> next
+    end
+  end
+
+  defp format_transcript_line(%{tag: tag, text: text}) do
+    "#{tag}: #{text}"
+  end
+
+  defp normalize_transcript_tag(tag) do
+    tag = tag |> to_string() |> String.trim()
+
+    case String.upcase(tag) do
+      "CALLER" -> "Customer"
+      "AGENT" -> "Agent"
+      "" -> "Speaker"
+      _ -> String.capitalize(String.downcase(tag))
+    end
+  end
+
   def status_display(status) do
     case status do
       :ended ->

@@ -283,9 +283,14 @@ defmodule SwatiWeb.CallsLive.Index do
                     </div>
                   </:cell>
                   <:cell :if={"from_number" in @visible_columns} class="py-2 align-middle">
-                    <span class="font-medium text-foreground">
+                    <.button
+                      size="sm"
+                      variant="ghost"
+                      class="h-auto p-0 text-foreground font-medium hover:text-foreground"
+                      phx-click={JS.push("open-call-sheet", value: %{id: call.id})}
+                    >
                       {CallsHelpers.format_phone(call.from_number, @current_scope.tenant)}
-                    </span>
+                    </.button>
                   </:cell>
                   <:cell :if={"duration_seconds" in @visible_columns} class="py-2 align-middle">
                     <% duration_seconds = CallsHelpers.call_duration_seconds(call) %>
@@ -338,13 +343,36 @@ defmodule SwatiWeb.CallsLive.Index do
                     </div>
                   </:cell>
                   <:cell class="py-2 align-middle text-right">
-                    <.button
-                      size="sm"
-                      variant="ghost"
-                      phx-click={JS.push("open-call-sheet", value: %{id: call.id})}
-                    >
-                      View
-                    </.button>
+                    <% transcript_url = CallsHelpers.transcript_download_url(call) %>
+                    <% recording_url = CallsHelpers.recording_download_url(call) %>
+                    <.dropdown placement="bottom-end">
+                      <:toggle>
+                        <.button size="sm" variant="ghost">
+                          <.icon name="hero-ellipsis-vertical" class="size-4" />
+                        </.button>
+                      </:toggle>
+                      <.dropdown_button phx-click={JS.push("open-call-sheet", value: %{id: call.id})}>
+                        Show call details
+                      </.dropdown_button>
+                      <.dropdown_link
+                        :if={transcript_url}
+                        href={~p"/calls/#{call.id}/transcript"}
+                      >
+                        Download transcript
+                      </.dropdown_link>
+                      <.dropdown_button :if={!transcript_url} disabled>
+                        Download transcript
+                      </.dropdown_button>
+                      <.dropdown_link
+                        :if={recording_url}
+                        href={~p"/calls/#{call.id}/recording"}
+                      >
+                        Download recording
+                      </.dropdown_link>
+                      <.dropdown_button :if={!recording_url} disabled>
+                        Download recording
+                      </.dropdown_button>
+                    </.dropdown>
                   </:cell>
                 </.table_row>
               </.table_body>
