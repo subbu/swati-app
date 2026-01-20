@@ -7,6 +7,7 @@ defmodule SwatiWeb.SessionsLive.Show do
   alias Swati.Sessions
   alias Swati.Sessions.SessionEvent
   alias SwatiWeb.CallsLive.Show, as: CallsShow
+  alias SwatiWeb.SessionsLive.Helpers, as: SessionsHelpers
 
   @impl true
   def render(assigns) do
@@ -37,46 +38,9 @@ defmodule SwatiWeb.SessionsLive.Show do
 
     timeline = Sessions.get_session_timeline(tenant_id, id)
 
-    call_like = build_call_like(session)
+    call_like = SessionsHelpers.build_call_like(session)
     assigns = CallsShow.detail_assigns(call_like, timeline)
 
     {:ok, assign(socket, assigns)}
   end
-
-  defp build_call_like(session) do
-    recording = Sessions.get_session_recording(session.id) || %{}
-    transcript = Sessions.get_session_transcript(session.id) || %{}
-    metadata = session.metadata || %{}
-
-    %{
-      id: session.id,
-      status: session.status,
-      started_at: session.started_at,
-      ended_at: session.ended_at,
-      duration_seconds: session_duration_seconds(session),
-      recording: recording,
-      transcript: transcript,
-      from_number: Map.get(metadata, "from_address") || Map.get(metadata, :from_address),
-      to_number: Map.get(metadata, "to_address") || Map.get(metadata, :to_address),
-      agent: session.agent,
-      events: session.events
-    }
-  end
-
-  defp session_duration_seconds(%{duration_seconds: duration}) when is_integer(duration),
-    do: duration
-
-  defp session_duration_seconds(%{
-         started_at: %DateTime{} = started_at,
-         ended_at: %DateTime{} = ended_at
-       }) do
-    max(DateTime.diff(ended_at, started_at, :second), 0)
-  end
-
-  defp session_duration_seconds(%{started_at: %DateTime{} = started_at, status: status})
-       when status in [:open, :active, "open", "active"] do
-    max(DateTime.diff(DateTime.utc_now(), started_at, :second), 0)
-  end
-
-  defp session_duration_seconds(_session), do: nil
 end

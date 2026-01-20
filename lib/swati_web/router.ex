@@ -96,7 +96,7 @@ defmodule SwatiWeb.Router do
       live "/cases", CasesLive.Index, :index
       live "/cases/:id", CasesLive.Show, :show
       live "/sessions", SessionsLive.Index, :index
-      live "/sessions/:id", SessionsLive.Show, :show
+      live "/sessions/:id", SessionsLive.Index, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

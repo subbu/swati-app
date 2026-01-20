@@ -10,6 +10,12 @@ defmodule Swati.Preferences do
   def calls_index_key, do: Definitions.calls_index_key()
   def calls_index_columns, do: Definitions.calls_index_columns()
   def calls_index_defaults, do: Definitions.calls_index_defaults()
+  def sessions_index_key, do: Definitions.sessions_index_key()
+  def sessions_index_columns, do: Definitions.sessions_index_columns()
+  def sessions_index_defaults, do: Definitions.sessions_index_defaults()
+  def cases_index_key, do: Definitions.cases_index_key()
+  def cases_index_columns, do: Definitions.cases_index_columns()
+  def cases_index_defaults, do: Definitions.cases_index_defaults()
 
   def calls_index_state(%Scope{} = current_scope) do
     get(current_scope, calls_index_key())
@@ -17,6 +23,22 @@ defmodule Swati.Preferences do
 
   def update_calls_index_state(%Scope{} = current_scope, updates) do
     put(current_scope, calls_index_key(), updates)
+  end
+
+  def sessions_index_state(%Scope{} = current_scope) do
+    get(current_scope, sessions_index_key())
+  end
+
+  def update_sessions_index_state(%Scope{} = current_scope, updates) do
+    put(current_scope, sessions_index_key(), updates)
+  end
+
+  def cases_index_state(%Scope{} = current_scope) do
+    get(current_scope, cases_index_key())
+  end
+
+  def update_cases_index_state(%Scope{} = current_scope, updates) do
+    put(current_scope, cases_index_key(), updates)
   end
 
   def get(%Scope{} = current_scope, key) do
