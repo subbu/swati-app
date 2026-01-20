@@ -16,7 +16,7 @@ defmodule SwatiWeb.CallsLive.Show do
         waveform_context_json={@waveform_context_json}
         waveform_duration_ms={@waveform_duration_ms}
         current_scope={@current_scope}
-        back_patch={~p"/calls"}
+        back_patch={~p"/sessions"}
       />
     </Layouts.app>
     """
@@ -2287,6 +2287,27 @@ defmodule SwatiWeb.CallsLive.Show do
               end
             end
 
+          "channel.transcript" ->
+            payload = event.payload || %{}
+            tag = normalize_string(map_value(payload, "tag", :tag))
+            text = map_value(payload, "text", :text) || ""
+
+            if text == "" do
+              {items, current, tool_calls}
+            else
+              case current do
+                %{tag: ^tag} = entry ->
+                  {items, %{entry | text: append_text(entry.text, text), end_ts: event.ts},
+                   tool_calls}
+
+                _ ->
+                  {items, _current} = flush_current(items, current, started_at, agent_label)
+
+                  {items, %{tag: tag, text: text, start_ts: event.ts, end_ts: event.ts},
+                   tool_calls}
+              end
+            end
+
           "tool_call" ->
             payload = event.payload || %{}
             id = map_value(payload, "id", :id)
@@ -2295,7 +2316,31 @@ defmodule SwatiWeb.CallsLive.Show do
 
             {items, current, Map.put(tool_calls, id, payload)}
 
+          "tool.call" ->
+            payload = event.payload || %{}
+            id = map_value(payload, "id", :id)
+
+            payload = Map.put(payload, "_event_ts", event.ts)
+
+            {items, current, Map.put(tool_calls, id, payload)}
+
           "tool_result" ->
+            payload = event.payload || %{}
+            id = map_value(payload, "id", :id)
+            {items, current} = flush_current(items, current, started_at, agent_label)
+
+            tool_item =
+              build_tool_item(
+                id,
+                tool_calls,
+                payload,
+                started_at,
+                event.ts
+              )
+
+            {[tool_item | items], current, Map.delete(tool_calls, id)}
+
+          "tool.result" ->
             payload = event.payload || %{}
             id = map_value(payload, "id", :id)
             {items, current} = flush_current(items, current, started_at, agent_label)

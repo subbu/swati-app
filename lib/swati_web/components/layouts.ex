@@ -75,13 +75,19 @@ defmodule SwatiWeb.Layouts do
             <.icon
               name="hero-hashtag"
               class="size-5 text-foreground-softer group-hover:text-foreground"
-            /> Numbers
+            /> Endpoints
           </.navlink>
-          <.navlink navigate={~p"/calls"}>
+          <.navlink navigate={~p"/sessions"}>
             <.icon
-              name="hero-phone"
+              name="hero-chat-bubble-left-right"
               class="size-5 text-foreground-softer group-hover:text-foreground"
-            /> Calls
+            /> Sessions
+          </.navlink>
+          <.navlink navigate={~p"/cases"}>
+            <.icon
+              name="hero-briefcase"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Cases
           </.navlink>
         </.navlist>
 
@@ -132,10 +138,13 @@ defmodule SwatiWeb.Layouts do
                   <.icon name="hero-wrench-screwdriver" class="size-5" /> Agent data
                 </.navlink>
                 <.navlink navigate={~p"/numbers"}>
-                  <.icon name="hero-hashtag" class="size-5" /> Numbers
+                  <.icon name="hero-hashtag" class="size-5" /> Endpoints
                 </.navlink>
-                <.navlink navigate={~p"/calls"}>
-                  <.icon name="hero-phone" class="size-5" /> Calls
+                <.navlink navigate={~p"/sessions"}>
+                  <.icon name="hero-chat-bubble-left-right" class="size-5" /> Sessions
+                </.navlink>
+                <.navlink navigate={~p"/cases"}>
+                  <.icon name="hero-briefcase" class="size-5" /> Cases
                 </.navlink>
               </.navlist>
 

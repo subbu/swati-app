@@ -2,6 +2,7 @@ defmodule Swati.Telephony.Commands do
   require Logger
 
   alias Swati.Audit
+  alias Swati.Channels
   alias Swati.Repo
   alias Swati.Telephony.AnswerUrl
   alias Swati.Telephony.E164
@@ -52,6 +53,8 @@ defmodule Swati.Telephony.Commands do
           %{}
         )
 
+        _ = Channels.ensure_endpoint_for_phone_number(phone_number)
+
         {:ok, phone_number}
       end
 
@@ -83,6 +86,8 @@ defmodule Swati.Telephony.Commands do
           %{},
           %{}
         )
+
+        _ = Channels.ensure_endpoint_for_phone_number(phone_number)
 
         {:ok, phone_number}
 

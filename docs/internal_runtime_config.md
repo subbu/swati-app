@@ -1,4 +1,6 @@
-# Internal Runtime Config (Media Gateway)
+# Internal Runtime Config (Execution Plane)
+
+Read when: changing runtime config shape or execution-plane ingestion.
 
 ## Auth
 
@@ -14,15 +16,67 @@
 
 ### Resolve runtime config
 
-`GET /internal/v1/runtime/phone_numbers/:phone_number`
+`POST /internal/v1/runtime/resolve`
+
+Request example:
+
+```json
+{
+  "channel_key": "voice",
+  "channel_type": "voice",
+  "endpoint_address": "+91...",
+  "from_address": "+91...",
+  "session_external_id": "plivo-call-id",
+  "direction": "inbound",
+  "started_at": "2025-12-31T10:00:00.123456Z"
+}
+```
 
 Response example:
 
 ```json
 {
-  "config_version": 1,
+  "config_version": 3,
   "tenant": {"id": "...", "name": "...", "timezone": "Asia/Kolkata"},
-  "phone_number": {"id": "...", "e164": "+91...", "provider": "plivo"},
+  "channel": {
+    "id": "...",
+    "name": "Voice",
+    "key": "voice",
+    "type": "voice",
+    "status": "active",
+    "capabilities": {"tools": ["channel.message.send"]}
+  },
+  "endpoint": {
+    "id": "...",
+    "address": "+91...",
+    "display_name": "+91...",
+    "status": "active",
+    "routing_policy": {"default_agent_id": "..."},
+    "metadata": {"provider": "plivo"}
+  },
+  "customer": {
+    "id": "...",
+    "name": "...",
+    "timezone": "Asia/Kolkata",
+    "language": "en-IN",
+    "preferences": {}
+  },
+  "case": {
+    "id": "...",
+    "status": "new",
+    "priority": "normal",
+    "category": "billing",
+    "title": "Refund request",
+    "summary": null,
+    "memory": {"summary": null, "commitments": [], "constraints": [], "next_actions": []}
+  },
+  "session": {
+    "id": "...",
+    "status": "open",
+    "direction": "inbound",
+    "external_id": "plivo-call-id",
+    "subject": null
+  },
   "agent": {
     "id": "...",
     "name": "Front Desk",
@@ -31,7 +85,7 @@ Response example:
     "llm": {"provider": "google", "model": "models/..."},
     "system_prompt": "...",
     "tool_policy": {
-      "allow": ["search", "get_customer"],
+      "allow": ["search", "channel.message.send"],
       "deny": [],
       "max_calls_per_turn": 3
     },
@@ -46,7 +100,7 @@ Response example:
       "protocol_version": "2025-06-18",
       "timeout_secs": 15,
       "auth": {"type": "bearer", "token": "..."},
-      "allowed_tools": ["search", "get_customer"]
+      "allowed_tools": ["search"]
     }
   ],
   "webhooks": [
@@ -81,70 +135,67 @@ Response example:
 ```
 
 Notes:
-- `tool_policy.allow` defaults to the union of `allowed_tools` from enabled integrations and webhook tool names when the agent allowlist is empty.
-- If the agent allowlist is set, the response filters it to tools present in the enabled integrations and webhooks.
+- `tool_policy.allow` defaults to the union of tool names from enabled integrations, webhooks, and `channel.capabilities.tools` when the agent allowlist is empty.
+- If the agent allowlist is set, the response filters it to tools present in those sources.
 
-### Call lifecycle
-
-#### Start call
-
-`POST /internal/v1/calls/start`
-
-```json
-{
-  "provider": "plivo",
-  "provider_call_id": "...",
-  "provider_stream_id": "...",
-  "phone_number_id": "...",
-  "from_number": "+91...",
-  "to_number": "+91...",
-  "started_at": "2025-12-31T10:00:00.123456Z"
-}
-```
-
-Response:
-
-```json
-{"call_id": "<uuid>"}
-```
+### Session lifecycle
 
 #### Append events
 
-`POST /internal/v1/calls/:call_id/events`
+`POST /internal/v1/sessions/:session_id/events`
 
 ```json
 {
   "events": [
-    {"ts": "2025-12-31T10:00:01.123456Z", "type": "plivo_start", "payload": {}},
-    {"ts": "2025-12-31T10:00:02.123456Z", "type": "tool_call", "payload": {}},
-    {"ts": "2025-12-31T10:00:03.123456Z", "type": "transcript", "payload": {"tag": "CALLER", "text": "hi"}}
+    {
+      "ts": "2025-12-31T10:00:01.123456Z",
+      "type": "channel.message.received",
+      "source": "channel",
+      "idempotency_key": "event-1",
+      "payload": {"text": "hi"}
+    }
   ]
 }
 ```
 
-#### End call
+#### End session
 
-`POST /internal/v1/calls/:call_id/end`
+`POST /internal/v1/sessions/:session_id/end`
 
 ```json
 {
   "ended_at": "2025-12-31T10:02:00.123456Z",
-  "status": "ended",
-  "duration_seconds": 123
+  "status": "closed"
 }
 ```
 
 Notes:
 - Timestamps must be RFC3339 with microsecond precision (e.g. `2026-01-01T08:00:01.000000Z`).
-- Status must be one of `ended`, `failed`, or `cancelled`.
 
 #### Artifacts
 
-`POST /internal/v1/calls/:call_id/artifacts`
+`POST /internal/v1/sessions/:session_id/artifacts`
 
 ```json
 {
   "recording": {"stereo_url": "https://...", "caller_url": "...", "agent_url": "..."},
   "transcript": {"text_url": "https://...", "jsonl_url": "..."}
+}
+```
+
+#### Timeline (voice)
+
+`POST /internal/v1/sessions/:session_id/timeline`
+
+```json
+{
+  "timeline": {
+    "version": 1,
+    "duration_ms": 123,
+    "utterances": [],
+    "speaker_segments": [],
+    "tool_calls": [],
+    "markers": []
+  }
 }
 ```

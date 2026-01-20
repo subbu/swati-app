@@ -24,8 +24,9 @@ defmodule Swati.Agents.ToolPolicy do
 
   def normalize(_policy), do: default()
 
-  @spec effective(map() | nil, list({term(), term()}), list({term(), term()})) :: map()
-  def effective(base_config, integrations, webhooks) do
+  @spec effective(map() | nil, list({term(), term()}), list({term(), term()}), list(String.t())) ::
+          map()
+  def effective(base_config, integrations, webhooks, channel_tools \\ []) do
     base_policy = normalize(Map.get(base_config || %{}, "tool_policy"))
     base_allow = Map.get(base_policy, "allow", [])
     base_deny = Map.get(base_policy, "deny", [])
@@ -45,7 +46,7 @@ defmodule Swati.Agents.ToolPolicy do
       end)
       |> Enum.uniq()
 
-    data_allow = Enum.uniq(integration_allow ++ webhook_allow)
+    data_allow = Enum.uniq(integration_allow ++ webhook_allow ++ List.wrap(channel_tools))
 
     allow =
       cond do

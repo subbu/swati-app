@@ -1,5 +1,5 @@
 defmodule Swati.RuntimeConfig do
-  @version 2
+  @version 3
 
   def version, do: @version
 end

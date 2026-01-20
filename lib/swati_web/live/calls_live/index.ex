@@ -356,7 +356,7 @@ defmodule SwatiWeb.CallsLive.Index do
                       </.dropdown_button>
                       <.dropdown_link
                         :if={transcript_url}
-                        href={~p"/calls/#{call.id}/transcript"}
+                        href={~p"/sessions/#{call.id}/transcript"}
                       >
                         <.icon name="hero-document-text" class="icon" /> Download transcript
                       </.dropdown_link>
@@ -365,7 +365,7 @@ defmodule SwatiWeb.CallsLive.Index do
                       </.dropdown_button>
                       <.dropdown_link
                         :if={recording_url}
-                        href={~p"/calls/#{call.id}/recording"}
+                        href={~p"/sessions/#{call.id}/recording"}
                       >
                         <.icon name="hero-play-circle" class="icon" /> Download recording
                       </.dropdown_link>
@@ -398,7 +398,7 @@ defmodule SwatiWeb.CallsLive.Index do
             waveform_context_json={@waveform_context_json}
             waveform_duration_ms={@waveform_duration_ms}
             current_scope={@current_scope}
-            back_patch={~p"/calls"}
+            back_patch={~p"/sessions"}
           />
         <% end %>
       </.sheet>
@@ -472,7 +472,7 @@ defmodule SwatiWeb.CallsLive.Index do
     call_id = CallsHelpers.parse_id(id)
 
     if is_nil(call_id) do
-      {:noreply, push_patch(socket, to: ~p"/calls")}
+      {:noreply, push_patch(socket, to: ~p"/sessions")}
     else
       call = Calls.get_call!(tenant.id, call_id)
       timeline = Calls.get_call_timeline(tenant.id, call_id)
@@ -606,13 +606,13 @@ defmodule SwatiWeb.CallsLive.Index do
     if is_nil(call_id) do
       {:noreply, socket}
     else
-      {:noreply, push_patch(socket, to: ~p"/calls/#{call_id}")}
+      {:noreply, push_patch(socket, to: ~p"/sessions/#{call_id}")}
     end
   end
 
   @impl true
   def handle_event("close-call-sheet", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/calls")}
+    {:noreply, push_patch(socket, to: ~p"/sessions")}
   end
 
   defp columns_form_map(visible_columns, allowed_columns) do

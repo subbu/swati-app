@@ -16,6 +16,7 @@ defmodule Swati.Telephony.PhoneNumber do
 
     belongs_to :tenant, Swati.Tenancy.Tenant
     belongs_to :inbound_agent, Swati.Agents.Agent
+    has_one :endpoint, Swati.Channels.Endpoint, foreign_key: :phone_number_id
 
     timestamps()
   end

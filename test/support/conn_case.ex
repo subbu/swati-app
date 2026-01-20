@@ -46,7 +46,7 @@ defmodule SwatiWeb.ConnCase do
   """
   def register_and_log_in_user(%{conn: conn} = context) do
     user = Swati.AccountsFixtures.user_fixture()
-    scope = Swati.Accounts.Scope.for_user(user)
+    scope = Swati.AccountsFixtures.user_scope_fixture(user)
 
     opts =
       context

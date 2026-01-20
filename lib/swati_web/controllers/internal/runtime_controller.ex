@@ -3,20 +3,35 @@ defmodule SwatiWeb.Internal.RuntimeController do
 
   alias Swati.Runtime
 
-  def show(conn, %{"phone_number" => phone_number}) do
-    case Runtime.runtime_config_for_phone_number(phone_number) do
+  def resolve(conn, params) do
+    case Runtime.resolve_runtime(params) do
       {:ok, payload} ->
         json(conn, payload)
 
-      {:error, :phone_number_missing_agent} ->
+      {:error, :endpoint_not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "endpoint_not_found"})
+
+      {:error, :customer_identity_missing} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "phone_number_missing_agent"})
+        |> json(%{error: "customer_identity_missing"})
+
+      {:error, :agent_missing} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "agent_missing"})
 
       {:error, :agent_not_published} ->
         conn
         |> put_status(:unprocessable_entity)
         |> json(%{error: "agent_not_published"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: reason})
     end
   end
 end

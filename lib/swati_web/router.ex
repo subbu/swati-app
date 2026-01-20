@@ -36,12 +36,11 @@ defmodule SwatiWeb.Router do
   scope "/internal/v1", SwatiWeb.Internal do
     pipe_through :internal
 
-    get "/runtime/phone_numbers/:phone_number", RuntimeController, :show
-    post "/calls/start", CallsController, :start
-    post "/calls/:call_id/events", CallsController, :events
-    post "/calls/:call_id/end", CallsController, :end_call
-    post "/calls/:call_id/artifacts", CallsController, :artifacts
-    post "/calls/:call_id/timeline", CallsController, :timeline
+    post "/runtime/resolve", RuntimeController, :resolve
+    post "/sessions/:session_id/events", SessionsController, :events
+    post "/sessions/:session_id/end", SessionsController, :end_session
+    post "/sessions/:session_id/artifacts", SessionsController, :artifacts
+    post "/sessions/:session_id/timeline", SessionsController, :timeline
   end
 
   # Other scopes may use custom stacks.
@@ -71,8 +70,8 @@ defmodule SwatiWeb.Router do
   scope "/", SwatiWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    get "/calls/:id/transcript", CallsDownloadController, :transcript
-    get "/calls/:id/recording", CallsDownloadController, :recording
+    get "/sessions/:id/transcript", SessionsDownloadController, :transcript
+    get "/sessions/:id/recording", SessionsDownloadController, :recording
 
     live_session :require_authenticated_user,
       on_mount: [{SwatiWeb.UserAuth, :require_authenticated}] do
@@ -94,8 +93,10 @@ defmodule SwatiWeb.Router do
       live "/webhooks/:id/edit", AgentDataLive.Index, :edit_webhook
       live "/webhooks/:id", WebhooksLive.Show, :show
       live "/numbers", PhoneNumbersLive.Index, :index
-      live "/calls", CallsLive.Index, :index
-      live "/calls/:id", CallsLive.Index, :show
+      live "/cases", CasesLive.Index, :index
+      live "/cases/:id", CasesLive.Show, :show
+      live "/sessions", SessionsLive.Index, :index
+      live "/sessions/:id", SessionsLive.Show, :show
     end
 
     post "/users/update-password", UserSessionController, :update_password

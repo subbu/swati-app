@@ -460,7 +460,7 @@ defmodule SwatiWeb.DashboardLive.Index do
             <div>
               <.link
                 :for={call <- @stats.outliers.longest_calls}
-                navigate={~p"/calls/#{call.id}"}
+                navigate={~p"/sessions/#{call.id}"}
                 class="outlier-card__item outlier-card__item--with-bar"
               >
                 <div class="outlier-card__item-content">
@@ -495,7 +495,7 @@ defmodule SwatiWeb.DashboardLive.Index do
             <div>
               <.link
                 :for={call <- Enum.take(@stats.outliers.zero_duration_ended, 5)}
-                navigate={~p"/calls/#{call.id}"}
+                navigate={~p"/sessions/#{call.id}"}
                 class="outlier-card__item"
               >
                 <span class="outlier-card__item-date">
@@ -520,7 +520,7 @@ defmodule SwatiWeb.DashboardLive.Index do
             <div>
               <.link
                 :for={call <- Enum.take(@stats.outliers.stuck_in_progress, 5)}
-                navigate={~p"/calls/#{call.id}"}
+                navigate={~p"/sessions/#{call.id}"}
                 class="outlier-card__item"
               >
                 <span class="outlier-card__item-date">

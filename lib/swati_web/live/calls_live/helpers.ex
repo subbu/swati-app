@@ -308,7 +308,7 @@ defmodule SwatiWeb.CallsLive.Helpers do
       Enum.reduce(events, {[], nil}, fn event, {lines, current} ->
         type = event.type
 
-        if type in ["transcript", :transcript] do
+        if type in ["transcript", :transcript, "channel.transcript"] do
           payload = event.payload || %{}
           tag = normalize_transcript_tag(Map.get(payload, "tag") || Map.get(payload, :tag))
           text = Map.get(payload, "text") || Map.get(payload, :text) || ""
