@@ -27,6 +27,7 @@ defmodule Swati.Sessions.Ingestion do
           session_id: session_id,
           ts: Map.get(event, "ts"),
           type: Map.get(event, "type"),
+          category: Map.get(event, "category"),
           source: Map.get(event, "source"),
           idempotency_key: Map.get(event, "idempotency_key"),
           payload: Map.get(event, "payload"),

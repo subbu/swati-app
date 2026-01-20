@@ -4,10 +4,12 @@ defmodule SwatiWeb.SessionsLive.Index do
   import Ecto.Query, warn: false
 
   alias Swati.Agents
+  alias Swati.Approvals
   alias Swati.Preferences
   alias Swati.Repo
   alias Swati.Sessions
   alias Swati.Sessions.SessionEvent
+  alias Swati.Handoffs
   alias SwatiWeb.CallsLive.Show, as: CallsShow
   alias SwatiWeb.SessionsLive.Helpers, as: SessionsHelpers
 
@@ -53,6 +55,8 @@ defmodule SwatiWeb.SessionsLive.Index do
       )
       |> assign(:session_sheet_open, false)
       |> assign(:call, nil)
+      |> assign(:approvals, [])
+      |> assign(:handoffs, [])
 
     _ =
       if filters_changed? do
@@ -78,16 +82,20 @@ defmodule SwatiWeb.SessionsLive.Index do
 
       timeline = Sessions.get_session_timeline(tenant.id, session_id)
       call_like = SessionsHelpers.build_call_like(session)
+      approvals = Approvals.list_approvals(tenant.id, %{session_id: session_id})
+      handoffs = Handoffs.list_handoffs(tenant.id, %{session_id: session_id})
 
       {:noreply,
        socket
        |> assign(CallsShow.detail_assigns(call_like, timeline))
+       |> assign(:approvals, approvals)
+       |> assign(:handoffs, handoffs)
        |> assign(session_sheet_open: true)}
     end
   end
 
   def handle_params(_params, _uri, socket) do
-    {:noreply, assign(socket, session_sheet_open: false, call: nil)}
+    {:noreply, assign(socket, session_sheet_open: false, call: nil, approvals: [], handoffs: [])}
   end
 
   @impl true
@@ -401,60 +409,60 @@ defmodule SwatiWeb.SessionsLive.Index do
 
           <div class="overflow-x-auto">
             <.table id="sessions-table">
-            <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
-              <:col :if={"session" in @visible_columns} class="py-2" data-column="session">
-                Session
-              </:col>
-              <:col :if={"customer" in @visible_columns} class="py-2" data-column="customer">
-                Customer
-              </:col>
-              <:col :if={"channel" in @visible_columns} class="py-2" data-column="channel">
-                Channel
-              </:col>
-              <:col :if={"endpoint" in @visible_columns} class="py-2" data-column="endpoint">
-                Endpoint
-              </:col>
-              <:col
-                :if={"direction" in @visible_columns}
-                class="py-2"
-                phx-click="sort"
-                phx-value-column="direction"
-                data-column="direction"
-              >
-                <button type="button" class={SessionsHelpers.sort_button_class("direction", @sort)}>
-                  Direction <SessionsHelpers.sort_icon column="direction" sort={@sort} />
-                </button>
-              </:col>
-              <:col
-                :if={"status" in @visible_columns}
-                class="py-2"
-                phx-click="sort"
-                phx-value-column="status"
-                data-column="status"
-              >
-                <button type="button" class={SessionsHelpers.sort_button_class("status", @sort)}>
-                  Status <SessionsHelpers.sort_icon column="status" sort={@sort} />
-                </button>
-              </:col>
-              <:col
-                :if={"last_event_at" in @visible_columns}
-                class="py-2"
-                phx-click="sort"
-                phx-value-column="last_event_at"
-                data-column="last_event_at"
-              >
-                <button
-                  type="button"
-                  class={SessionsHelpers.sort_button_class("last_event_at", @sort)}
+              <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
+                <:col :if={"session" in @visible_columns} class="py-2" data-column="session">
+                  Session
+                </:col>
+                <:col :if={"customer" in @visible_columns} class="py-2" data-column="customer">
+                  Customer
+                </:col>
+                <:col :if={"channel" in @visible_columns} class="py-2" data-column="channel">
+                  Channel
+                </:col>
+                <:col :if={"endpoint" in @visible_columns} class="py-2" data-column="endpoint">
+                  Endpoint
+                </:col>
+                <:col
+                  :if={"direction" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="direction"
+                  data-column="direction"
                 >
-                  Last activity <SessionsHelpers.sort_icon column="last_event_at" sort={@sort} />
-                </button>
-              </:col>
-              <:col :if={"agent" in @visible_columns} class="py-2 w-full" data-column="agent">
-                Agent
-              </:col>
-              <:col class="py-2 text-right"></:col>
-            </.table_head>
+                  <button type="button" class={SessionsHelpers.sort_button_class("direction", @sort)}>
+                    Direction <SessionsHelpers.sort_icon column="direction" sort={@sort} />
+                  </button>
+                </:col>
+                <:col
+                  :if={"status" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="status"
+                  data-column="status"
+                >
+                  <button type="button" class={SessionsHelpers.sort_button_class("status", @sort)}>
+                    Status <SessionsHelpers.sort_icon column="status" sort={@sort} />
+                  </button>
+                </:col>
+                <:col
+                  :if={"last_event_at" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="last_event_at"
+                  data-column="last_event_at"
+                >
+                  <button
+                    type="button"
+                    class={SessionsHelpers.sort_button_class("last_event_at", @sort)}
+                  >
+                    Last activity <SessionsHelpers.sort_icon column="last_event_at" sort={@sort} />
+                  </button>
+                </:col>
+                <:col :if={"agent" in @visible_columns} class="py-2 w-full" data-column="agent">
+                  Agent
+                </:col>
+                <:col class="py-2 text-right"></:col>
+              </.table_head>
               <.table_body id="sessions" phx-update="stream" class="text-foreground-soft">
                 <.table_row
                   :for={{id, session} <- @streams.sessions}
@@ -563,17 +571,75 @@ defmodule SwatiWeb.SessionsLive.Index do
         on_close={JS.push("close-session-sheet")}
       >
         <%= if @call do %>
-          <CallsShow.call_detail
-            call={@call}
-            primary_audio_url={@primary_audio_url}
-            agent_name={@agent_name}
-            status_badge={@status_badge}
-            transcript_items={@transcript_items}
-            waveform_context_json={@waveform_context_json}
-            waveform_duration_ms={@waveform_duration_ms}
-            current_scope={@current_scope}
-            back_patch={~p"/sessions"}
-          />
+          <div class="space-y-8">
+            <CallsShow.call_detail
+              call={@call}
+              primary_audio_url={@primary_audio_url}
+              agent_name={@agent_name}
+              status_badge={@status_badge}
+              transcript_items={@transcript_items}
+              waveform_context_json={@waveform_context_json}
+              waveform_duration_ms={@waveform_duration_ms}
+              current_scope={@current_scope}
+              back_patch={~p"/sessions"}
+            />
+
+            <section class="grid gap-6 lg:grid-cols-2">
+              <div class="rounded-base border border-base bg-base p-4">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-sm font-semibold text-foreground">Approvals</h2>
+                  <.badge size="xs" variant="soft" color="info">{length(@approvals)}</.badge>
+                </div>
+                <div :if={@approvals == []} class="mt-3 text-sm text-foreground-soft">
+                  No approvals captured for this session.
+                </div>
+                <div :if={@approvals != []} class="mt-3 divide-y divide-base">
+                  <div :for={approval <- @approvals} class="py-3 flex items-center justify-between">
+                    <div>
+                      <div class="text-sm font-medium text-foreground">
+                        {approval.requested_by_type || "Agent"} approval request
+                      </div>
+                      <div class="text-xs text-foreground-soft">
+                        {SessionsHelpers.format_relative(
+                          approval.requested_at || approval.inserted_at,
+                          @current_scope.tenant
+                        )}
+                      </div>
+                    </div>
+                    <% badge = SessionsHelpers.approval_status_badge(approval.status) %>
+                    <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-base border border-base bg-base p-4">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-sm font-semibold text-foreground">Handoffs</h2>
+                  <.badge size="xs" variant="soft" color="info">{length(@handoffs)}</.badge>
+                </div>
+                <div :if={@handoffs == []} class="mt-3 text-sm text-foreground-soft">
+                  No handoffs captured for this session.
+                </div>
+                <div :if={@handoffs != []} class="mt-3 divide-y divide-base">
+                  <div :for={handoff <- @handoffs} class="py-3 flex items-center justify-between">
+                    <div>
+                      <div class="text-sm font-medium text-foreground">
+                        {handoff.requested_by_type || "Agent"} handoff request
+                      </div>
+                      <div class="text-xs text-foreground-soft">
+                        {SessionsHelpers.format_relative(
+                          handoff.requested_at || handoff.inserted_at,
+                          @current_scope.tenant
+                        )}
+                      </div>
+                    </div>
+                    <% badge = SessionsHelpers.handoff_status_badge(handoff.status) %>
+                    <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
         <% end %>
       </.sheet>
     </Layouts.app>

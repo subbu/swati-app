@@ -48,5 +48,8 @@ defmodule Swati.RuntimeTest do
     assert payload.session.external_id == "call-123"
     assert payload.agent.id == agent.id
     assert "channel.message.send" in payload.agent.tool_policy["allow"]
+    assert payload.case_linking["strategy"] == "new_case"
+    assert payload.config_version == 4
+    assert payload.policy.tool_policy["allow"] == payload.agent.tool_policy["allow"]
   end
 end

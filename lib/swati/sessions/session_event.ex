@@ -4,6 +4,7 @@ defmodule Swati.Sessions.SessionEvent do
   schema "session_events" do
     field :ts, :utc_datetime_usec
     field :type, :string
+    field :category, :string, default: "system"
     field :source, :string
     field :idempotency_key, :string
     field :payload, :map
@@ -15,8 +16,8 @@ defmodule Swati.Sessions.SessionEvent do
 
   def changeset(event, attrs) do
     event
-    |> cast(attrs, [:session_id, :ts, :type, :source, :idempotency_key, :payload])
-    |> validate_required([:session_id, :ts, :type])
+    |> cast(attrs, [:session_id, :ts, :type, :category, :source, :idempotency_key, :payload])
+    |> validate_required([:session_id, :ts, :type, :category])
     |> unique_constraint([:session_id, :idempotency_key])
   end
 end

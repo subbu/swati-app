@@ -8,6 +8,7 @@ defmodule Swati.Tenancy.Tenant do
     field :slug, :string
     field :timezone, :string, default: "Asia/Kolkata"
     field :formatting, :map, default: %{"locale" => "en-IN", "phone_country" => "IN"}
+    field :policy, :map, default: %{}
     field :plan, :string, default: "starter"
     field :status, :string, default: "active"
 
@@ -18,7 +19,7 @@ defmodule Swati.Tenancy.Tenant do
 
   def changeset(tenant, attrs) do
     tenant
-    |> cast(attrs, [:name, :slug, :timezone, :formatting, :plan, :status])
+    |> cast(attrs, [:name, :slug, :timezone, :formatting, :policy, :plan, :status])
     |> maybe_put_slug()
     |> validate_required([:name, :slug])
     |> validate_length(:name, min: 2, max: 120)

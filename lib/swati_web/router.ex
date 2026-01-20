@@ -41,6 +41,12 @@ defmodule SwatiWeb.Router do
     post "/sessions/:session_id/end", SessionsController, :end_session
     post "/sessions/:session_id/artifacts", SessionsController, :artifacts
     post "/sessions/:session_id/timeline", SessionsController, :timeline
+    post "/approvals", ApprovalsController, :create
+    post "/approvals/:id/resolve", ApprovalsController, :resolve
+    post "/handoffs", HandoffsController, :create
+    post "/handoffs/:id/resolve", HandoffsController, :resolve
+    post "/channel-events", ChannelEventsController, :create
+    post "/channel-actions/send", ChannelActionsController, :send_message
   end
 
   # Other scopes may use custom stacks.
@@ -93,6 +99,10 @@ defmodule SwatiWeb.Router do
       live "/webhooks/:id/edit", AgentDataLive.Index, :edit_webhook
       live "/webhooks/:id", WebhooksLive.Show, :show
       live "/numbers", PhoneNumbersLive.Index, :index
+      live "/channels", ChannelsLive.Index, :index
+      live "/trust", TrustConsoleLive.Index, :index
+      live "/trust/policy", TrustConsoleLive.Policy, :index
+      live "/trust/reliability", TrustConsoleLive.Reliability, :index
       live "/cases", CasesLive.Index, :index
       live "/cases/:id", CasesLive.Show, :show
       live "/sessions", SessionsLive.Index, :index

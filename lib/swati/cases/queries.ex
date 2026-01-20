@@ -30,6 +30,15 @@ defmodule Swati.Cases.Queries do
     |> Repo.one()
   end
 
+  def list_open_cases_for_customer(tenant_id, customer_id) do
+    Case
+    |> Tenancy.scope(tenant_id)
+    |> where([c], c.customer_id == ^customer_id)
+    |> where([c], c.status in [:new, :triage, :in_progress, :waiting_on_customer])
+    |> order_by([c], desc: c.updated_at)
+    |> Repo.all()
+  end
+
   defp apply_filters(query, filters) do
     query
     |> maybe_filter_search(filters)

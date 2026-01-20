@@ -77,6 +77,12 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Endpoints
           </.navlink>
+          <.navlink navigate={~p"/channels"}>
+            <.icon
+              name="hero-adjustments-vertical"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Channels
+          </.navlink>
           <.navlink navigate={~p"/sessions"}>
             <.icon
               name="hero-chat-bubble-left-right"
@@ -88,6 +94,12 @@ defmodule SwatiWeb.Layouts do
               name="hero-briefcase"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Cases
+          </.navlink>
+          <.navlink navigate={~p"/trust"}>
+            <.icon
+              name="hero-shield-check"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Trust console
           </.navlink>
         </.navlist>
 
@@ -140,11 +152,17 @@ defmodule SwatiWeb.Layouts do
                 <.navlink navigate={~p"/numbers"}>
                   <.icon name="hero-hashtag" class="size-5" /> Endpoints
                 </.navlink>
+                <.navlink navigate={~p"/channels"}>
+                  <.icon name="hero-adjustments-vertical" class="size-5" /> Channels
+                </.navlink>
                 <.navlink navigate={~p"/sessions"}>
                   <.icon name="hero-chat-bubble-left-right" class="size-5" /> Sessions
                 </.navlink>
                 <.navlink navigate={~p"/cases"}>
                   <.icon name="hero-briefcase" class="size-5" /> Cases
+                </.navlink>
+                <.navlink navigate={~p"/trust"}>
+                  <.icon name="hero-shield-check" class="size-5" /> Trust console
                 </.navlink>
               </.navlist>
 

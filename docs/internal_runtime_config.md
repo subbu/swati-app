@@ -36,7 +36,7 @@ Response example:
 
 ```json
 {
-  "config_version": 3,
+  "config_version": 4,
   "tenant": {"id": "...", "name": "...", "timezone": "Asia/Kolkata"},
   "channel": {
     "id": "...",
@@ -69,6 +69,15 @@ Response example:
     "title": "Refund request",
     "summary": null,
     "memory": {"summary": null, "commitments": [], "constraints": [], "next_actions": []}
+  },
+  "case_linking": {
+    "strategy": "open_case",
+    "confidence": 0.78,
+    "window_hours": 48,
+    "within_window": true,
+    "matched_category": true,
+    "last_activity_at": "2026-01-19T17:23:52.456268Z",
+    "category": "billing"
   },
   "session": {
     "id": "...",
@@ -130,6 +139,23 @@ Response example:
       "generate_stereo": true
     },
     "retention_days": 30
+  },
+  "policy": {
+    "tool_policy": {
+      "allow": ["search", "channel.message.send"],
+      "deny": [],
+      "max_calls_per_turn": 3
+    },
+    "logging": {"retention_days": 30},
+    "case_linking": {
+      "strategy": "open_case",
+      "confidence": 0.78,
+      "window_hours": 48,
+      "within_window": true,
+      "matched_category": true,
+      "last_activity_at": "2026-01-19T17:23:52.456268Z",
+      "category": "billing"
+    }
   }
 }
 ```

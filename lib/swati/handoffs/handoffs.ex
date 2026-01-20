@@ -3,6 +3,7 @@ defmodule Swati.Handoffs do
 
   alias Swati.Handoffs.Handoff
   alias Swati.Repo
+  alias Swati.Sessions
   alias Swati.Tenancy
 
   def list_handoffs(tenant_id, filters \\ %{}) do
@@ -31,6 +32,14 @@ defmodule Swati.Handoffs do
     %Handoff{}
     |> Handoff.changeset(attrs)
     |> Repo.insert()
+    |> case do
+      {:ok, handoff} ->
+        _ = maybe_emit_event(handoff, "handoff.requested", handoff.requested_at)
+        {:ok, handoff}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def resolve_handoff(%Handoff{} = handoff, status, attrs \\ %{}) do
@@ -43,6 +52,14 @@ defmodule Swati.Handoffs do
     handoff
     |> Handoff.changeset(attrs)
     |> Repo.update()
+    |> case do
+      {:ok, handoff} ->
+        _ = maybe_emit_event(handoff, "handoff.resolved", handoff.resolved_at)
+        {:ok, handoff}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   defp maybe_filter(query, key, filters) do
@@ -57,5 +74,30 @@ defmodule Swati.Handoffs do
 
   defp stringify_keys(attrs) do
     Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+  end
+
+  defp maybe_emit_event(%Handoff{session_id: nil}, _type, _ts), do: :ok
+
+  defp maybe_emit_event(%Handoff{} = handoff, type, ts) do
+    payload = %{
+      "handoff_id" => handoff.id,
+      "status" => handoff.status,
+      "case_id" => handoff.case_id,
+      "requested_by_type" => handoff.requested_by_type,
+      "requested_by_id" => handoff.requested_by_id,
+      "target_channel_id" => handoff.target_channel_id,
+      "target_endpoint_id" => handoff.target_endpoint_id,
+      "metadata" => handoff.metadata
+    }
+
+    event = %{
+      ts: ts,
+      type: type,
+      source: "control",
+      idempotency_key: "handoff:#{handoff.id}:#{handoff.status}",
+      payload: payload
+    }
+
+    Sessions.append_events(handoff.session_id, [event])
   end
 end

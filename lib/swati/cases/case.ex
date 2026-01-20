@@ -11,6 +11,7 @@ defmodule Swati.Cases.Case do
     field :title, :string
     field :summary, :string
     field :memory, :map
+    field :policy, :map, default: %{}
     field :opened_at, :utc_datetime_usec
     field :resolved_at, :utc_datetime_usec
     field :closed_at, :utc_datetime_usec
@@ -40,6 +41,7 @@ defmodule Swati.Cases.Case do
       :title,
       :summary,
       :memory,
+      :policy,
       :opened_at,
       :resolved_at,
       :closed_at,

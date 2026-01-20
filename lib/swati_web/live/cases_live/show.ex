@@ -1,7 +1,9 @@
 defmodule SwatiWeb.CasesLive.Show do
   use SwatiWeb, :live_view
 
+  alias Swati.Approvals
   alias Swati.Cases
+  alias Swati.Handoffs
   alias Swati.Repo
   alias Swati.Sessions
   alias SwatiWeb.CasesLive.Helpers, as: CasesHelpers
@@ -19,10 +21,15 @@ defmodule SwatiWeb.CasesLive.Show do
       Sessions.list_sessions(tenant_id, %{case_id: case_record.id})
       |> Repo.preload([:channel, :endpoint, :agent])
 
+    approvals = Approvals.list_approvals(tenant_id, %{case_id: case_record.id})
+    handoffs = Handoffs.list_handoffs(tenant_id, %{case_id: case_record.id})
+
     {:ok,
      socket
      |> assign(:case_record, case_record)
      |> assign(:memory, case_record.memory || %{})
+     |> assign(:approvals, approvals)
+     |> assign(:handoffs, handoffs)
      |> stream(:sessions, sessions)}
   end
 
@@ -137,6 +144,60 @@ defmodule SwatiWeb.CasesLive.Show do
                   No next actions yet.
                 </li>
               </ul>
+            </div>
+
+            <div class="rounded-base border border-base bg-base p-4">
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-foreground">Approvals</h2>
+                <.badge size="xs" variant="soft" color="info">{length(@approvals)}</.badge>
+              </div>
+              <div :if={@approvals == []} class="mt-2 text-sm text-foreground-soft">
+                No approvals logged.
+              </div>
+              <div :if={@approvals != []} class="mt-2 space-y-2">
+                <div :for={approval <- @approvals} class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-foreground">
+                      {approval.requested_by_type || "Agent"} approval request
+                    </div>
+                    <div class="text-xs text-foreground-soft">
+                      {SessionsHelpers.format_relative(
+                        approval.requested_at || approval.inserted_at,
+                        @current_scope.tenant
+                      )}
+                    </div>
+                  </div>
+                  <% badge = SessionsHelpers.approval_status_badge(approval.status) %>
+                  <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-base border border-base bg-base p-4">
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-foreground">Handoffs</h2>
+                <.badge size="xs" variant="soft" color="info">{length(@handoffs)}</.badge>
+              </div>
+              <div :if={@handoffs == []} class="mt-2 text-sm text-foreground-soft">
+                No handoffs logged.
+              </div>
+              <div :if={@handoffs != []} class="mt-2 space-y-2">
+                <div :for={handoff <- @handoffs} class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-foreground">
+                      {handoff.requested_by_type || "Agent"} handoff request
+                    </div>
+                    <div class="text-xs text-foreground-soft">
+                      {SessionsHelpers.format_relative(
+                        handoff.requested_at || handoff.inserted_at,
+                        @current_scope.tenant
+                      )}
+                    </div>
+                  </div>
+                  <% badge = SessionsHelpers.handoff_status_badge(handoff.status) %>
+                  <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
+                </div>
+              </div>
             </div>
           </div>
         </section>

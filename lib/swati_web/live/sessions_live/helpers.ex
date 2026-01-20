@@ -15,6 +15,26 @@ defmodule SwatiWeb.SessionsLive.Helpers do
     end
   end
 
+  def approval_status_badge(status) do
+    case to_string(status || "") do
+      "pending" -> %{label: "Pending", color: "warning"}
+      "approved" -> %{label: "Approved", color: "success"}
+      "rejected" -> %{label: "Rejected", color: "danger"}
+      "cancelled" -> %{label: "Cancelled", color: "neutral"}
+      _ -> %{label: "Unknown", color: "info"}
+    end
+  end
+
+  def handoff_status_badge(status) do
+    case to_string(status || "") do
+      "requested" -> %{label: "Requested", color: "warning"}
+      "accepted" -> %{label: "Accepted", color: "success"}
+      "declined" -> %{label: "Declined", color: "danger"}
+      "ended" -> %{label: "Ended", color: "neutral"}
+      _ -> %{label: "Unknown", color: "info"}
+    end
+  end
+
   def status_options do
     [
       {"All", ""},

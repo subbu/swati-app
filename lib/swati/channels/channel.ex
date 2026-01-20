@@ -10,6 +10,7 @@ defmodule Swati.Channels.Channel do
     field :type, Ecto.Enum, values: @types
     field :status, Ecto.Enum, values: @statuses, default: :active
     field :capabilities, :map
+    field :policy, :map, default: %{}
     field :metadata, :map
 
     belongs_to :tenant, Swati.Tenancy.Tenant
@@ -23,7 +24,7 @@ defmodule Swati.Channels.Channel do
 
   def changeset(channel, attrs) do
     channel
-    |> cast(attrs, [:tenant_id, :name, :key, :type, :status, :capabilities, :metadata])
+    |> cast(attrs, [:tenant_id, :name, :key, :type, :status, :capabilities, :policy, :metadata])
     |> validate_required([:tenant_id, :name, :key, :type, :status])
     |> unique_constraint([:tenant_id, :key])
   end

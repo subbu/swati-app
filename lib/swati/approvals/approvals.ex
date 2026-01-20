@@ -3,6 +3,7 @@ defmodule Swati.Approvals do
 
   alias Swati.Approvals.Approval
   alias Swati.Repo
+  alias Swati.Sessions
   alias Swati.Tenancy
 
   def list_approvals(tenant_id, filters \\ %{}) do
@@ -31,6 +32,14 @@ defmodule Swati.Approvals do
     %Approval{}
     |> Approval.changeset(attrs)
     |> Repo.insert()
+    |> case do
+      {:ok, approval} ->
+        _ = maybe_emit_event(approval, "approval.requested", approval.requested_at)
+        {:ok, approval}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def resolve_approval(%Approval{} = approval, status, attrs \\ %{}) do
@@ -43,6 +52,14 @@ defmodule Swati.Approvals do
     approval
     |> Approval.changeset(attrs)
     |> Repo.update()
+    |> case do
+      {:ok, approval} ->
+        _ = maybe_emit_event(approval, "approval.resolved", approval.resolved_at)
+        {:ok, approval}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   defp maybe_filter(query, key, filters) do
@@ -57,5 +74,30 @@ defmodule Swati.Approvals do
 
   defp stringify_keys(attrs) do
     Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+  end
+
+  defp maybe_emit_event(%Approval{session_id: nil}, _type, _ts), do: :ok
+
+  defp maybe_emit_event(%Approval{} = approval, type, ts) do
+    payload = %{
+      "approval_id" => approval.id,
+      "status" => approval.status,
+      "case_id" => approval.case_id,
+      "requested_by_type" => approval.requested_by_type,
+      "requested_by_id" => approval.requested_by_id,
+      "request_payload" => approval.request_payload,
+      "decision_payload" => approval.decision_payload,
+      "decision_by_user_id" => approval.decision_by_user_id
+    }
+
+    event = %{
+      ts: ts,
+      type: type,
+      source: "control",
+      idempotency_key: "approval:#{approval.id}:#{approval.status}",
+      payload: payload
+    }
+
+    Sessions.append_events(approval.session_id, [event])
   end
 end

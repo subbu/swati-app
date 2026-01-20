@@ -1,19 +1,24 @@
 defmodule Swati.Runtime do
   alias Swati.Agents
   alias Swati.Agents.EscalationPolicy
-  alias Swati.Agents.ToolPolicy
   alias Swati.Channels
   alias Swati.Channels.ToolAllowlist, as: ChannelToolAllowlist
   alias Swati.Cases
+  alias Swati.Cases.Linking, as: CaseLinking
   alias Swati.Customers
   alias Swati.Integrations
+  alias Swati.Integrations.ToolAllowlist, as: IntegrationToolAllowlist
   alias Swati.Integrations.Serialization
+  alias Swati.Policies.Logging, as: LoggingPolicy
+  alias Swati.Policies.ToolPolicy, as: EffectiveToolPolicy
   alias Swati.Repo
   alias Swati.RuntimeConfig
   alias Swati.Sessions
   alias Swati.Sessions.Events, as: SessionEvents
   alias Swati.Tenancy
+  alias Swati.Tools
   alias Swati.Webhooks
+  alias Swati.Webhooks.ToolAllowlist, as: WebhookToolAllowlist
   alias Swati.Webhooks.Serialization, as: WebhookSerialization
 
   @spec resolve_runtime(map()) :: {:ok, map()} | {:error, atom()}
@@ -21,13 +26,45 @@ defmodule Swati.Runtime do
     with {:ok, endpoint, channel} <- resolve_endpoint(params),
          tenant <- Tenancy.get_tenant!(endpoint.tenant_id),
          {:ok, customer, _identity} <- resolve_customer(tenant.id, channel, params),
-         {:ok, case_record} <- resolve_case(tenant.id, customer, params),
+         {:ok, case_record, case_linking} <- resolve_case(tenant, channel, customer, params),
          {:ok, session} <-
-           resolve_session(tenant.id, channel, endpoint, customer, case_record, params),
+           resolve_session(
+             tenant.id,
+             channel,
+             endpoint,
+             customer,
+             case_record,
+             case_linking,
+             params
+           ),
          {:ok, agent, version} <- resolve_agent(tenant.id, endpoint, case_record) do
       {integrations, webhooks} = resolve_tools(tenant.id, channel.id, agent.id)
       channel_tools = ChannelToolAllowlist.allowed_tools(channel)
-      tool_policy = ToolPolicy.effective(version.config, integrations, webhooks, channel_tools)
+
+      integration_tools =
+        integrations
+        |> Enum.flat_map(fn {integration, _secret} ->
+          IntegrationToolAllowlist.allowed_tools(integration)
+        end)
+
+      webhook_tools =
+        webhooks
+        |> Enum.flat_map(fn {webhook, _secret} ->
+          WebhookToolAllowlist.allowed_tools(webhook)
+        end)
+
+      _ = Tools.ensure_tools(tenant.id, integration_tools, "integration")
+      _ = Tools.ensure_tools(tenant.id, webhook_tools, "webhook")
+      _ = Tools.ensure_tools(tenant.id, channel_tools, "channel")
+
+      tool_policy =
+        EffectiveToolPolicy.effective(
+          version.config,
+          integrations,
+          webhooks,
+          channel_tools,
+          [tenant.policy, channel.policy, case_record.policy]
+        )
 
       integrations_json =
         Enum.map(integrations, fn {integration, secret} ->
@@ -39,6 +76,9 @@ defmodule Swati.Runtime do
           WebhookSerialization.internal_payload(webhook, secret)
         end)
 
+      retention_days =
+        LoggingPolicy.retention_days([tenant.policy, channel.policy, case_record.policy])
+
       {:ok,
        %{
          config_version: RuntimeConfig.version(),
@@ -47,6 +87,7 @@ defmodule Swati.Runtime do
          endpoint: endpoint_payload(endpoint),
          customer: customer_payload(customer),
          case: case_payload(case_record),
+         case_linking: case_linking,
          session: session_payload(session),
          agent: agent_payload(agent, version.config, tool_policy),
          integrations: integrations_json,
@@ -58,7 +99,12 @@ defmodule Swati.Runtime do
              record_agent: true,
              generate_stereo: true
            },
-           retention_days: 30
+           retention_days: retention_days
+         },
+         policy: %{
+           tool_policy: tool_policy,
+           logging: %{retention_days: retention_days},
+           case_linking: case_linking
          }
        }}
     end
@@ -139,27 +185,51 @@ defmodule Swati.Runtime do
     end
   end
 
-  defp resolve_case(tenant_id, customer, params) do
-    category = param(params, [:case_category]) || nested_param(params, ["case", "category"])
+  defp resolve_case(tenant, channel, customer, params) do
+    case_id = param(params, [:case_id]) || nested_param(params, ["case", "id"])
 
-    case_record = Cases.find_open_case_for_customer(tenant_id, customer.id, category)
+    if is_binary(case_id) do
+      case_record = Cases.get_case!(tenant.id, case_id)
+      {:ok, case_record, %{"strategy" => "explicit", "confidence" => 1.0}}
+    else
+      category = param(params, [:case_category]) || nested_param(params, ["case", "category"])
+      case_policy = param(params, [:case_policy]) || nested_param(params, ["case", "policy"])
 
-    case case_record do
-      %Swati.Cases.Case{} = record ->
-        {:ok, record}
+      case_linking =
+        CaseLinking.pick_case(tenant.id, customer.id, category, [tenant.policy, channel.policy])
 
-      nil ->
-        title = param(params, [:case_title]) || nested_param(params, ["case", "title"])
+      case case_linking do
+        {:reuse, %Swati.Cases.Case{} = record, info} ->
+          {:ok, record, Map.put(info, "category", category)}
 
-        Cases.create_case(tenant_id, %{
-          customer_id: customer.id,
-          category: category,
-          title: title
-        })
+        nil ->
+          title = param(params, [:case_title]) || nested_param(params, ["case", "title"])
+
+          attrs = %{
+            customer_id: customer.id,
+            category: category,
+            title: title
+          }
+
+          attrs =
+            if is_map(case_policy) do
+              Map.put(attrs, :policy, case_policy)
+            else
+              attrs
+            end
+
+          case Cases.create_case(tenant.id, attrs) do
+            {:ok, record} ->
+              {:ok, record, %{"strategy" => "new_case", "confidence" => 0.0}}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+      end
     end
   end
 
-  defp resolve_session(tenant_id, channel, endpoint, customer, case_record, params) do
+  defp resolve_session(tenant_id, channel, endpoint, customer, case_record, case_linking, params) do
     external_id =
       param(params, [:session_external_id, :external_id]) ||
         nested_param(params, ["session", "external_id"])
@@ -195,7 +265,8 @@ defmodule Swati.Runtime do
             param(params, [:endpoint_address, :address]) ||
               nested_param(params, ["endpoint", "address"]),
           "provider" =>
-            param(params, [:provider]) || nested_param(params, ["session", "provider"])
+            param(params, [:provider]) || nested_param(params, ["session", "provider"]),
+          "case_linking" => case_linking
         }
 
         Sessions.create_session(tenant_id, %{
