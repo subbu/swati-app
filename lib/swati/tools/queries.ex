@@ -20,6 +20,13 @@ defmodule Swati.Tools.Queries do
     |> Repo.get_by(name: name)
   end
 
+  def list_tools_by_names(tenant_id, names) when is_list(names) do
+    Tool
+    |> Tenancy.scope(tenant_id)
+    |> where([t], t.name in ^names)
+    |> Repo.all()
+  end
+
   defp maybe_filter(query, key, filters) do
     value = Map.get(filters, key) || Map.get(filters, to_string(key))
 

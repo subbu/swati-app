@@ -13,6 +13,7 @@ defmodule Swati.Channels.Endpoint do
     belongs_to :tenant, Swati.Tenancy.Tenant
     belongs_to :channel, Swati.Channels.Channel
     belongs_to :phone_number, Swati.Telephony.PhoneNumber
+    has_one :connection, Swati.Channels.ChannelConnection
 
     timestamps()
   end

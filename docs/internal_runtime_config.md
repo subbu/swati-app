@@ -36,7 +36,7 @@ Response example:
 
 ```json
 {
-  "config_version": 4,
+  "config_version": 5,
   "tenant": {"id": "...", "name": "...", "timezone": "Asia/Kolkata"},
   "channel": {
     "id": "...",
@@ -145,6 +145,15 @@ Response example:
       "allow": ["search", "channel.message.send"],
       "deny": [],
       "max_calls_per_turn": 3
+    },
+    "tool_risk": {
+      "refund.create": {
+        "access": "write",
+        "reversible": false,
+        "financial": "high",
+        "pii": "none",
+        "requires_approval": true
+      }
     },
     "logging": {"retention_days": 30},
     "case_linking": {

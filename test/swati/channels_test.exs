@@ -20,6 +20,15 @@ defmodule Swati.ChannelsTest do
     assert channel.type == :voice
   end
 
+  test "ensure_email_channel creates default channel" do
+    scope = user_scope_fixture()
+
+    {:ok, channel} = Channels.ensure_email_channel(scope.tenant.id)
+
+    assert channel.key == "email"
+    assert channel.type == :email
+  end
+
   test "ensure_endpoint_for_phone_number creates endpoint" do
     scope = user_scope_fixture()
 
@@ -43,5 +52,31 @@ defmodule Swati.ChannelsTest do
 
     fetched = Channels.get_endpoint_by_phone_number_id(scope.tenant.id, phone_number.id)
     assert fetched.id == endpoint.id
+  end
+
+  test "ensure_endpoint_for_email creates endpoint" do
+    scope = user_scope_fixture()
+
+    {:ok, endpoint} = Channels.ensure_endpoint_for_email(scope.tenant.id, "support@example.com")
+
+    assert endpoint.address == "support@example.com"
+  end
+
+  test "create_connection stores channel connection" do
+    scope = user_scope_fixture()
+
+    {:ok, channel} = Channels.ensure_email_channel(scope.tenant.id)
+    {:ok, endpoint} = Channels.ensure_endpoint(scope.tenant.id, channel.id, "team@example.com")
+
+    {:ok, connection} =
+      Channels.create_connection(scope.tenant.id, %{
+        channel_id: channel.id,
+        endpoint_id: endpoint.id,
+        provider: :gmail,
+        status: :active
+      })
+
+    assert connection.endpoint_id == endpoint.id
+    assert connection.provider == :gmail
   end
 end

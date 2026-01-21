@@ -37,6 +37,26 @@ defmodule Swati.Customers.Queries do
     |> Repo.one()
   end
 
+  def get_identity_by_external_id_any_channel(tenant_id, external_id)
+      when is_binary(external_id) do
+    CustomerIdentity
+    |> Tenancy.scope(tenant_id)
+    |> where([i], i.external_id == ^external_id)
+    |> order_by([i], desc: i.inserted_at)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  def get_identity_by_address_any_channel(tenant_id, kind, address) when is_binary(address) do
+    CustomerIdentity
+    |> Tenancy.scope(tenant_id)
+    |> maybe_filter_kind(kind)
+    |> where([i], i.address == ^address)
+    |> order_by([i], desc: i.inserted_at)
+    |> limit(1)
+    |> Repo.one()
+  end
+
   defp maybe_filter(query, key, filters) do
     value = Map.get(filters, key) || Map.get(filters, to_string(key))
 
@@ -45,5 +65,12 @@ defmodule Swati.Customers.Queries do
     else
       from(record in query, where: field(record, ^key) == ^value)
     end
+  end
+
+  defp maybe_filter_kind(query, nil), do: query
+  defp maybe_filter_kind(query, ""), do: query
+
+  defp maybe_filter_kind(query, kind) do
+    from(identity in query, where: identity.kind == ^kind)
   end
 end

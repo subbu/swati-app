@@ -55,6 +55,49 @@ defmodule Swati.Customers.Commands do
         {:ok, customer, identity}
 
       nil ->
+        resolve_cross_channel_identity(tenant_id, channel_id, kind, attrs)
+    end
+  end
+
+  defp resolve_cross_channel_identity(tenant_id, channel_id, kind, attrs) do
+    external_id = Map.get(attrs, :external_id) || Map.get(attrs, "external_id")
+    address = Map.get(attrs, :address) || Map.get(attrs, "address")
+
+    identity =
+      cond do
+        is_binary(external_id) and external_id != "" ->
+          Queries.get_identity_by_external_id_any_channel(tenant_id, external_id)
+
+        is_binary(address) and address != "" ->
+          Queries.get_identity_by_address_any_channel(tenant_id, kind, address)
+
+        true ->
+          nil
+      end
+
+    case identity do
+      %CustomerIdentity{} = identity ->
+        customer = Repo.get!(Customer, identity.customer_id)
+        identity_attrs = build_identity_attrs(attrs, channel_id, kind)
+
+        case create_identity(customer, identity_attrs) do
+          {:ok, channel_identity} ->
+            {:ok, customer, channel_identity}
+
+          {:error, _changeset} ->
+            channel_identity =
+              Queries.get_identity_by_external_id(
+                tenant_id,
+                channel_id,
+                identity_attrs["external_id"]
+              ) ||
+                Queries.get_identity_by_address(tenant_id, channel_id, identity_attrs["address"]) ||
+                identity
+
+            {:ok, customer, channel_identity}
+        end
+
+      nil ->
         create_customer_and_identity(tenant_id, channel_id, kind, attrs)
     end
   end

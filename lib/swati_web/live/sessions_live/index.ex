@@ -78,7 +78,13 @@ defmodule SwatiWeb.SessionsLive.Index do
     else
       session =
         Sessions.get_session!(tenant.id, session_id)
-        |> Repo.preload([:agent, events: from(e in SessionEvent, order_by: [asc: e.ts])])
+        |> Repo.preload([
+          :agent,
+          :case,
+          :channel,
+          :endpoint,
+          events: from(e in SessionEvent, order_by: [asc: e.ts])
+        ])
 
       timeline = Sessions.get_session_timeline(tenant.id, session_id)
       call_like = SessionsHelpers.build_call_like(session)
@@ -90,12 +96,20 @@ defmodule SwatiWeb.SessionsLive.Index do
        |> assign(CallsShow.detail_assigns(call_like, timeline))
        |> assign(:approvals, approvals)
        |> assign(:handoffs, handoffs)
+       |> assign(:case_record, session.case)
        |> assign(session_sheet_open: true)}
     end
   end
 
   def handle_params(_params, _uri, socket) do
-    {:noreply, assign(socket, session_sheet_open: false, call: nil, approvals: [], handoffs: [])}
+    {:noreply,
+     assign(socket,
+       session_sheet_open: false,
+       call: nil,
+       approvals: [],
+       handoffs: [],
+       case_record: nil
+     )}
   end
 
   @impl true
@@ -572,6 +586,37 @@ defmodule SwatiWeb.SessionsLive.Index do
       >
         <%= if @call do %>
           <div class="space-y-8">
+            <section class="rounded-base border border-base bg-base p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="text-sm font-semibold text-foreground">Case context</h2>
+                  <p class="text-xs text-foreground-soft">
+                    {if @case_record,
+                      do: @case_record.title || "Untitled case",
+                      else: "No case linked."}
+                  </p>
+                </div>
+                <%= if @case_record do %>
+                  <.link
+                    navigate={~p"/cases/#{@case_record.id}"}
+                    class="text-xs font-semibold text-primary hover:text-primary/80"
+                  >
+                    View case
+                  </.link>
+                <% end %>
+              </div>
+              <div :if={@case_record} class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <% badge = SessionsHelpers.status_badge(@case_record.status) %>
+                <.badge size="xs" variant="soft" color={badge.color}>{badge.label}</.badge>
+                <span class="text-foreground-soft">
+                  Priority: {SessionsHelpers.priority_label(@case_record.priority)}
+                </span>
+                <span class="text-foreground-soft">
+                  Category: {SessionsHelpers.case_category(@case_record)}
+                </span>
+              </div>
+            </section>
+
             <CallsShow.call_detail
               call={@call}
               primary_audio_url={@primary_audio_url}

@@ -1,5 +1,6 @@
 defmodule Swati.Channels.Commands do
   alias Swati.Channels.Channel
+  alias Swati.Channels.ChannelConnection
   alias Swati.Channels.Endpoint
   alias Swati.Channels.Queries
   alias Swati.Repo
@@ -37,6 +38,16 @@ defmodule Swati.Channels.Commands do
       "type" => :voice,
       "status" => :active,
       "capabilities" => default_voice_capabilities()
+    })
+  end
+
+  def ensure_email_channel(tenant_id) do
+    ensure_channel(tenant_id, %{
+      "name" => "Email",
+      "key" => "email",
+      "type" => :email,
+      "status" => :active,
+      "capabilities" => default_email_capabilities()
     })
   end
 
@@ -80,12 +91,79 @@ defmodule Swati.Channels.Commands do
     |> Repo.update()
   end
 
+  def ensure_endpoint(tenant_id, channel_id, address, attrs \\ %{}) when is_binary(address) do
+    params =
+      attrs
+      |> stringify_keys()
+      |> Map.put("tenant_id", tenant_id)
+      |> Map.put("channel_id", channel_id)
+      |> Map.put("address", address)
+      |> Map.put_new("display_name", address)
+      |> Map.put_new("status", :active)
+
+    changeset = Endpoint.changeset(%Endpoint{}, params)
+
+    Repo.insert(
+      changeset,
+      on_conflict:
+        {:replace, [:address, :display_name, :status, :routing_policy, :metadata, :updated_at]},
+      conflict_target: [:tenant_id, :channel_id, :address],
+      returning: true
+    )
+    |> case do
+      {:ok, endpoint} -> {:ok, endpoint}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def ensure_endpoint_for_email(tenant_id, address, attrs \\ %{}) when is_binary(address) do
+    with {:ok, channel} <- ensure_email_channel(tenant_id) do
+      ensure_endpoint(tenant_id, channel.id, address, attrs)
+    end
+  end
+
+  def create_connection(tenant_id, attrs) do
+    attrs =
+      attrs
+      |> stringify_keys()
+      |> Map.put("tenant_id", tenant_id)
+
+    %ChannelConnection{}
+    |> ChannelConnection.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_connection(%ChannelConnection{} = connection, attrs) do
+    connection
+    |> ChannelConnection.changeset(attrs)
+    |> Repo.update()
+  end
+
   defp default_voice_capabilities do
     %{
       "supports" => %{
         "sync" => true,
         "attachments" => false,
         "multi_party" => false,
+        "message_edits" => false,
+        "typing" => false
+      },
+      "tools" => [
+        "channel.message.send",
+        "channel.thread.fetch",
+        "channel.thread.close",
+        "channel.handoff.request",
+        "channel.handoff.transfer"
+      ]
+    }
+  end
+
+  defp default_email_capabilities do
+    %{
+      "supports" => %{
+        "sync" => true,
+        "attachments" => true,
+        "multi_party" => true,
         "message_edits" => false,
         "typing" => false
       },

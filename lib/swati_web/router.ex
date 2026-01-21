@@ -78,6 +78,10 @@ defmodule SwatiWeb.Router do
 
     get "/sessions/:id/transcript", SessionsDownloadController, :transcript
     get "/sessions/:id/recording", SessionsDownloadController, :recording
+    get "/channels/gmail/connect", GmailOAuthController, :connect
+    get "/channels/gmail/callback", GmailOAuthController, :callback
+    get "/channels/outlook/connect", OutlookOAuthController, :connect
+    get "/channels/outlook/callback", OutlookOAuthController, :callback
 
     live_session :require_authenticated_user,
       on_mount: [{SwatiWeb.UserAuth, :require_authenticated}] do

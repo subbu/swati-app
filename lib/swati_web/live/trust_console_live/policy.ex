@@ -59,6 +59,7 @@ defmodule SwatiWeb.TrustConsoleLive.Policy do
                 <.table_head class="text-foreground-soft">
                   <:col>Channel</:col>
                   <:col>Status</:col>
+                  <:col>Channel tools</:col>
                   <:col class="text-right">Tools</:col>
                 </.table_head>
                 <.table_body>
@@ -68,6 +69,9 @@ defmodule SwatiWeb.TrustConsoleLive.Policy do
                       <.badge size="sm" variant="soft" color="info">
                         {channel.status}
                       </.badge>
+                    </:cell>
+                    <:cell class="text-foreground-soft">
+                      {channel_tools_label(channel)}
                     </:cell>
                     <:cell class="text-right text-foreground-soft">
                       {length(Map.get(channel.capabilities || %{}, "tools", []))}
@@ -116,4 +120,17 @@ defmodule SwatiWeb.TrustConsoleLive.Policy do
 
   defp nav_class(true), do: "px-3 py-1.5 rounded-base bg-accent text-foreground font-medium"
   defp nav_class(false), do: "px-3 py-1.5 rounded-base text-foreground-soft hover:bg-accent"
+
+  defp channel_tools_label(channel) do
+    tools = Map.get(channel.capabilities || %{}, "tools", [])
+
+    tools
+    |> List.wrap()
+    |> Enum.map(&to_string/1)
+    |> Enum.reject(&(&1 == ""))
+    |> case do
+      [] -> "—"
+      items -> Enum.join(items, ", ")
+    end
+  end
 end

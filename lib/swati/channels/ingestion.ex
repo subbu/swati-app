@@ -1,6 +1,9 @@
 defmodule Swati.Channels.Ingestion do
+  alias Swati.Channels
+  alias Swati.Repo
   alias Swati.Runtime
   alias Swati.Sessions
+  alias Swati.Sessions.Session
 
   @spec ingest_events(map()) :: {:ok, map()} | {:error, term()}
   def ingest_events(params) when is_map(params) do
@@ -38,16 +41,93 @@ defmodule Swati.Channels.Ingestion do
           payload
         end
 
-      event = %{
-        ts: Map.get(params, "ts") || Map.get(params, :ts) || DateTime.utc_now(),
-        type: Map.get(params, "type") || Map.get(params, :type) || "channel.message.sent",
-        source: Map.get(params, "source") || Map.get(params, :source) || "channel",
-        payload: payload
-      }
+      case maybe_send(session_id, payload, params) do
+        {:ok, updated_payload} ->
+          event = build_event(params, updated_payload)
+          :ok = Sessions.append_events(session_id, [event])
+          {:ok, %{session_id: session_id}}
 
-      :ok = Sessions.append_events(session_id, [event])
+        :ok ->
+          event = build_event(params, payload)
+          :ok = Sessions.append_events(session_id, [event])
+          {:ok, %{session_id: session_id}}
 
-      {:ok, %{session_id: session_id}}
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp build_event(params, payload) do
+    %{
+      ts: Map.get(params, "ts") || Map.get(params, :ts) || DateTime.utc_now(),
+      type: Map.get(params, "type") || Map.get(params, :type) || "channel.message.sent",
+      source: Map.get(params, "source") || Map.get(params, :source) || "channel",
+      payload: payload
+    }
+  end
+
+  defp maybe_send(session_id, payload, params) do
+    session =
+      Session
+      |> Repo.get(session_id)
+      |> Repo.preload([:channel, :endpoint, :customer])
+
+    if session && session.channel && session.channel.type == :email do
+      with {:ok, connection} <- fetch_connection(session),
+           {:ok, message} <- build_email_message(session, payload, params),
+           {:ok, response} <- Channels.send_message(connection, message) do
+        updated_payload = Map.put(payload, "provider_response", response)
+        {:ok, updated_payload}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp fetch_connection(session) do
+    case Channels.get_connection_by_endpoint(session.tenant_id, session.endpoint_id) do
+      nil -> {:error, :channel_connection_missing}
+      connection -> {:ok, Repo.preload(connection, :endpoint)}
+    end
+  end
+
+  defp build_email_message(session, payload, params) do
+    to =
+      Map.get(payload, "to") || Map.get(payload, :to) || Map.get(payload, "to_address") ||
+        Map.get(payload, :to_address) || Map.get(params, "to") || Map.get(params, :to) ||
+        default_recipient(session)
+
+    subject =
+      Map.get(payload, "subject") || Map.get(payload, :subject) || Map.get(params, "subject") ||
+        Map.get(params, :subject) || session.subject || "New message"
+
+    text =
+      Map.get(payload, "text") || Map.get(payload, :text) || Map.get(payload, "body") ||
+        Map.get(payload, :body) || Map.get(params, "text") || Map.get(params, :text)
+
+    if is_nil(to) or is_nil(text) or text == "" do
+      {:error, :message_payload_invalid}
+    else
+      {:ok,
+       %{
+         "to" => to,
+         "subject" => subject,
+         "text" => text,
+         "thread_id" => session.external_id
+       }}
+    end
+  end
+
+  defp default_recipient(session) do
+    metadata = session.metadata || %{}
+    from_address = Map.get(metadata, "from_address")
+    to_address = Map.get(metadata, "to_address")
+
+    case session.direction do
+      :inbound -> from_address
+      :outbound -> to_address || from_address
+      _ -> from_address || to_address
     end
   end
 

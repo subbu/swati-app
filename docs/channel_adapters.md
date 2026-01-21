@@ -2,6 +2,20 @@
 
 Read when: building non-voice channel adapters or wiring inbound/outbound channel events.
 
+## Channel connections
+
+- OAuth connections live in `channel_connections` and store provider tokens in `secrets`.
+- Use `Swati.Channels.ensure_email_channel/1` and `Swati.Channels.ensure_endpoint/4` to register an address.
+- Gmail OAuth flow: `/channels/gmail/connect` → `/channels/gmail/callback` (authenticated scope).
+- Outlook OAuth flow: `/channels/outlook/connect` → `/channels/outlook/callback` (authenticated scope).
+- IMAP/SMTP connections are saved via the Channels UI and stored in `secrets` as JSON.
+- Zoho Mail uses the IMAP/SMTP preset with `imap.zoho.com`/`smtp.zoho.com`.
+
+### Sync schedule
+
+- Email sync is queued via Oban Cron (default every 5 minutes).
+- Use `Swati.Channels.sync_connection/1` for immediate sync when testing.
+
 ## Internal endpoints
 
 All endpoints require `authorization: Bearer <SWATI_INTERNAL_API_TOKEN>`.
@@ -37,7 +51,7 @@ Response:
 }
 ```
 
-### Outbound send request (audit only)
+### Outbound send request
 
 `POST /internal/v1/channel-actions/send`
 
@@ -53,3 +67,8 @@ Response:
 ```json
 {"session_id": "..."}
 ```
+
+Notes:
+
+- Email channels with Gmail, Outlook, or IMAP connections will send via the provider and append the event.
+- Other channels currently only append an audit event.

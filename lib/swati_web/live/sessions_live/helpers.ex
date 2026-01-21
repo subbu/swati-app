@@ -140,6 +140,21 @@ defmodule SwatiWeb.SessionsLive.Helpers do
     end
   end
 
+  def priority_label(priority) do
+    case to_string(priority || "") do
+      "low" -> "Low"
+      "normal" -> "Normal"
+      "high" -> "High"
+      "urgent" -> "Urgent"
+      _ -> "Normal"
+    end
+  end
+
+  def case_category(case_record) do
+    category = Map.get(case_record || %{}, :category)
+    if is_binary(category) and category != "", do: category, else: "General"
+  end
+
   defp short_id(nil), do: "—"
 
   defp short_id(id) do

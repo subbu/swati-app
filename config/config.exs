@@ -22,7 +22,9 @@ config :swati, :scopes,
 
 config :swati,
   ecto_repos: [Swati.Repo],
-  generators: [timestamp_type: :utc_datetime_usec, binary_id: true]
+  generators: [timestamp_type: :utc_datetime_usec, binary_id: true],
+  channel_sync_interval_seconds: 300,
+  channel_sync_cron: "*/5 * * * *"
 
 config :swati, Swati.Repo,
   migration_primary_key: [type: :binary_id],

@@ -20,11 +20,23 @@ if System.get_env("PHX_SERVER") do
   config :swati, SwatiWeb.Endpoint, server: true
 end
 
+channel_sync_cron = Application.get_env(:swati, :channel_sync_cron, "*/5 * * * *")
+
+oban_plugins =
+  if config_env() == :test do
+    [Oban.Plugins.Pruner]
+  else
+    [
+      Oban.Plugins.Pruner,
+      {Oban.Plugins.Cron, crontab: [{channel_sync_cron, Swati.Workers.SyncChannelConnections}]}
+    ]
+  end
+
 config :swati, Oban,
   repo: Swati.Repo,
   engine: Oban.Engines.Basic,
-  plugins: [Oban.Plugins.Pruner],
-  queues: [default: 10, integrations: 10, telephony: 5, calls: 10, media: 5]
+  plugins: oban_plugins,
+  queues: [default: 10, integrations: 10, telephony: 5, calls: 10, media: 5, channels: 5]
 
 config :replicate,
   replicate_api_token: System.get_env("REPLICATE_API_TOKEN")

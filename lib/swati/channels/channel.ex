@@ -18,6 +18,7 @@ defmodule Swati.Channels.Channel do
     has_many :endpoints, Swati.Channels.Endpoint
     has_many :channel_integrations, Swati.Channels.ChannelIntegration
     has_many :channel_webhooks, Swati.Channels.ChannelWebhook
+    has_many :connections, Swati.Channels.ChannelConnection
 
     timestamps()
   end

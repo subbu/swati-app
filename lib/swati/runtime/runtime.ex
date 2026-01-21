@@ -79,6 +79,8 @@ defmodule Swati.Runtime do
       retention_days =
         LoggingPolicy.retention_days([tenant.policy, channel.policy, case_record.policy])
 
+      tool_risk = Tools.risk_map(tenant.id, Map.get(tool_policy, "allow", []))
+
       {:ok,
        %{
          config_version: RuntimeConfig.version(),
@@ -103,6 +105,7 @@ defmodule Swati.Runtime do
          },
          policy: %{
            tool_policy: tool_policy,
+           tool_risk: tool_risk,
            logging: %{retention_days: retention_days},
            case_linking: case_linking
          }

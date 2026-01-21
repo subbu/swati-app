@@ -153,6 +153,14 @@ defmodule SwatiWeb.TrustConsoleLive.Index do
                 <div class="mt-2 text-xs text-foreground-soft">
                   {event_summary(event)}
                 </div>
+                <div :if={event.session_id} class="mt-2 text-xs">
+                  <.link
+                    navigate={~p"/sessions/#{event.session_id}"}
+                    class="font-semibold text-primary hover:text-primary/80"
+                  >
+                    View session
+                  </.link>
+                </div>
               </div>
             </div>
           </div>

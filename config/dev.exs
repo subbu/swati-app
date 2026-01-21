@@ -19,6 +19,21 @@ config :swati,
        System.get_env("SWATI_INTERNAL_API_TOKEN", "dev-internal-token")
 
 config :swati,
+  gmail_oauth: %{
+    client_id:
+      System.get_env("SWATI_GMAIL_CLIENT_ID", "dev-google-client-id"),
+    client_secret:
+      System.get_env("SWATI_GMAIL_CLIENT_SECRET", "dev-google-client-secret")
+  }
+
+config :swati,
+  outlook_oauth: %{
+    client_id: System.get_env("SWATI_OUTLOOK_CLIENT_ID"),
+    client_secret: System.get_env("SWATI_OUTLOOK_CLIENT_SECRET"),
+    tenant: System.get_env("SWATI_OUTLOOK_TENANT", "common")
+  }
+
+config :swati,
        :media_gateway_base_url,
        System.get_env("MEDIA_GATEWAY_BASE_URL", "http://localhost:6000")
 
