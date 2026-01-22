@@ -185,15 +185,26 @@ defmodule Swati.Agents do
     )
   end
 
-  def upsert_agent_channel(agent_id, channel_id, enabled) do
-    attrs = %{agent_id: agent_id, channel_id: channel_id, enabled: enabled}
+  def upsert_agent_channel(agent_id, channel_id, enabled, scope \\ nil) do
+    attrs = %{agent_id: agent_id, channel_id: channel_id, enabled: enabled, scope: scope}
+
+    updates =
+      if is_nil(scope) do
+        [set: [enabled: enabled, updated_at: DateTime.utc_now()]]
+      else
+        [set: [enabled: enabled, scope: scope, updated_at: DateTime.utc_now()]]
+      end
 
     %AgentChannel{}
     |> AgentChannel.changeset(attrs)
     |> Repo.insert(
-      on_conflict: [set: [enabled: enabled, updated_at: DateTime.utc_now()]],
+      on_conflict: updates,
       conflict_target: [:agent_id, :channel_id]
     )
+  end
+
+  def get_agent_channel(agent_id, channel_id) do
+    Repo.get_by(AgentChannel, agent_id: agent_id, channel_id: channel_id)
   end
 
   def authorize_agent_channel(agent_id, channel_id, endpoint_id \\ nil) do

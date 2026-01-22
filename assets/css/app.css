@@ -1603,3 +1603,299 @@
         transform: none;
     }
 }
+
+/* ============================================================================
+   ACCESS & TOOLS SECTION - Premium Agent Editor UX
+   Stripe/Airbnb-inspired resource management interface
+   ============================================================================ */
+
+.access-tools-container {
+    /* Design tokens for this section */
+    --at-surface: oklch(99% 0.002 260);
+    --at-surface-elevated: oklch(100% 0 0);
+    --at-border: oklch(92% 0.004 260);
+    --at-border-hover: oklch(85% 0.02 260);
+    --at-text-primary: oklch(20% 0.01 260);
+    --at-text-secondary: oklch(45% 0.01 260);
+    --at-text-muted: oklch(60% 0.008 260);
+    --at-accent-violet: oklch(58% 0.22 285);
+    --at-accent-violet-soft: oklch(95% 0.04 285);
+    --at-radius: 1rem;
+    --at-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --at-duration: 200ms;
+}
+
+[data-theme=dark] .access-tools-container {
+    --at-surface: oklch(20% 0.015 260);
+    --at-surface-elevated: oklch(24% 0.015 260);
+    --at-border: oklch(30% 0.015 260);
+    --at-border-hover: oklch(40% 0.02 260);
+    --at-text-primary: oklch(95% 0.005 260);
+    --at-text-secondary: oklch(75% 0.008 260);
+    --at-text-muted: oklch(55% 0.006 260);
+    --at-accent-violet-soft: oklch(25% 0.06 285);
+}
+
+.access-tools-header {
+    position: relative;
+}
+
+.access-tools-icon {
+    transition: transform var(--at-duration) var(--at-ease);
+}
+
+.access-tools-container:hover .access-tools-icon {
+    transform: scale(1.05);
+}
+
+/* Tab Navigation */
+.access-tools-nav {
+    background: linear-gradient(to bottom, var(--at-surface), var(--at-surface-elevated));
+}
+
+.access-tools-tab {
+    position: relative;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.access-tools-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 1px;
+    transition: all var(--at-duration) var(--at-ease);
+    transform: translateX(-50%);
+}
+
+.access-tools-tab:hover::after {
+    width: 60%;
+}
+
+.access-tools-tab--active::after {
+    width: 100%;
+    left: 0;
+    transform: translateX(0);
+}
+
+.access-tools-tab-count {
+    transition: all var(--at-duration) var(--at-ease);
+}
+
+/* Channel Row Styling */
+.channel-row {
+    position: relative;
+    overflow: hidden;
+}
+
+.channel-row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: transparent;
+    border-radius: 0 2px 2px 0;
+    transition: background var(--at-duration) var(--at-ease);
+}
+
+.channel-row:hover::before {
+    background: var(--color-primary);
+}
+
+.channel-icon {
+    box-shadow: 0 4px 12px oklch(0% 0 0 / 0.15);
+}
+
+.channel-health-bar {
+    background: linear-gradient(to right, var(--at-surface), transparent);
+    animation: slideDown var(--at-duration) var(--at-ease);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Integration & Webhook Row Styling */
+.integration-row,
+.webhook-row {
+    position: relative;
+}
+
+.integration-row::before,
+.webhook-row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: transparent;
+    border-radius: 0 2px 2px 0;
+    transition: background var(--at-duration) var(--at-ease);
+}
+
+.integration-row:hover::before {
+    background: oklch(65% 0.17 155); /* Emerald accent */
+}
+
+.webhook-row:hover::before {
+    background: oklch(75% 0.16 75); /* Amber accent */
+}
+
+/* Effective Tools Preview */
+.effective-tools-preview {
+    position: relative;
+    overflow: hidden;
+}
+
+.effective-tools-preview::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+        circle at center,
+        oklch(58% 0.22 285 / 0.03) 0%,
+        transparent 50%
+    );
+    animation: shimmer 8s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes shimmer {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(25%, 25%);
+    }
+}
+
+.effective-tool-chip {
+    transition: all var(--at-duration) var(--at-ease);
+}
+
+.effective-tool-chip:hover {
+    background: oklch(90% 0.02 260);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
+}
+
+[data-theme=dark] .effective-tool-chip:hover {
+    background: oklch(30% 0.02 260);
+}
+
+/* Scope Sheet Styling */
+.scope-stat {
+    transition: all var(--at-duration) var(--at-ease);
+}
+
+.scope-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px oklch(0% 0 0 / 0.08);
+}
+
+.scope-radio {
+    transition: all var(--at-duration) var(--at-ease);
+}
+
+.scope-radio:hover {
+    transform: translateX(2px);
+}
+
+.endpoint-row {
+    transition: all var(--at-duration) var(--at-ease);
+}
+
+.endpoint-row:hover {
+    transform: translateX(4px);
+}
+
+/* Animate-in utility */
+.animate-in {
+    animation: animateIn var(--at-duration) var(--at-ease) forwards;
+}
+
+.fade-in {
+    --animate-in-opacity: 0;
+    --animate-in-transform: none;
+}
+
+@keyframes animateIn {
+    from {
+        opacity: var(--animate-in-opacity, 0);
+        transform: var(--animate-in-transform, translateY(8px));
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive adjustments for Access & Tools */
+@media (max-width: 767px) {
+    .access-tools-nav {
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .access-tools-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .access-tools-tab {
+        white-space: nowrap;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .channel-row .channel-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .effective-tools-preview {
+        min-height: 200px;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .channel-row,
+    .integration-row,
+    .webhook-row {
+        border-width: 2px;
+    }
+
+    .access-tools-tab--active::after {
+        height: 3px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .access-tools-container {
+        break-inside: avoid;
+    }
+
+    .access-tools-nav,
+    .channel-health-bar {
+        display: none;
+    }
+}

@@ -145,6 +145,53 @@ defmodule Swati.Channels.Queries do
     |> Repo.all()
   end
 
+  @doc """
+  Returns a map of channel_id => health summary for all channels in a tenant.
+
+  Health summary includes:
+  - active_count: number of active connections
+  - error_count: number of error/revoked connections
+  - endpoint_count: number of unique endpoints with connections
+  - last_synced_at: most recent sync timestamp across all connections
+  - providers: list of unique providers (gmail, outlook, imap)
+  """
+  def channel_health_map(tenant_id) do
+    query =
+      from(c in ChannelConnection,
+        where: c.tenant_id == ^tenant_id,
+        group_by: c.channel_id,
+        select: {
+          c.channel_id,
+          %{
+            active_count: count(fragment("CASE WHEN ? = 'active' THEN 1 END", c.status)),
+            error_count:
+              count(fragment("CASE WHEN ? IN ('error', 'revoked') THEN 1 END", c.status)),
+            endpoint_count: count(c.endpoint_id, :distinct),
+            last_synced_at: max(c.last_synced_at),
+            providers: fragment("array_agg(DISTINCT ?)", c.provider)
+          }
+        }
+      )
+
+    query
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc """
+  Returns detailed connection info for a specific channel, grouped by endpoint.
+  Used for the channel scope sheet.
+  """
+  def channel_connections_by_endpoint(tenant_id, channel_id) do
+    ChannelConnection
+    |> Tenancy.scope(tenant_id)
+    |> where([c], c.channel_id == ^channel_id)
+    |> preload(:endpoint)
+    |> order_by([c], asc: c.inserted_at)
+    |> Repo.all()
+    |> Enum.group_by(& &1.endpoint_id)
+  end
+
   defp maybe_filter(query, key, filters) do
     value = Map.get(filters, key) || Map.get(filters, to_string(key))
 

@@ -168,4 +168,12 @@ defmodule Swati.Channels do
   def list_channel_webhook_ids(channel_id) do
     Queries.list_channel_webhook_ids(channel_id)
   end
+
+  def channel_health_map(tenant_id) do
+    Queries.channel_health_map(tenant_id)
+  end
+
+  def channel_connections_by_endpoint(tenant_id, channel_id) do
+    Queries.channel_connections_by_endpoint(tenant_id, channel_id)
+  end
 end
