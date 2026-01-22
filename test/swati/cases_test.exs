@@ -22,5 +22,13 @@ defmodule Swati.CasesTest do
 
     assert is_map(updated.memory)
     assert updated.memory["summary"] =~ "Need help"
+
+    new_events = [
+      %{type: "channel.message.received", payload: %{text: "Issue with billing address"}}
+    ]
+
+    {:ok, refreshed} = Cases.update_memory(updated, new_events)
+
+    assert refreshed.memory["summary"] =~ "Issue with billing address"
   end
 end

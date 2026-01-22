@@ -20,7 +20,6 @@ defmodule Swati.Cases.Memory do
   @spec update_from_events(map() | nil, list()) :: map()
   def update_from_events(memory, events) when is_list(events) do
     memory = normalize(memory)
-    summary = Map.get(memory, "summary")
 
     memory =
       Enum.reduce(events, memory, fn event, acc ->
@@ -28,8 +27,10 @@ defmodule Swati.Cases.Memory do
         apply_event(acc, type, payload)
       end)
 
-    if is_nil(summary) or summary == "" do
-      Map.put(memory, "summary", summarize_events(events))
+    new_summary = summarize_events(events)
+
+    if is_binary(new_summary) and new_summary != "" do
+      Map.put(memory, "summary", new_summary)
     else
       memory
     end

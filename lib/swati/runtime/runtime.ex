@@ -10,9 +10,11 @@ defmodule Swati.Runtime do
   alias Swati.Integrations.ToolAllowlist, as: IntegrationToolAllowlist
   alias Swati.Integrations.Serialization
   alias Swati.Policies.Logging, as: LoggingPolicy
+  alias Swati.Policies.SystemPrompt, as: SystemPromptPolicy
   alias Swati.Policies.ToolPolicy, as: EffectiveToolPolicy
   alias Swati.Repo
   alias Swati.RuntimeConfig
+  alias Swati.Runtime.SystemPrompt
   alias Swati.Sessions
   alias Swati.Sessions.Events, as: SessionEvents
   alias Swati.Tenancy
@@ -25,7 +27,7 @@ defmodule Swati.Runtime do
   def resolve_runtime(params) when is_map(params) do
     with {:ok, endpoint, channel} <- resolve_endpoint(params),
          tenant <- Tenancy.get_tenant!(endpoint.tenant_id),
-         {:ok, customer, _identity} <- resolve_customer(tenant.id, channel, params),
+         {:ok, customer, identity} <- resolve_customer(tenant.id, channel, params),
          {:ok, case_record, case_linking} <- resolve_case(tenant, channel, customer, params),
          {:ok, session} <-
            resolve_session(
@@ -81,6 +83,22 @@ defmodule Swati.Runtime do
 
       tool_risk = Tools.risk_map(tenant.id, Map.get(tool_policy, "allow", []))
 
+      prompt_overrides =
+        SystemPromptPolicy.compose([tenant.policy, channel.policy, case_record.policy])
+
+      system_prompt =
+        SystemPrompt.build(%{
+          agent_name: agent.name,
+          agent_instructions: Map.get(version.config || %{}, "system_prompt"),
+          customer: customer,
+          identity: identity,
+          case_record: case_record,
+          session: session,
+          endpoint: endpoint,
+          channel: channel,
+          prompt_overrides: prompt_overrides
+        })
+
       {:ok,
        %{
          config_version: RuntimeConfig.version(),
@@ -91,7 +109,7 @@ defmodule Swati.Runtime do
          case: case_payload(case_record),
          case_linking: case_linking,
          session: session_payload(session),
-         agent: agent_payload(agent, version.config, tool_policy),
+         agent: agent_payload(agent, version.config, tool_policy, system_prompt),
          integrations: integrations_json,
          webhooks: webhooks_json,
          logging: %{
@@ -409,7 +427,7 @@ defmodule Swati.Runtime do
     }
   end
 
-  defp agent_payload(agent, config, tool_policy) do
+  defp agent_payload(agent, config, tool_policy, system_prompt) do
     config = config || %{}
 
     %{
@@ -419,7 +437,7 @@ defmodule Swati.Runtime do
       voice:
         Map.get(config, "voice") || %{provider: agent.voice_provider, name: agent.voice_name},
       llm: Map.get(config, "llm") || %{provider: agent.llm_provider, model: agent.llm_model},
-      system_prompt: Map.get(config, "system_prompt"),
+      system_prompt: system_prompt || Map.get(config, "system_prompt"),
       tool_policy: tool_policy,
       escalation_policy: EscalationPolicy.normalize(Map.get(config, "escalation_policy"))
     }

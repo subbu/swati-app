@@ -51,5 +51,8 @@ defmodule Swati.RuntimeTest do
     assert payload.case_linking["strategy"] == "new_case"
     assert payload.config_version == 5
     assert payload.policy.tool_policy["allow"] == payload.agent.tool_policy["allow"]
+    assert payload.agent.system_prompt =~ "# Swati Voice Agent System Prompt"
+    assert payload.agent.system_prompt =~ "## Customer"
+    assert payload.agent.system_prompt =~ "+15550001111"
   end
 end
