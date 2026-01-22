@@ -34,6 +34,8 @@ defmodule Swati.RuntimeTest do
       |> Repo.insert()
 
     {:ok, _endpoint} = Channels.ensure_endpoint_for_phone_number(phone_number)
+    channel = Channels.get_channel_by_key(scope.tenant.id, "voice")
+    {:ok, _agent_channel} = Agents.upsert_agent_channel(agent.id, channel.id, true)
 
     {:ok, payload} =
       Runtime.resolve_runtime(%{
@@ -54,5 +56,36 @@ defmodule Swati.RuntimeTest do
     assert payload.agent.system_prompt =~ "# Swati Voice Agent System Prompt"
     assert payload.agent.system_prompt =~ "## Customer"
     assert payload.agent.system_prompt =~ "+15550001111"
+  end
+
+  test "resolve_runtime rejects channels not assigned to the agent" do
+    scope = user_scope_fixture()
+
+    {:ok, agent} =
+      Agents.create_agent(scope.tenant.id, %{name: "Front Desk"}, scope.user)
+
+    {:ok, agent, _version} = Agents.publish_agent(agent, scope.user)
+
+    {:ok, phone_number} =
+      %PhoneNumber{}
+      |> PhoneNumber.changeset(%{
+        tenant_id: scope.tenant.id,
+        provider: :plivo,
+        e164: unique_phone(),
+        country: "US",
+        status: :provisioned,
+        inbound_agent_id: agent.id
+      })
+      |> Repo.insert()
+
+    {:ok, _endpoint} = Channels.ensure_endpoint_for_phone_number(phone_number)
+
+    assert {:error, :agent_channel_disabled} ==
+             Runtime.resolve_runtime(%{
+               channel_key: "voice",
+               endpoint_address: phone_number.e164,
+               from_address: "+15550001111",
+               session_external_id: "call-123"
+             })
   end
 end

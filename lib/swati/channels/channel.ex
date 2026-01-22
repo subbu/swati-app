@@ -19,6 +19,8 @@ defmodule Swati.Channels.Channel do
     has_many :channel_integrations, Swati.Channels.ChannelIntegration
     has_many :channel_webhooks, Swati.Channels.ChannelWebhook
     has_many :connections, Swati.Channels.ChannelConnection
+    has_many :agent_channels, Swati.Agents.AgentChannel
+    many_to_many :agents, Swati.Agents.Agent, join_through: "agent_channels"
 
     timestamps()
   end

@@ -29,6 +29,8 @@ defmodule Swati.Runtime do
          tenant <- Tenancy.get_tenant!(endpoint.tenant_id),
          {:ok, customer, identity} <- resolve_customer(tenant.id, channel, params),
          {:ok, case_record, case_linking} <- resolve_case(tenant, channel, customer, params),
+         {:ok, agent, version} <- resolve_agent(tenant.id, endpoint, case_record),
+         :ok <- Agents.authorize_agent_channel(agent.id, channel.id, endpoint.id),
          {:ok, session} <-
            resolve_session(
              tenant.id,
@@ -38,10 +40,21 @@ defmodule Swati.Runtime do
              case_record,
              case_linking,
              params
-           ),
-         {:ok, agent, version} <- resolve_agent(tenant.id, endpoint, case_record) do
+           ) do
       {integrations, webhooks} = resolve_tools(tenant.id, channel.id, agent.id)
-      channel_tools = ChannelToolAllowlist.allowed_tools(channel)
+
+      channel_tools =
+        agent.id
+        |> Agents.list_agent_channels()
+        |> Enum.filter(& &1.enabled)
+        |> Enum.flat_map(fn agent_channel ->
+          if agent_channel.channel do
+            ChannelToolAllowlist.allowed_tools(agent_channel.channel)
+          else
+            []
+          end
+        end)
+        |> Enum.uniq()
 
       integration_tools =
         integrations

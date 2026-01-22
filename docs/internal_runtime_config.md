@@ -172,6 +172,7 @@ Response example:
 Notes:
 - `tool_policy.allow` defaults to the union of tool names from enabled integrations, webhooks, and `channel.capabilities.tools` when the agent allowlist is empty.
 - If the agent allowlist is set, the response filters it to tools present in those sources.
+- Runtime resolution fails with `agent_channel_disabled` or `agent_channel_scope_denied` when the agent is not assigned to the channel or scoped away from the endpoint.
 - `agent.system_prompt` is composed per call as Markdown: base agent instructions + call/customer/case context.
 - Policies may add Markdown blocks with `system_prompt.prepend` or `system_prompt.append` in tenant/channel/case policy (applied in that order).
 

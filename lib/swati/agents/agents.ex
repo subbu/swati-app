@@ -5,7 +5,7 @@ defmodule Swati.Agents do
   alias Swati.Repo
   alias Swati.Tenancy
 
-  alias Swati.Agents.{Agent, AgentIntegration, AgentWebhook, AgentVersion, Compiler}
+  alias Swati.Agents.{Agent, AgentChannel, AgentIntegration, AgentWebhook, AgentVersion, Compiler}
 
   def list_agents(tenant_id) do
     Agent
@@ -109,6 +109,24 @@ defmodule Swati.Agents do
     |> Repo.all()
   end
 
+  def list_agent_channels(agent_id) do
+    from(ac in AgentChannel, where: ac.agent_id == ^agent_id, preload: [:channel])
+    |> Repo.all()
+  end
+
+  def list_agent_channels_for_channels(_tenant_id, []), do: []
+
+  def list_agent_channels_for_channels(tenant_id, channel_ids) do
+    from(ac in AgentChannel,
+      join: a in Agent,
+      on: a.id == ac.agent_id,
+      where: a.tenant_id == ^tenant_id,
+      where: ac.channel_id in ^channel_ids,
+      select: {ac.agent_id, ac.channel_id, ac.enabled}
+    )
+    |> Repo.all()
+  end
+
   def list_agent_integrations_for_integrations(_tenant_id, []), do: []
 
   def list_agent_integrations_for_integrations(tenant_id, integration_ids) do
@@ -166,4 +184,56 @@ defmodule Swati.Agents do
       conflict_target: [:agent_id, :webhook_id]
     )
   end
+
+  def upsert_agent_channel(agent_id, channel_id, enabled) do
+    attrs = %{agent_id: agent_id, channel_id: channel_id, enabled: enabled}
+
+    %AgentChannel{}
+    |> AgentChannel.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: [set: [enabled: enabled, updated_at: DateTime.utc_now()]],
+      conflict_target: [:agent_id, :channel_id]
+    )
+  end
+
+  def authorize_agent_channel(agent_id, channel_id, endpoint_id \\ nil) do
+    case Repo.get_by(AgentChannel, agent_id: agent_id, channel_id: channel_id) do
+      nil ->
+        {:error, :agent_channel_disabled}
+
+      %AgentChannel{enabled: false} ->
+        {:error, :agent_channel_disabled}
+
+      %AgentChannel{enabled: true, scope: scope} ->
+        if scope_allows_endpoint?(scope, endpoint_id),
+          do: :ok,
+          else: {:error, :agent_channel_scope_denied}
+    end
+  end
+
+  defp scope_allows_endpoint?(scope, endpoint_id) do
+    normalized = normalize_scope(scope)
+
+    case normalized["mode"] do
+      "selected" ->
+        endpoint_id && to_string(endpoint_id) in normalized["endpoint_ids"]
+
+      _ ->
+        true
+    end
+  end
+
+  defp normalize_scope(nil), do: %{"mode" => "all", "endpoint_ids" => []}
+
+  defp normalize_scope(scope) when is_map(scope) do
+    mode = Map.get(scope, "mode") || Map.get(scope, :mode) || "all"
+    endpoint_ids = Map.get(scope, "endpoint_ids") || Map.get(scope, :endpoint_ids) || []
+
+    %{
+      "mode" => to_string(mode),
+      "endpoint_ids" => endpoint_ids |> List.wrap() |> Enum.map(&to_string/1)
+    }
+  end
+
+  defp normalize_scope(_scope), do: %{"mode" => "all", "endpoint_ids" => []}
 end

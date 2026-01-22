@@ -11,8 +11,9 @@ defmodule Swati.UseCases.Simulator do
   alias Swati.Tenancy.Membership
 
   def run(tenant_id) do
-    _ = ensure_agent(tenant_id)
+    agent = ensure_agent(tenant_id)
     endpoints = ensure_channels(tenant_id)
+    _ = ensure_agent_channels(agent, endpoints)
 
     %{
       use_case_a: use_case_a(tenant_id, endpoints),
@@ -479,6 +480,18 @@ defmodule Swati.UseCases.Simulator do
 
   defp session_id(prefix) do
     prefix <> "-" <> Ecto.UUID.generate()
+  end
+
+  defp ensure_agent_channels(nil, _endpoints), do: :ok
+
+  defp ensure_agent_channels(agent, endpoints) do
+    endpoints
+    |> Map.values()
+    |> Enum.map(& &1.channel_id)
+    |> Enum.uniq()
+    |> Enum.each(fn channel_id ->
+      _ = Agents.upsert_agent_channel(agent.id, channel_id, true)
+    end)
   end
 
   defp ensure_channels(tenant_id) do

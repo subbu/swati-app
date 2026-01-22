@@ -4,6 +4,7 @@ defmodule SwatiWeb.AgentsLive.Form do
   alias Swati.Agents
   alias Swati.Agents.Agent
   alias Swati.Avatars
+  alias Swati.Channels
   alias Swati.Integrations
   alias Swati.Webhooks
   alias SwatiWeb.Formatting
@@ -142,6 +143,33 @@ defmodule SwatiWeb.AgentsLive.Form do
           :if={@live_action == :edit}
           class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4"
         >
+          <h2 class="text-lg font-semibold">Channels</h2>
+          <p class="text-sm text-base-content/70">
+            Toggle which channels this agent can use.
+          </p>
+          <.form for={@channel_form} id="agent-channels" phx-change="toggle_channel">
+            <div class="grid gap-2">
+              <div
+                :for={channel <- @channels}
+                class="flex items-center justify-between rounded-xl border border-base-300 px-4 py-3"
+              >
+                <div>
+                  <p class="font-medium">{channel.name}</p>
+                  <p class="text-xs text-base-content/60">{channel.key}</p>
+                </div>
+                <.switch
+                  name={"channels[#{channel.id}]"}
+                  checked={Map.get(@channel_states, channel.id, false)}
+                />
+              </div>
+            </div>
+          </.form>
+        </section>
+
+        <section
+          :if={@live_action == :edit}
+          class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4"
+        >
           <h2 class="text-lg font-semibold">Integrations</h2>
           <p class="text-sm text-base-content/70">Toggle which tools are available to this agent.</p>
           <.form for={@integration_form} id="agent-integrations" phx-change="toggle_integration">
@@ -201,6 +229,8 @@ defmodule SwatiWeb.AgentsLive.Form do
      |> assign(:status_options, status_options())
      |> assign(:language_options, language_options())
      |> assign(:voice_options, voice_options())
+     |> assign(:channels, [])
+     |> assign(:channel_states, %{})
      |> assign(:integrations, [])
      |> assign(:integration_states, %{})
      |> assign(:webhooks, [])
@@ -225,14 +255,18 @@ defmodule SwatiWeb.AgentsLive.Form do
 
       :edit ->
         agent = Agents.get_agent!(socket.assigns.current_scope.tenant.id, params["id"])
+        channels = Channels.list_channels(socket.assigns.current_scope.tenant.id)
         integrations = Integrations.list_integrations(socket.assigns.current_scope.tenant.id)
         webhooks = Webhooks.list_webhooks(socket.assigns.current_scope.tenant.id)
+        channel_states = channel_states(agent, channels)
         states = integration_states(agent, integrations)
         webhook_states = webhook_states(agent, webhooks)
 
         {:noreply,
          socket
          |> assign(:page_title, "Edit agent")
+         |> assign(:channels, channels)
+         |> assign(:channel_states, channel_states)
          |> assign(:integrations, integrations)
          |> assign(:integration_states, states)
          |> assign(:webhooks, webhooks)
@@ -314,6 +348,21 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   @impl true
+  def handle_event("toggle_channel", %{"channels" => params}, socket) do
+    Enum.each(socket.assigns.channels, fn channel ->
+      enabled = Map.get(params, channel.id) == "true"
+      _ = Agents.upsert_agent_channel(socket.assigns.agent.id, channel.id, enabled)
+    end)
+
+    {:noreply,
+     assign(
+       socket,
+       :channel_states,
+       channel_states(socket.assigns.agent, socket.assigns.channels)
+     )}
+  end
+
+  @impl true
   def handle_event("toggle_webhook", %{"webhooks" => params}, socket) do
     Enum.each(socket.assigns.webhooks, fn webhook ->
       enabled = Map.get(params, webhook.id) == "true"
@@ -362,6 +411,7 @@ defmodule SwatiWeb.AgentsLive.Form do
     |> assign(:max_calls_per_turn, Map.get(tool_policy, "max_calls_per_turn", 3))
     |> assign(:escalation_enabled, Map.get(attrs, :escalation_enabled, false))
     |> assign(:escalation_note, Map.get(attrs, :escalation_note, ""))
+    |> assign(:channel_form, to_form(%{}, as: :channels))
     |> assign(:integration_form, to_form(%{}, as: :integrations))
     |> assign(:webhook_form, to_form(%{}, as: :webhooks))
   end
@@ -437,6 +487,16 @@ defmodule SwatiWeb.AgentsLive.Form do
       escalation_enabled: escalation_enabled,
       escalation_note: escalation_note
     }
+  end
+
+  defp channel_states(agent, channels) do
+    states =
+      Agents.list_agent_channels(agent.id)
+      |> Map.new(fn ac -> {ac.channel_id, ac.enabled} end)
+
+    Map.new(channels, fn channel ->
+      {channel.id, Map.get(states, channel.id, false)}
+    end)
   end
 
   defp integration_states(agent, integrations) do

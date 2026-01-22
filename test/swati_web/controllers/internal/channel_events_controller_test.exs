@@ -24,6 +24,7 @@ defmodule SwatiWeb.Internal.ChannelEventsControllerTest do
     {:ok, agent} = Agents.create_agent(scope.tenant.id, %{name: "Front Desk"}, scope.user)
     {:ok, agent, _version} = Agents.publish_agent(agent, scope.user)
     {:ok, endpoint} = Channels.update_endpoint_routing(endpoint, %{default_agent_id: agent.id})
+    {:ok, _agent_channel} = Agents.upsert_agent_channel(agent.id, channel.id, true)
 
     token = Application.get_env(:swati, :internal_api_token)
 
