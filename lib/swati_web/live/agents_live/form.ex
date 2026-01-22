@@ -534,7 +534,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                 </h4>
                 <span class="text-xs text-base-content/40">
                   {length(tools)} unique
-                  <span :if={grants != length(tools)}> ·         {grants} grants</span>
+                  <span :if={grants != length(tools)}> ·          {grants} grants</span>
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">
@@ -631,12 +631,7 @@ defmodule SwatiWeb.AgentsLive.Form do
       </div>
       
     <!-- Channel List -->
-      <.form
-        for={%{}}
-        id="agent-channels"
-        phx-change="toggle_channel"
-        class="space-y-0"
-      >
+      <div id="agent-channels" class="space-y-0">
         <div
           :for={
             channel <-
@@ -730,6 +725,9 @@ defmodule SwatiWeb.AgentsLive.Form do
               <.switch
                 name={"channels[#{channel.id}]"}
                 checked={Map.get(@channel_states, channel.id, false)}
+                phx-click="toggle_channel"
+                phx-value-channel_id={channel.id}
+                phx-value-enabled={to_string(not Map.get(@channel_states, channel.id, false))}
               />
             </div>
           </div>
@@ -743,7 +741,7 @@ defmodule SwatiWeb.AgentsLive.Form do
             do: "No channels match your search.",
             else: "No channels configured yet."}
         </p>
-      </.form>
+      </div>
     </div>
     """
   end
@@ -764,12 +762,7 @@ defmodule SwatiWeb.AgentsLive.Form do
         </.link>
       </div>
 
-      <.form
-        for={%{}}
-        id="agent-integrations"
-        phx-change="toggle_integration"
-        class="space-y-0"
-      >
+      <div id="agent-integrations" class="space-y-0">
         <div
           :for={integration <- @integrations}
           class="integration-row group py-3 first:pt-0 last:pb-0 transition-colors hover:bg-base-200/30 border-b border-base-300/60 last:border-0"
@@ -802,6 +795,9 @@ defmodule SwatiWeb.AgentsLive.Form do
               <.switch
                 name={"integrations[#{integration.id}]"}
                 checked={Map.get(@integration_states, integration.id, true)}
+                phx-click="toggle_integration"
+                phx-value-integration_id={integration.id}
+                phx-value-enabled={to_string(not Map.get(@integration_states, integration.id, true))}
               />
             </div>
           </div>
@@ -813,7 +809,7 @@ defmodule SwatiWeb.AgentsLive.Form do
             Add your first integration
           </.link>
         </p>
-      </.form>
+      </div>
     </div>
     """
   end
@@ -834,12 +830,7 @@ defmodule SwatiWeb.AgentsLive.Form do
         </.link>
       </div>
 
-      <.form
-        for={%{}}
-        id="agent-webhooks"
-        phx-change="toggle_webhook"
-        class="space-y-0"
-      >
+      <div id="agent-webhooks" class="space-y-0">
         <div
           :for={webhook <- @webhooks}
           class="webhook-row group py-3 first:pt-0 last:pb-0 transition-colors hover:bg-base-200/30 border-b border-base-300/60 last:border-0"
@@ -860,6 +851,9 @@ defmodule SwatiWeb.AgentsLive.Form do
             <.switch
               name={"webhooks[#{webhook.id}]"}
               checked={Map.get(@webhook_states, webhook.id, true)}
+              phx-click="toggle_webhook"
+              phx-value-webhook_id={webhook.id}
+              phx-value-enabled={to_string(not Map.get(@webhook_states, webhook.id, true))}
             />
           </div>
         </div>
@@ -870,7 +864,7 @@ defmodule SwatiWeb.AgentsLive.Form do
             Add one
           </.link>
         </p>
-      </.form>
+      </div>
     </div>
     """
   end
@@ -1189,41 +1183,43 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   @impl true
-  def handle_event("toggle_integration", %{"integrations" => params}, socket) do
-    Enum.each(socket.assigns.integrations, fn integration ->
-      enabled = Map.get(params, integration.id) == "true"
-      _ = Agents.upsert_agent_integration(socket.assigns.agent.id, integration.id, enabled)
-    end)
+  def handle_event("toggle_integration", %{"integration_id" => integration_id} = params, socket) do
+    enabled =
+      case Map.get(params, "enabled") do
+        nil -> not Map.get(socket.assigns.integration_states, integration_id, true)
+        value -> truthy?(value)
+      end
 
-    new_states = integration_states(socket.assigns.agent, socket.assigns.integrations)
+    _ = Agents.upsert_agent_integration(socket.assigns.agent.id, integration_id, enabled)
 
     {:noreply,
      socket
-     |> assign(:integration_states, new_states)
+     |> assign(
+       :integration_states,
+       Map.put(socket.assigns.integration_states, integration_id, enabled)
+     )
      |> recompute_effective_tools()}
   end
 
   @impl true
-  def handle_event("toggle_channel", %{"channels" => params}, socket) do
-    # Track channels being enabled that aren't connected
-    enabled_not_connected =
-      socket.assigns.channels
-      |> Enum.filter(fn channel ->
-        was_disabled = not Map.get(socket.assigns.channel_states, channel.id, false)
-        now_enabled = Map.get(params, channel.id) == "true"
-        not_connected = not is_channel_connected?(socket.assigns.channel_health, channel.id)
-        was_disabled and now_enabled and not_connected
-      end)
+  def handle_event("toggle_channel", %{"channel_id" => channel_id} = params, socket) do
+    enabled =
+      case Map.get(params, "enabled") do
+        nil -> not Map.get(socket.assigns.channel_states, channel_id, false)
+        value -> truthy?(value)
+      end
 
-    Enum.each(socket.assigns.channels, fn channel ->
-      enabled = Map.get(params, channel.id) == "true"
-      _ = Agents.upsert_agent_channel(socket.assigns.agent.id, channel.id, enabled)
-    end)
+    channel = Enum.find(socket.assigns.channels, &(&1.id == channel_id))
 
-    new_states = channel_states(socket.assigns.agent, socket.assigns.channels)
+    if channel do
+      _ = Agents.upsert_agent_channel(socket.assigns.agent.id, channel_id, enabled)
+    end
 
     socket =
-      if length(enabled_not_connected) > 0 do
+      if channel &&
+           enabled &&
+           not Map.get(socket.assigns.channel_states, channel_id, false) &&
+           not is_channel_connected?(socket.assigns.channel_health, channel_id) do
         put_flash(
           socket,
           :info,
@@ -1235,22 +1231,23 @@ defmodule SwatiWeb.AgentsLive.Form do
 
     {:noreply,
      socket
-     |> assign(:channel_states, new_states)
+     |> assign(:channel_states, Map.put(socket.assigns.channel_states, channel_id, enabled))
      |> recompute_effective_tools()}
   end
 
   @impl true
-  def handle_event("toggle_webhook", %{"webhooks" => params}, socket) do
-    Enum.each(socket.assigns.webhooks, fn webhook ->
-      enabled = Map.get(params, webhook.id) == "true"
-      _ = Agents.upsert_agent_webhook(socket.assigns.agent.id, webhook.id, enabled)
-    end)
+  def handle_event("toggle_webhook", %{"webhook_id" => webhook_id} = params, socket) do
+    enabled =
+      case Map.get(params, "enabled") do
+        nil -> not Map.get(socket.assigns.webhook_states, webhook_id, true)
+        value -> truthy?(value)
+      end
 
-    new_states = webhook_states(socket.assigns.agent, socket.assigns.webhooks)
+    _ = Agents.upsert_agent_webhook(socket.assigns.agent.id, webhook_id, enabled)
 
     {:noreply,
      socket
-     |> assign(:webhook_states, new_states)
+     |> assign(:webhook_states, Map.put(socket.assigns.webhook_states, webhook_id, enabled))
      |> recompute_effective_tools()}
   end
 
