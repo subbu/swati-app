@@ -13,220 +13,300 @@ defmodule SwatiWeb.AgentsLive.Form do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="space-y-8">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-semibold">{@page_title}</h1>
-            <p class="text-sm text-base-content/70">Define instructions, voice, and tools.</p>
+      <!-- Character Sheet Layout -->
+      <div class="character-sheet">
+        <!-- Top Bar: Title + Actions -->
+        <header class="character-sheet-header flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+            <.link
+              navigate={~p"/agents"}
+              class="text-base-content/50 hover:text-base-content transition-colors"
+            >
+              <.icon name="hero-arrow-left" class="size-5" />
+            </.link>
+            <div>
+              <h1 class="text-xl font-semibold text-base-content">{@page_title}</h1>
+              <p class="text-xs text-base-content/50">Character configuration</p>
+            </div>
           </div>
           <div class="flex items-center gap-2">
-            <.button :if={@live_action == :edit} phx-click="publish" variant="soft">Publish</.button>
-            <.button navigate={~p"/agents"} variant="ghost">Back</.button>
+            <.button :if={@live_action == :edit} phx-click="publish" variant="soft" size="sm">
+              <.icon name="hero-rocket-launch" class="size-4 mr-1.5" /> Publish
+            </.button>
           </div>
-        </div>
+        </header>
 
         <.form for={@form} id="agent-form" phx-change="validate" phx-submit="save">
-          <div class="grid gap-6">
-            <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">
-              <h2 class="text-lg font-semibold">Basics</h2>
-              <div class="grid gap-4 md:grid-cols-2">
-                <.input field={@form[:name]} label="Agent name" required />
-                <.select field={@form[:status]} label="Status" options={@status_options} />
-                <.select
-                  field={@form[:language]}
-                  label="Language"
-                  options={@language_options}
-                />
-                <.input field={@form[:llm_model]} label="LLM model" />
-              </div>
-            </section>
-
-            <section
-              :if={@live_action == :edit}
-              class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4"
-            >
-              <h2 class="text-lg font-semibold">Avatar</h2>
-              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-4">
-                  <div class="size-20 overflow-hidden rounded-full border border-base-300 bg-base-200">
-                    <%= if avatar_ready?(@avatar) do %>
-                      <img
-                        class="size-full object-cover"
-                        src={@avatar.output_url}
-                        alt=""
-                        loading="lazy"
-                      />
-                    <% else %>
-                      <span class="flex size-full items-center justify-center text-lg font-semibold text-base-content/70">
-                        {initials(@agent.name)}
-                      </span>
-                    <% end %>
+          <div class="character-sheet-layout grid gap-6 lg:grid-cols-[320px_1fr] xl:grid-cols-[360px_1fr]">
+            <!-- LEFT PANEL: Agent Identity & Stats -->
+            <aside class="character-portrait-panel space-y-4">
+              <!-- Portrait Card - Hero Treatment -->
+              <div class="portrait-card rounded-2xl border border-base-300 bg-base-100 overflow-hidden shadow-xl shadow-base-300/50">
+                <!-- Dramatic Avatar Section -->
+                <div class="portrait-frame relative">
+                  <!-- Layered background for depth -->
+                  <div class="absolute inset-0 bg-gradient-to-b from-primary/5 via-base-200/80 to-base-100">
                   </div>
-                  <div>
-                    <p class="text-sm font-medium">{avatar_status_label(@avatar)}</p>
-                    <p class="text-xs text-base-content/60">
-                      {avatar_subtitle(@avatar, @current_scope.tenant)}
-                    </p>
+                  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent">
+                  </div>
+                  
+    <!-- Content -->
+                  <div class="relative px-6 pt-8 pb-5">
+                    <!-- Avatar with dramatic framing -->
+                    <div class="portrait-avatar mx-auto relative">
+                      <!-- Outer glow ring -->
+                      <div class={[
+                        "absolute -inset-2 rounded-3xl opacity-60 blur-sm",
+                        status_glow_color(@form[:status].value)
+                      ]}>
+                      </div>
+                      
+    <!-- Avatar container -->
+                      <div class="relative size-32 mx-auto overflow-hidden rounded-2xl border-2 border-white/80 bg-base-200 shadow-2xl ring-1 ring-base-300/50">
+                        <%= if @live_action == :edit and avatar_ready?(@avatar) do %>
+                          <img
+                            class="size-full object-cover"
+                            src={@avatar.output_url}
+                            alt=""
+                            loading="lazy"
+                          />
+                        <% else %>
+                          <div class="flex size-full items-center justify-center bg-gradient-to-br from-base-200 to-base-300">
+                            <span class="text-3xl font-bold text-base-content/30">
+                              {initials(@agent.name || "?")}
+                            </span>
+                          </div>
+                        <% end %>
+                      </div>
+                      
+    <!-- Status badge - more prominent -->
+                      <div class={[
+                        "absolute -bottom-1.5 -right-1.5 size-8 rounded-xl border-2 border-white flex items-center justify-center shadow-lg",
+                        status_ring_color(@form[:status].value)
+                      ]}>
+                        <.icon name={status_icon(@form[:status].value)} class="size-4 text-white" />
+                      </div>
+                    </div>
+                    
+    <!-- Generate avatar button -->
+                    <div :if={@live_action == :edit} class="mt-4 text-center">
+                      <button
+                        type="button"
+                        phx-click="generate_avatar"
+                        class="text-xs text-base-content/60 hover:text-primary transition-colors inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-base-100/80 hover:bg-base-100 border border-base-300/50"
+                      >
+                        <.icon name="hero-sparkles" class="size-3.5" />
+                        {if avatar_ready?(@avatar), do: "Regenerate", else: "Generate avatar"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <.button type="button" phx-click="generate_avatar" variant="soft">
-                    Generate avatar
-                  </.button>
-                  <.button
-                    :if={@avatar && @avatar.status == :failed}
-                    type="button"
-                    phx-click="generate_avatar"
-                    variant="ghost"
-                  >
-                    Retry
-                  </.button>
+                
+    <!-- Name Section - More prominent -->
+                <div class="px-5 pb-2 -mt-1">
+                  <.input
+                    field={@form[:name]}
+                    placeholder="Agent name"
+                    class="text-center text-xl font-bold border-0 bg-transparent focus:bg-base-200/50 rounded-lg tracking-tight"
+                    required
+                  />
+                </div>
+                
+    <!-- Key Stats - Visual hierarchy improved -->
+                <div class="mx-4 mb-4 rounded-xl bg-gradient-to-r from-base-200/80 via-base-200/60 to-base-200/80 p-3 border border-base-300/30">
+                  <div class="grid grid-cols-3 divide-x divide-base-300/50">
+                    <.hero_stat
+                      label="Status"
+                      value={String.capitalize(@form[:status].value || "draft")}
+                      color={status_chip_color(@form[:status].value)}
+                    />
+                    <.hero_stat
+                      label="Language"
+                      value={language_short(@form[:language].value)}
+                      color="info"
+                    />
+                    <.hero_stat
+                      label="Model"
+                      value={model_short(@form[:llm_model].value)}
+                      color="primary"
+                    />
+                  </div>
                 </div>
               </div>
-            </section>
-
-            <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">
-              <h2 class="text-lg font-semibold">Voice</h2>
-              <div class="grid gap-4 md:grid-cols-2">
-                <.input field={@form[:voice_provider]} label="Voice provider" />
-                <.select
-                  field={@form[:voice_name]}
-                  label="Voice name"
-                  options={@voice_options}
+              
+    <!-- Attributes Panel -->
+              <.collapsible_section
+                id="attributes"
+                title="Attributes"
+                icon="hero-adjustments-horizontal"
+                open={@expanded_sections["attributes"]}
+              >
+                <div class="space-y-3">
+                  <.select field={@form[:status]} label="Status" options={@status_options} size="sm" />
+                  <.select
+                    field={@form[:language]}
+                    label="Language"
+                    options={@language_options}
+                    size="sm"
+                  />
+                  <.input field={@form[:llm_model]} label="LLM Model" size="sm" />
+                </div>
+              </.collapsible_section>
+              
+    <!-- Voice & Personality Panel -->
+              <.collapsible_section
+                id="voice"
+                title="Voice & Personality"
+                icon="hero-speaker-wave"
+                open={@expanded_sections["voice"]}
+              >
+                <div class="space-y-3">
+                  <.input field={@form[:voice_provider]} label="Voice provider" size="sm" />
+                  <.select
+                    field={@form[:voice_name]}
+                    label="Voice"
+                    options={@voice_options}
+                    size="sm"
+                  />
+                  <.input field={@form[:llm_provider]} label="LLM provider" size="sm" />
+                </div>
+              </.collapsible_section>
+            </aside>
+            
+    <!-- RIGHT PANEL: Configuration Sections -->
+            <main class="character-config-panel space-y-4">
+              <!-- Instructions Section -->
+              <.collapsible_section
+                id="instructions"
+                title="Instructions"
+                subtitle="Define the agent's behavior and knowledge"
+                icon="hero-document-text"
+                open={@expanded_sections["instructions"]}
+                badge_text={instructions_word_count(@form[:instructions].value)}
+              >
+                <.textarea
+                  field={@form[:instructions]}
+                  placeholder="You are a helpful assistant..."
+                  rows={12}
+                  class="font-mono text-sm"
                 />
-                <.input field={@form[:llm_provider]} label="LLM provider" />
+              </.collapsible_section>
+              
+    <!-- Escalation Section -->
+              <.collapsible_section
+                id="escalation"
+                title="Escalation Policy"
+                subtitle="When and how to hand off to humans"
+                icon="hero-arrow-up-on-square"
+                open={@expanded_sections["escalation"]}
+                badge_text={if @escalation_enabled, do: "Active", else: "Off"}
+                badge_color={if @escalation_enabled, do: "success", else: "info"}
+              >
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-base-200/50 border border-base-200">
+                    <div>
+                      <p class="text-sm font-medium text-base-content">Enable escalation</p>
+                      <p class="text-xs text-base-content/60">
+                        Allow agent to transfer to human support
+                      </p>
+                    </div>
+                    <.switch
+                      name="agent[escalation_enabled]"
+                      checked={@escalation_enabled}
+                    />
+                  </div>
+                  <div :if={@escalation_enabled}>
+                    <.input
+                      name="agent[escalation_note]"
+                      label="Escalation message"
+                      value={@escalation_note}
+                      placeholder="Let me connect you with a human agent..."
+                      size="sm"
+                    />
+                  </div>
+                </div>
+              </.collapsible_section>
+              
+    <!-- Tool Policy Section (edit mode) -->
+              <.collapsible_section
+                :if={@live_action == :edit}
+                id="tools"
+                title="Tool Policy"
+                subtitle="Configure allowed and denied tools"
+                icon="hero-wrench-screwdriver"
+                open={@expanded_sections["tools"]}
+                badge_text={"#{effective_tools_count(@effective_tools)} enabled"}
+              >
+                <.tool_policy_panel
+                  tool_allowlist={@tool_allowlist}
+                  tool_denylist={@tool_denylist}
+                  max_calls_per_turn={@max_calls_per_turn}
+                  effective_tools={@effective_tools}
+                />
+              </.collapsible_section>
+              
+    <!-- Channels Section (edit mode) -->
+              <.collapsible_section
+                :if={@live_action == :edit}
+                id="channels"
+                title="Channels"
+                subtitle="Enable communication channels"
+                icon="hero-signal"
+                open={@expanded_sections["channels"]}
+                badge_text={"#{length(@channels)} available"}
+              >
+                <.channels_panel
+                  channels={@channels}
+                  channel_states={@channel_states}
+                  channel_health={@channel_health}
+                  search_query={@channel_search}
+                />
+              </.collapsible_section>
+              
+    <!-- Integrations Section (edit mode) -->
+              <.collapsible_section
+                :if={@live_action == :edit}
+                id="integrations"
+                title="Integrations"
+                subtitle="MCP server connections"
+                icon="hero-cube"
+                open={@expanded_sections["integrations"]}
+                badge_text={"#{length(@integrations)} configured"}
+              >
+                <.integrations_panel
+                  integrations={@integrations}
+                  integration_states={@integration_states}
+                />
+              </.collapsible_section>
+              
+    <!-- Webhooks Section (edit mode) -->
+              <.collapsible_section
+                :if={@live_action == :edit}
+                id="webhooks"
+                title="Webhooks"
+                subtitle="HTTP endpoint tools"
+                icon="hero-bolt"
+                open={@expanded_sections["webhooks"]}
+                badge_text={"#{length(@webhooks)} configured"}
+              >
+                <.webhooks_panel
+                  webhooks={@webhooks}
+                  webhook_states={@webhook_states}
+                />
+              </.collapsible_section>
+              
+    <!-- Save Button -->
+              <div class="flex justify-end pt-2">
+                <.button type="submit" variant="solid" class="px-6">
+                  <.icon name="hero-check" class="size-4 mr-1.5" /> Save changes
+                </.button>
               </div>
-            </section>
-
-            <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">
-              <h2 class="text-lg font-semibold">Agent instructions</h2>
-              <.textarea field={@form[:instructions]} label="Agent instructions" rows={10} />
-            </section>
-
-            <section class="rounded-2xl border border-base-300 bg-base-100 p-6 space-y-4">
-              <h2 class="text-lg font-semibold">Escalation policy</h2>
-              <div class="grid gap-4 md:grid-cols-2">
-                <.switch
-                  name="agent[escalation_enabled]"
-                  label="Enable escalation"
-                  checked={@escalation_enabled}
-                />
-                <.input
-                  name="agent[escalation_note]"
-                  label="Escalation note"
-                  value={@escalation_note}
-                />
-              </div>
-            </section>
-          </div>
-
-          <div class="flex justify-end">
-            <.button type="submit">Save agent</.button>
+            </main>
           </div>
         </.form>
-
-        <!-- Access & Tools Section - Premium UX -->
-        <section
-          :if={@live_action == :edit}
-          class="access-tools-container rounded-2xl border border-base-300 bg-base-100 overflow-hidden"
-        >
-          <header class="access-tools-header px-6 py-5 border-b border-base-300 bg-gradient-to-r from-base-100 to-base-200/30">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-4">
-                <div class="access-tools-icon size-11 flex items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-500/25">
-                  <.icon name="hero-wrench-screwdriver" class="size-5" />
-                </div>
-                <div>
-                  <h2 class="text-lg font-semibold tracking-tight">Access & Tools</h2>
-                  <p class="text-sm text-base-content/60">Configure channels, integrations, and tool access.</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <.badge variant="soft" color="info" size="sm">
-                  {effective_tools_count(@effective_tools)} tools enabled
-                  <span :if={effective_tools_grants(@effective_tools) != effective_tools_count(@effective_tools)} class="opacity-70">
-                    · {effective_tools_grants(@effective_tools)} grants
-                  </span>
-                </.badge>
-              </div>
-            </div>
-          </header>
-
-          <!-- Tab Navigation -->
-          <nav class="access-tools-nav border-b border-base-300">
-            <div class="flex">
-              <button
-                :for={{tab, idx} <- Enum.with_index(["tools", "channels", "integrations", "webhooks"])}
-                type="button"
-                phx-click="switch_tab"
-                phx-value-tab={tab}
-                class={[
-                  "access-tools-tab px-5 py-3.5 text-sm font-medium transition-all relative",
-                  "hover:bg-base-200/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50",
-                  @active_tab == tab && "access-tools-tab--active text-base-content",
-                  @active_tab != tab && "text-base-content/60"
-                ]}
-              >
-                <span class="flex items-center gap-2">
-                  <.icon name={tab_icon(tab)} class="size-4" />
-                  {String.capitalize(tab)}
-                  <span class={[
-                    "access-tools-tab-count ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full",
-                    @active_tab == tab && "bg-primary/10 text-primary",
-                    @active_tab != tab && "bg-base-300 text-base-content/50"
-                  ]}>
-                    {tab_count(tab, assigns)}
-                  </span>
-                </span>
-                <span
-                  :if={@active_tab == tab}
-                  class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
-                />
-              </button>
-            </div>
-          </nav>
-
-          <div class="access-tools-content p-6">
-            <!-- Tool Policy Tab -->
-            <div :if={@active_tab == "tools"} class="space-y-6 animate-in fade-in duration-200">
-              <.tool_policy_panel
-                tool_allowlist={@tool_allowlist}
-                tool_denylist={@tool_denylist}
-                max_calls_per_turn={@max_calls_per_turn}
-                effective_tools={@effective_tools}
-              />
-            </div>
-
-            <!-- Channels Tab -->
-            <div :if={@active_tab == "channels"} class="space-y-4 animate-in fade-in duration-200">
-              <.channels_panel
-                channels={@channels}
-                channel_states={@channel_states}
-                channel_health={@channel_health}
-                search_query={@channel_search}
-              />
-            </div>
-
-            <!-- Integrations Tab -->
-            <div :if={@active_tab == "integrations"} class="space-y-4 animate-in fade-in duration-200">
-              <.integrations_panel
-                integrations={@integrations}
-                integration_states={@integration_states}
-              />
-            </div>
-
-            <!-- Webhooks Tab -->
-            <div :if={@active_tab == "webhooks"} class="space-y-4 animate-in fade-in duration-200">
-              <.webhooks_panel
-                webhooks={@webhooks}
-                webhook_states={@webhook_states}
-              />
-            </div>
-          </div>
-        </section>
       </div>
-
-      <!-- Channel Scope Sheet -->
+      
+    <!-- Channel Scope Sheet -->
       <.sheet
         :if={@live_action == :edit}
         id="channel-scope-sheet"
@@ -250,8 +330,8 @@ defmodule SwatiWeb.AgentsLive.Form do
               </div>
             </div>
           </header>
-
-          <!-- Health Summary -->
+          
+    <!-- Health Summary -->
           <div class="grid grid-cols-3 gap-3">
             <div class="scope-stat rounded-xl border border-base-300 bg-base-200/30 p-3 text-center">
               <p class="text-2xl font-bold text-base-content">{@scope_health.endpoint_count || 0}</p>
@@ -266,8 +346,8 @@ defmodule SwatiWeb.AgentsLive.Form do
               <p class="text-xs text-base-content/60">Issues</p>
             </div>
           </div>
-
-          <!-- Scope Controls -->
+          
+    <!-- Scope Controls -->
           <div class="space-y-4">
             <h4 class="text-sm font-semibold text-base-content">Endpoint Access</h4>
             <div class="space-y-2">
@@ -287,7 +367,9 @@ defmodule SwatiWeb.AgentsLive.Form do
                 />
                 <div>
                   <p class="font-medium text-base-content">All endpoints</p>
-                  <p class="text-xs text-base-content/60">Agent can access all endpoints on this channel</p>
+                  <p class="text-xs text-base-content/60">
+                    Agent can access all endpoints on this channel
+                  </p>
                 </div>
               </label>
 
@@ -312,8 +394,8 @@ defmodule SwatiWeb.AgentsLive.Form do
               </label>
             </div>
           </div>
-
-          <!-- Endpoint Selection (when mode=selected) -->
+          
+    <!-- Endpoint Selection (when mode=selected) -->
           <div :if={@scope_mode == "selected"} class="space-y-3">
             <h4 class="text-sm font-semibold text-base-content">Select Endpoints</h4>
             <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -336,7 +418,9 @@ defmodule SwatiWeb.AgentsLive.Form do
                 />
                 <div class="flex-1 min-w-0">
                   <p class="font-medium text-base-content truncate">{endpoint.address}</p>
-                  <p class="text-xs text-base-content/60">{endpoint.display_name || "No display name"}</p>
+                  <p class="text-xs text-base-content/60">
+                    {endpoint.display_name || "No display name"}
+                  </p>
                 </div>
                 <.badge
                   size="xs"
@@ -351,8 +435,8 @@ defmodule SwatiWeb.AgentsLive.Form do
               </p>
             </div>
           </div>
-
-          <!-- Tools Preview -->
+          
+    <!-- Tools Preview -->
           <div class="space-y-3">
             <h4 class="text-sm font-semibold text-base-content">Available Tools</h4>
             <div class="rounded-xl border border-base-300 bg-base-200/30 p-4">
@@ -371,8 +455,8 @@ defmodule SwatiWeb.AgentsLive.Form do
               </div>
             </div>
           </div>
-
-          <!-- Actions -->
+          
+    <!-- Actions -->
           <div class="flex items-center justify-between pt-4 border-t border-base-300">
             <.link navigate={~p"/channels"} class="text-sm text-primary hover:underline">
               Manage connections
@@ -406,7 +490,12 @@ defmodule SwatiWeb.AgentsLive.Form do
           </.badge>
         </div>
         <div class="space-y-4">
-          <.textarea name="agent[tool_allowlist]" label="Allowed tools" value={@tool_allowlist} rows={5} />
+          <.textarea
+            name="agent[tool_allowlist]"
+            label="Allowed tools"
+            value={@tool_allowlist}
+            rows={5}
+          />
           <.textarea name="agent[tool_denylist]" label="Denied tools" value={@tool_denylist} rows={5} />
           <.input
             name="agent[max_calls_per_turn]"
@@ -416,43 +505,63 @@ defmodule SwatiWeb.AgentsLive.Form do
           />
         </div>
       </div>
-
-      <!-- Effective Tools Preview -->
+      
+    <!-- Effective Tools Preview -->
       <div class="space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-semibold">Effective Tools Preview</h3>
           <span class="text-xs text-base-content/60">What this agent can actually do</span>
         </div>
         <div class="effective-tools-preview rounded-xl border border-base-300 bg-gradient-to-br from-base-200/50 to-base-100 p-4 min-h-[280px]">
-          <div :if={@effective_tools == []} class="flex flex-col items-center justify-center h-full text-center py-8">
+          <div
+            :if={@effective_tools == []}
+            class="flex flex-col items-center justify-center h-full text-center py-8"
+          >
             <div class="size-12 rounded-full bg-base-300/50 flex items-center justify-center mb-3">
               <.icon name="hero-wrench-screwdriver" class="size-6 text-base-content/40" />
             </div>
             <p class="text-sm text-base-content/60">No tools enabled yet.</p>
-            <p class="text-xs text-base-content/40 mt-1">Enable channels, integrations, or webhooks to add tools.</p>
+            <p class="text-xs text-base-content/40 mt-1">
+              Enable channels, integrations, or webhooks to add tools.
+            </p>
           </div>
           <div :if={@effective_tools != []} class="space-y-4">
             <div :for={{source, tools, grants} <- @effective_tools} class="space-y-2">
               <div class="flex items-center gap-2">
                 <.icon name={source_icon(source)} class="size-4 text-base-content/60" />
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">{source_label(source)}</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+                  {source_label(source)}
+                </h4>
                 <span class="text-xs text-base-content/40">
                   {length(tools)} unique
-                  <span :if={grants != length(tools)}> · {grants} grants</span>
+                  <span :if={grants != length(tools)}> ·       {grants} grants</span>
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">
-                <.popover :for={{tool, sources} <- tools} open_on_hover placement="right" class="min-w-[140px]">
+                <.popover
+                  :for={{tool, sources} <- tools}
+                  open_on_hover
+                  placement="right"
+                  class="min-w-[140px]"
+                >
                   <span class="effective-tool-chip inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-base-300/50 text-base-content/80 border border-base-300/50 cursor-default hover:bg-base-300 hover:border-base-400 transition-colors">
                     {tool}
-                    <span :if={length(sources) > 1} class="ml-0.5 text-[10px] text-base-content/50 font-normal">
+                    <span
+                      :if={length(sources) > 1}
+                      class="ml-0.5 text-[10px] text-base-content/50 font-normal"
+                    >
                       ({length(sources)})
                     </span>
                   </span>
                   <:content>
-                    <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Provided by</p>
+                    <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">
+                      Provided by
+                    </p>
                     <div class="flex flex-col gap-1">
-                      <span :for={src <- sources} class="inline-flex items-center gap-2 text-sm text-base-content">
+                      <span
+                        :for={src <- sources}
+                        class="inline-flex items-center gap-2 text-sm text-base-content"
+                      >
                         <span class="size-1.5 rounded-full bg-success"></span>
                         {src}
                       </span>
@@ -490,34 +599,62 @@ defmodule SwatiWeb.AgentsLive.Form do
           />
         </div>
         <div class="flex items-center gap-1.5">
-          <.button type="button" variant="soft" size="sm" phx-click="enable_all_channels" class="text-xs">
+          <.button
+            type="button"
+            variant="soft"
+            size="sm"
+            phx-click="enable_all_channels"
+            class="text-xs"
+          >
             Enable all
           </.button>
-          <.button type="button" variant="soft" size="sm" phx-click="disable_all_channels" class="text-xs">
+          <.button
+            type="button"
+            variant="soft"
+            size="sm"
+            phx-click="disable_all_channels"
+            class="text-xs"
+          >
             Disable all
           </.button>
-          <.button type="button" variant="solid" color="primary" size="sm" phx-click="enable_connected_channels" class="text-xs">
+          <.button
+            type="button"
+            variant="solid"
+            color="primary"
+            size="sm"
+            phx-click="enable_connected_channels"
+            class="text-xs"
+          >
             Enable connected only
           </.button>
         </div>
       </div>
-
-      <!-- Channel List -->
-      <.form for={%{}} id="agent-channels" phx-change="toggle_channel" class="space-y-2">
+      
+    <!-- Channel List -->
+      <.form
+        for={%{}}
+        id="agent-channels"
+        phx-change="toggle_channel"
+        class="space-y-0"
+      >
         <div
-          :for={channel <- sort_channels(filter_channels(@channels, @search_query), @channel_states, @channel_health)}
-          class="channel-row group relative rounded-xl border border-base-300 bg-base-100 transition-all hover:border-base-400 hover:shadow-sm overflow-visible"
+          :for={
+            channel <-
+              sort_channels(
+                filter_channels(@channels, @search_query),
+                @channel_states,
+                @channel_health
+              )
+          }
+          class="channel-row group py-3 first:pt-0 last:pb-0 transition-colors hover:bg-base-200/30 border-b border-base-300/60 last:border-0"
         >
-          <div class="flex items-center gap-4 p-4">
-            <!-- Channel Icon -->
-            <div class={[
-              "channel-icon size-11 flex items-center justify-center rounded-xl shrink-0 transition-transform group-hover:scale-105",
-              channel_type_gradient(channel.type)
-            ]}>
-              <.icon name={channel_type_icon(channel.type)} class="size-5 text-white" />
-            </div>
-
-            <!-- Channel Info -->
+          <div class="flex items-start gap-3">
+            <.icon
+              name={channel_type_icon(channel.type)}
+              class="size-4 text-base-content/40 shrink-0 mt-0.5"
+            />
+            
+    <!-- Channel Info -->
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <h4 class="font-semibold text-base-content truncate">{channel.name}</h4>
@@ -541,73 +678,70 @@ defmodule SwatiWeb.AgentsLive.Form do
                   <span class="inline-flex items-center gap-1 cursor-default hover:text-base-content transition-colors">
                     <span class="text-base-content/40">Tools:</span>
                     <span class="font-medium">{length(channel_tools(channel))}</span>
-                    <.icon name="hero-information-circle" class="size-3.5 text-base-content/30 hover:text-primary transition-colors" />
+                    <.icon
+                      name="hero-information-circle"
+                      class="size-3.5 text-base-content/30 hover:text-primary transition-colors"
+                    />
                   </span>
                   <:content>
                     <div class="space-y-3">
                       <div class="flex items-center justify-between">
                         <p class="text-xs font-semibold text-base-content">Channel Tools</p>
-                        <span class="text-xs text-base-content/50">{length(channel_tools(channel))} available</span>
+                        <span class="text-xs text-base-content/50">
+                          {length(channel_tools(channel))} available
+                        </span>
                       </div>
                       <div class="flex flex-wrap gap-1.5">
-                        <.badge :for={tool <- channel_tools(channel)} size="xs" variant="soft" color="info">
+                        <.badge
+                          :for={tool <- channel_tools(channel)}
+                          size="xs"
+                          variant="soft"
+                          color="info"
+                        >
                           {tool}
                         </.badge>
-                        <span :if={channel_tools(channel) == []} class="text-sm text-base-content/50 italic">
+                        <span
+                          :if={channel_tools(channel) == []}
+                          class="text-sm text-base-content/50 italic"
+                        >
                           No tools configured
                         </span>
                       </div>
                       <p class="text-xs text-base-content/50 pt-2 border-t border-base-200">
-                        <span class="text-success font-medium">Tip:</span> Click "Scope" to restrict endpoint access.
+                        <span class="text-success font-medium">Tip:</span>
+                        Click "Scope" to restrict endpoint access.
                       </p>
                     </div>
                   </:content>
                 </.popover>
               </div>
             </div>
-
-            <!-- Actions -->
-            <div class="flex items-center gap-3 shrink-0">
-              <.button
+            
+    <!-- Actions -->
+            <div class="flex items-center gap-2 shrink-0">
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
                 phx-click="open_scope_sheet"
                 phx-value-channel_id={channel.id}
-                class="opacity-0 group-hover:opacity-100 transition-opacity"
+                class="text-xs text-base-content/40 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
               >
                 Scope
-              </.button>
+              </button>
               <.switch
                 name={"channels[#{channel.id}]"}
                 checked={Map.get(@channel_states, channel.id, false)}
               />
             </div>
           </div>
-
-          <!-- Expandable health details on hover -->
-          <div
-            :if={has_channel_health?(@channel_health, channel.id)}
-            class="channel-health-bar hidden group-hover:flex items-center gap-4 px-4 pb-3 pt-0 border-t border-base-200 mt-0"
-          >
-            <% health = Map.get(@channel_health, channel.id, %{}) %>
-            <span class="text-xs text-base-content/50">
-              <span class="font-medium text-success">{health.active_count || 0}</span> active
-            </span>
-            <span class="text-xs text-base-content/50">
-              <span class="font-medium text-warning">{health.error_count || 0}</span> errors
-            </span>
-            <span class="text-xs text-base-content/50">
-              <span class="font-medium">{health.endpoint_count || 0}</span> endpoints
-            </span>
-            <span :if={health.last_synced_at} class="text-xs text-base-content/40 ml-auto">
-              Last sync: {format_relative_time(health.last_synced_at)}
-            </span>
-          </div>
         </div>
 
-        <p :if={filter_channels(@channels, @search_query) == []} class="text-center text-sm text-base-content/60 py-8">
-          {if @search_query != "", do: "No channels match your search.", else: "No channels configured yet."}
+        <p
+          :if={filter_channels(@channels, @search_query) == []}
+          class="text-center text-sm text-base-content/60 py-8"
+        >
+          {if @search_query != "",
+            do: "No channels match your search.",
+            else: "No channels configured yet."}
         </p>
       </.form>
     </div>
@@ -622,89 +756,58 @@ defmodule SwatiWeb.AgentsLive.Form do
     ~H"""
     <div class="space-y-4">
       <div class="flex items-center justify-between">
-        <p class="text-sm text-base-content/70">Toggle which MCP integrations are available to this agent.</p>
+        <p class="text-sm text-base-content/70">
+          Toggle which MCP integrations are available to this agent.
+        </p>
         <.link navigate={~p"/agent-data"} class="text-sm text-primary hover:underline">
           Manage integrations
         </.link>
       </div>
 
-      <.form for={%{}} id="agent-integrations" phx-change="toggle_integration" class="space-y-2">
+      <.form
+        for={%{}}
+        id="agent-integrations"
+        phx-change="toggle_integration"
+        class="space-y-0"
+      >
         <div
           :for={integration <- @integrations}
-          class="integration-row group rounded-xl border border-base-300 bg-base-100 transition-all hover:border-base-400 hover:shadow-sm"
+          class="integration-row group py-3 first:pt-0 last:pb-0 transition-colors hover:bg-base-200/30 border-b border-base-300/60 last:border-0"
         >
-          <div class="flex items-center gap-4 p-4">
-            <div class="size-10 flex items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shrink-0">
-              <.icon name="hero-cube" class="size-5" />
-            </div>
+          <div class="flex items-start gap-3">
+            <.icon name="hero-cube" class="size-4 text-base-content/40 shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <h4 class="font-semibold text-base-content truncate">{integration.name}</h4>
-                <.badge size="xs" variant="soft" color={integration_status_color(integration.status)}>
-                  {integration.status}
-                </.badge>
+                <h4 class="text-sm font-medium text-base-content truncate">{integration.name}</h4>
+                <span class="text-xs text-base-content/40">
+                  {length(integration.allowed_tools || [])} tools
+                </span>
               </div>
-              <div class="flex items-center gap-2 mt-1 text-xs text-base-content/60">
-                <span class="inline-flex items-center gap-1">
-                  <span class="text-base-content/40">Tools:</span>
-                  <span class="font-medium">{length(integration.allowed_tools || [])}</span>
+              <div class="flex items-center gap-2 mt-0.5 text-xs text-base-content/50">
+                <span :if={integration.last_tested_at}>
+                  Tested {format_relative_time(integration.last_tested_at)}
                 </span>
-                <span :if={integration.last_tested_at} class="text-base-content/30">·</span>
-                <span :if={integration.last_tested_at} class="inline-flex items-center gap-1">
-                  <span class="text-base-content/40">Last tested:</span>
-                  <span>{format_relative_time(integration.last_tested_at)}</span>
+                <span :if={integration.last_test_status == "success"} class="text-success/70">
+                  · Healthy
                 </span>
-                <span :if={integration.last_test_status} class="text-base-content/30">·</span>
-                <.badge :if={integration.last_test_status == "success"} size="xs" variant="soft" color="success">
-                  Healthy
-                </.badge>
-                <.badge :if={integration.last_test_status && integration.last_test_status != "success"} size="xs" variant="soft" color="warning">
-                  {integration.last_test_status}
-                </.badge>
+                <span
+                  :if={integration.last_test_status && integration.last_test_status != "success"}
+                  class="text-warning/70"
+                >
+                  · {integration.last_test_status}
+                </span>
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <.button
-                type="button"
-                variant="ghost"
-                size="sm"
-                phx-click="view_integration_tools"
-                phx-value-integration_id={integration.id}
-                class="opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-              >
-                View tools
-              </.button>
               <.switch
                 name={"integrations[#{integration.id}]"}
                 checked={Map.get(@integration_states, integration.id, true)}
               />
             </div>
           </div>
-          <!-- Tools preview on hover -->
-          <div
-            :if={length(integration.allowed_tools || []) > 0}
-            class="hidden group-hover:block px-4 pb-4 pt-0"
-          >
-            <div class="flex flex-wrap gap-1 pt-3 border-t border-base-200">
-              <.badge
-                :for={tool <- Enum.take(integration.allowed_tools || [], 6)}
-                size="xs"
-                variant="soft"
-                color="info"
-              >
-                {tool}
-              </.badge>
-              <span
-                :if={length(integration.allowed_tools || []) > 6}
-                class="text-xs text-base-content/50 px-1"
-              >
-                +{length(integration.allowed_tools || []) - 6} more
-              </span>
-            </div>
-          </div>
         </div>
 
-        <p :if={@integrations == []} class="text-center text-sm text-base-content/60 py-8">
+        <p :if={@integrations == []} class="text-center text-sm text-base-content/50 py-6">
           No integrations configured yet.
           <.link navigate={~p"/agent-data"} class="text-primary hover:underline ml-1">
             Add your first integration
@@ -723,33 +826,35 @@ defmodule SwatiWeb.AgentsLive.Form do
     ~H"""
     <div class="space-y-4">
       <div class="flex items-center justify-between">
-        <p class="text-sm text-base-content/70">Toggle which webhook tools are available to this agent.</p>
+        <p class="text-sm text-base-content/70">
+          Toggle which webhook tools are available to this agent.
+        </p>
         <.link navigate={~p"/agent-data"} class="text-sm text-primary hover:underline">
           Manage webhooks
         </.link>
       </div>
 
-      <.form for={%{}} id="agent-webhooks" phx-change="toggle_webhook" class="space-y-2">
+      <.form
+        for={%{}}
+        id="agent-webhooks"
+        phx-change="toggle_webhook"
+        class="space-y-0"
+      >
         <div
           :for={webhook <- @webhooks}
-          class="webhook-row group rounded-xl border border-base-300 bg-base-100 p-4 transition-all hover:border-base-400 hover:shadow-sm"
+          class="webhook-row group py-3 first:pt-0 last:pb-0 transition-colors hover:bg-base-200/30 border-b border-base-300/60 last:border-0"
         >
-          <div class="flex items-center gap-4">
-            <div class="size-10 flex items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shrink-0">
-              <.icon name="hero-bolt" class="size-5" />
-            </div>
+          <div class="flex items-start gap-3">
+            <.icon name="hero-bolt" class="size-4 text-base-content/40 shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <h4 class="font-semibold text-base-content truncate">{webhook.name}</h4>
-                <.badge size="xs" variant="soft" color={webhook_status_color(webhook.status)}>
-                  {webhook.status}
-                </.badge>
-                <.badge size="xs" variant="outline" color="info">
+                <h4 class="text-sm font-medium text-base-content truncate">{webhook.name}</h4>
+                <span class="text-[10px] font-mono text-base-content/40 uppercase">
                   {webhook.http_method |> to_string() |> String.upcase()}
-                </.badge>
+                </span>
               </div>
-              <p class="text-xs text-base-content/60 truncate mt-0.5">
-                Tool: <code class="px-1 py-0.5 rounded bg-base-200 text-base-content/80">{webhook.tool_name}</code>
+              <p class="text-xs text-base-content/50 truncate mt-0.5">
+                <code class="text-base-content/60">{webhook.tool_name}</code>
               </p>
             </div>
             <.switch
@@ -759,21 +864,163 @@ defmodule SwatiWeb.AgentsLive.Form do
           </div>
         </div>
 
-        <div :if={@webhooks == []} class="text-center py-12">
-          <div class="size-14 mx-auto rounded-full bg-base-200/50 flex items-center justify-center mb-4">
-            <.icon name="hero-bolt" class="size-7 text-base-content/40" />
-          </div>
-          <p class="text-sm font-medium text-base-content/70">No webhooks configured yet</p>
-          <p class="text-xs text-base-content/50 mt-1 max-w-xs mx-auto">
-            Webhooks let this agent call your HTTP endpoints as tools.
-          </p>
-          <.link navigate={~p"/agent-data"} class="inline-flex items-center gap-1 mt-4 text-sm text-primary hover:underline">
-            <.icon name="hero-plus" class="size-4" />
-            Add your first webhook
+        <p :if={@webhooks == []} class="text-center text-sm text-base-content/50 py-6">
+          No webhooks configured.
+          <.link navigate={~p"/agent-data"} class="text-primary hover:underline ml-1">
+            Add one
           </.link>
-        </div>
+        </p>
       </.form>
     </div>
+    """
+  end
+
+  # Stat Chip Component - compact inline stat display
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :color, :string, default: "info"
+
+  defp stat_chip(assigns) do
+    ~H"""
+    <div class="stat-chip flex items-center gap-1.5">
+      <div class={[
+        "size-5 flex items-center justify-center rounded",
+        stat_chip_bg(@color)
+      ]}>
+        <.icon name={@icon} class="size-3 text-base-content/60" />
+      </div>
+      <div class="flex flex-col">
+        <span class="text-[10px] text-base-content/40 uppercase tracking-wider leading-none">
+          {@label}
+        </span>
+        <span class="text-xs font-medium text-base-content/80 leading-tight">{@value}</span>
+      </div>
+    </div>
+    """
+  end
+
+  defp stat_chip_bg("success"), do: "bg-success/10"
+  defp stat_chip_bg("warning"), do: "bg-warning/10"
+  defp stat_chip_bg("danger"), do: "bg-error/10"
+  defp stat_chip_bg("info"), do: "bg-info/10"
+  defp stat_chip_bg("primary"), do: "bg-primary/10"
+  defp stat_chip_bg(_), do: "bg-base-200"
+
+  # Hero Stat Component - prominent stat display for portrait card
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :color, :string, default: "info"
+
+  defp hero_stat(assigns) do
+    ~H"""
+    <div class="hero-stat flex flex-col items-center px-2 py-1">
+      <span class={[
+        "text-sm font-bold tracking-tight",
+        hero_stat_color(@color)
+      ]}>
+        {@value}
+      </span>
+      <span class="text-[10px] text-base-content/50 uppercase tracking-wider mt-0.5">
+        {@label}
+      </span>
+    </div>
+    """
+  end
+
+  defp hero_stat_color("success"), do: "text-success"
+  defp hero_stat_color("warning"), do: "text-warning"
+  defp hero_stat_color("danger"), do: "text-error"
+  defp hero_stat_color("info"), do: "text-info"
+  defp hero_stat_color("primary"), do: "text-primary"
+  defp hero_stat_color(_), do: "text-base-content"
+
+  # Equipment Slot Component - game-style slot for tools/channels
+  attr :icon, :string, required: true
+  attr :count, :integer, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, default: false
+  attr :on_click, :string, required: true
+  attr :tab, :string, required: true
+
+  defp equipment_slot(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click={@on_click}
+      phx-value-tab={@tab}
+      class={[
+        "equipment-slot flex flex-col items-center gap-1 p-2 rounded-xl transition-all",
+        "hover:bg-base-200/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        @active && "bg-primary/5 ring-1 ring-primary/20",
+        !@active && "bg-base-200/30"
+      ]}
+    >
+      <div class={[
+        "size-8 flex items-center justify-center rounded-lg",
+        @active && "bg-primary/10 text-primary",
+        !@active && "bg-base-300/50 text-base-content/50"
+      ]}>
+        <.icon name={@icon} class="size-4" />
+      </div>
+      <span class="text-[10px] text-base-content/50">{@label}</span>
+      <span class={[
+        "text-sm font-bold",
+        @active && "text-primary",
+        !@active && "text-base-content/70"
+      ]}>
+        {@count}
+      </span>
+    </button>
+    """
+  end
+
+  # Collapsible Section Component
+  attr :id, :string, required: true
+  attr :title, :string, required: true
+  attr :subtitle, :string, default: nil
+  attr :icon, :string, required: true
+  attr :open, :boolean, default: true
+  attr :badge_text, :string, default: nil
+  attr :badge_color, :string, default: "info"
+  slot :inner_block, required: true
+
+  defp collapsible_section(assigns) do
+    ~H"""
+    <section class="collapsible-section rounded-2xl border border-base-300 bg-base-100 overflow-hidden">
+      <header
+        class="section-header px-5 py-4 cursor-pointer hover:bg-base-200/30 transition-colors"
+        phx-click="toggle_section"
+        phx-value-section={@id}
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="size-8 flex items-center justify-center rounded-lg bg-base-200/50 text-base-content/60">
+              <.icon name={@icon} class="size-4" />
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-base-content">{@title}</h3>
+              <p :if={@subtitle} class="text-xs text-base-content/50">{@subtitle}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <.badge :if={@badge_text} variant="soft" color={@badge_color} size="xs">
+              {@badge_text}
+            </.badge>
+            <.icon
+              name={if @open, do: "hero-chevron-up", else: "hero-chevron-down"}
+              class="size-4 text-base-content/40"
+            />
+          </div>
+        </div>
+      </header>
+      <div
+        :if={@open}
+        class="section-content px-5 pb-5 animate-in fade-in slide-in-from-top-1 duration-150"
+      >
+        {render_slot(@inner_block)}
+      </div>
+    </section>
     """
   end
 
@@ -800,7 +1047,17 @@ defmodule SwatiWeb.AgentsLive.Form do
      |> assign(:scope_endpoints, [])
      |> assign(:scope_connections, %{})
      |> assign(:scope_mode, "all")
-     |> assign(:scope_selected_ids, [])}
+     |> assign(:scope_selected_ids, [])
+     |> assign(:expanded_sections, %{
+       "attributes" => false,
+       "voice" => false,
+       "instructions" => true,
+       "escalation" => false,
+       "tools" => false,
+       "channels" => true,
+       "integrations" => false,
+       "webhooks" => false
+     })}
   end
 
   @impl true
@@ -830,12 +1087,16 @@ defmodule SwatiWeb.AgentsLive.Form do
         integration_states = integration_states(agent, integrations)
         webhook_states = webhook_states(agent, webhooks)
 
-        effective_tools = compute_effective_tools(
-          channels, channel_states,
-          integrations, integration_states,
-          webhooks, webhook_states,
-          agent.tool_policy
-        )
+        effective_tools =
+          compute_effective_tools(
+            channels,
+            channel_states,
+            integrations,
+            integration_states,
+            webhooks,
+            webhook_states,
+            agent.tool_policy
+          )
 
         {:noreply,
          socket
@@ -916,6 +1177,13 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   @impl true
+  def handle_event("toggle_section", %{"section" => section}, socket) do
+    expanded = socket.assigns.expanded_sections
+    new_expanded = Map.update(expanded, section, true, &(!&1))
+    {:noreply, assign(socket, :expanded_sections, new_expanded)}
+  end
+
+  @impl true
   def handle_event("search_channels", %{"channel_search" => query}, socket) do
     {:noreply, assign(socket, :channel_search, query)}
   end
@@ -956,7 +1224,11 @@ defmodule SwatiWeb.AgentsLive.Form do
 
     socket =
       if length(enabled_not_connected) > 0 do
-        put_flash(socket, :info, "Channel enabled but not connected. It won't send or receive until connected.")
+        put_flash(
+          socket,
+          :info,
+          "Channel enabled but not connected. It won't send or receive until connected."
+        )
       else
         socket
       end
@@ -1068,6 +1340,7 @@ defmodule SwatiWeb.AgentsLive.Form do
   @impl true
   def handle_event("toggle_scope_endpoint", %{"endpoint_id" => endpoint_id}, socket) do
     current = socket.assigns.scope_selected_ids
+
     new_ids =
       if endpoint_id in current do
         List.delete(current, endpoint_id)
@@ -1153,16 +1426,29 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   defp recompute_effective_tools(socket) do
-    effective_tools = compute_effective_tools(
-      socket.assigns.channels, socket.assigns.channel_states,
-      socket.assigns.integrations, socket.assigns.integration_states,
-      socket.assigns.webhooks, socket.assigns.webhook_states,
-      socket.assigns.agent.tool_policy
-    )
+    effective_tools =
+      compute_effective_tools(
+        socket.assigns.channels,
+        socket.assigns.channel_states,
+        socket.assigns.integrations,
+        socket.assigns.integration_states,
+        socket.assigns.webhooks,
+        socket.assigns.webhook_states,
+        socket.assigns.agent.tool_policy
+      )
+
     assign(socket, :effective_tools, effective_tools)
   end
 
-  defp compute_effective_tools(channels, channel_states, integrations, integration_states, webhooks, webhook_states, tool_policy) do
+  defp compute_effective_tools(
+         channels,
+         channel_states,
+         integrations,
+         integration_states,
+         webhooks,
+         webhook_states,
+         tool_policy
+       ) do
     # Build tools with source tracking for deduplication
     channel_tools_with_sources =
       channels
@@ -1190,8 +1476,14 @@ defmodule SwatiWeb.AgentsLive.Form do
     filter_tools = fn tools_with_sources ->
       tools_with_sources
       |> Enum.filter(fn {tool, _source} ->
-        allowed = allowlist == [] or tool in allowlist or Enum.any?(allowlist, &String.contains?(tool, &1))
-        not_denied = not Enum.member?(denylist, tool) and not Enum.any?(denylist, &String.contains?(tool, &1))
+        allowed =
+          allowlist == [] or tool in allowlist or
+            Enum.any?(allowlist, &String.contains?(tool, &1))
+
+        not_denied =
+          not Enum.member?(denylist, tool) and
+            not Enum.any?(denylist, &String.contains?(tool, &1))
+
         allowed and not_denied
       end)
     end
@@ -1205,7 +1497,10 @@ defmodule SwatiWeb.AgentsLive.Form do
     end
 
     filtered_channel = filter_tools.(channel_tools_with_sources) |> deduplicate_with_sources.()
-    filtered_integration = filter_tools.(integration_tools_with_sources) |> deduplicate_with_sources.()
+
+    filtered_integration =
+      filter_tools.(integration_tools_with_sources) |> deduplicate_with_sources.()
+
     filtered_webhook = filter_tools.(webhook_tools_with_sources) |> deduplicate_with_sources.()
 
     # Count grants (total including duplicates)
@@ -1214,9 +1509,21 @@ defmodule SwatiWeb.AgentsLive.Form do
     webhook_grant_count = length(webhook_tools_with_sources)
 
     result = []
-    result = if filtered_channel != [], do: result ++ [{:channels, filtered_channel, channel_grant_count}], else: result
-    result = if filtered_integration != [], do: result ++ [{:integrations, filtered_integration, integration_grant_count}], else: result
-    result = if filtered_webhook != [], do: result ++ [{:webhooks, filtered_webhook, webhook_grant_count}], else: result
+
+    result =
+      if filtered_channel != [],
+        do: result ++ [{:channels, filtered_channel, channel_grant_count}],
+        else: result
+
+    result =
+      if filtered_integration != [],
+        do: result ++ [{:integrations, filtered_integration, integration_grant_count}],
+        else: result
+
+    result =
+      if filtered_webhook != [],
+        do: result ++ [{:webhooks, filtered_webhook, webhook_grant_count}],
+        else: result
 
     result
   end
@@ -1318,14 +1625,63 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   defp parse_scope(nil), do: {"all", []}
+
   defp parse_scope(scope) when is_map(scope) do
     mode = Map.get(scope, "mode") || Map.get(scope, :mode) || "all"
     ids = Map.get(scope, "endpoint_ids") || Map.get(scope, :endpoint_ids) || []
     {to_string(mode), Enum.map(ids, &to_string/1)}
   end
+
   defp parse_scope(_), do: {"all", []}
 
   # UI helpers
+
+  # Status helpers for character sheet
+  defp status_ring_color("active"), do: "bg-success"
+  defp status_ring_color("draft"), do: "bg-warning"
+  defp status_ring_color("archived"), do: "bg-base-400"
+  defp status_ring_color(_), do: "bg-base-400"
+
+  defp status_glow_color("active"), do: "bg-success/40"
+  defp status_glow_color("draft"), do: "bg-warning/30"
+  defp status_glow_color("archived"), do: "bg-base-400/20"
+  defp status_glow_color(_), do: "bg-base-400/20"
+
+  defp status_icon("active"), do: "hero-check-mini"
+  defp status_icon("draft"), do: "hero-pencil-mini"
+  defp status_icon("archived"), do: "hero-archive-box-mini"
+  defp status_icon(_), do: "hero-question-mark-circle-mini"
+
+  defp status_chip_color("active"), do: "success"
+  defp status_chip_color("draft"), do: "warning"
+  defp status_chip_color("archived"), do: "info"
+  defp status_chip_color(_), do: "info"
+
+  defp language_short(nil), do: "—"
+
+  defp language_short(lang) when is_binary(lang) do
+    lang
+    |> String.split("-")
+    |> List.first()
+    |> String.upcase()
+  end
+
+  defp model_short(nil), do: "—"
+
+  defp model_short(model) when is_binary(model) do
+    model
+    |> String.split("/")
+    |> List.last()
+    |> String.slice(0..12)
+    |> then(fn s -> if String.length(s) > 10, do: String.slice(s, 0..9) <> "…", else: s end)
+  end
+
+  defp instructions_word_count(nil), do: "0 words"
+
+  defp instructions_word_count(text) when is_binary(text) do
+    count = text |> String.split(~r/\s+/, trim: true) |> length()
+    "#{count} words"
+  end
 
   defp tab_icon("tools"), do: "hero-wrench-screwdriver"
   defp tab_icon("channels"), do: "hero-signal"
@@ -1369,8 +1725,13 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   defp channel_type_gradient(:voice), do: "bg-gradient-to-br from-blue-500 to-cyan-600 text-white"
   defp channel_type_gradient(:email), do: "bg-gradient-to-br from-rose-500 to-pink-600 text-white"
-  defp channel_type_gradient(:chat), do: "bg-gradient-to-br from-violet-500 to-purple-600 text-white"
-  defp channel_type_gradient(:whatsapp), do: "bg-gradient-to-br from-green-500 to-emerald-600 text-white"
+
+  defp channel_type_gradient(:chat),
+    do: "bg-gradient-to-br from-violet-500 to-purple-600 text-white"
+
+  defp channel_type_gradient(:whatsapp),
+    do: "bg-gradient-to-br from-green-500 to-emerald-600 text-white"
+
   defp channel_type_gradient(_), do: "bg-gradient-to-br from-slate-500 to-gray-600 text-white"
 
   defp channel_tools(channel) do
@@ -1379,12 +1740,14 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   defp filter_channels(channels, ""), do: channels
+
   defp filter_channels(channels, query) do
     query_lower = String.downcase(query)
+
     Enum.filter(channels, fn c ->
       String.contains?(String.downcase(c.name), query_lower) or
-      String.contains?(String.downcase(c.key), query_lower) or
-      String.contains?(String.downcase(to_string(c.type)), query_lower)
+        String.contains?(String.downcase(c.key), query_lower) or
+        String.contains?(String.downcase(to_string(c.type)), query_lower)
     end)
   end
 
@@ -1395,10 +1758,14 @@ defmodule SwatiWeb.AgentsLive.Form do
       connected = is_channel_connected?(channel_health, channel.id)
 
       case {connected, enabled} do
-        {true, true} -> {0, channel.name}    # Connected + Enabled first
-        {true, false} -> {1, channel.name}   # Connected + Disabled
-        {false, true} -> {2, channel.name}   # Not connected + Enabled
-        {false, false} -> {3, channel.name}  # Not connected + Disabled last
+        # Connected + Enabled first
+        {true, true} -> {0, channel.name}
+        # Connected + Disabled
+        {true, false} -> {1, channel.name}
+        # Not connected + Enabled
+        {false, true} -> {2, channel.name}
+        # Not connected + Disabled last
+        {false, false} -> {3, channel.name}
       end
     end)
   end
@@ -1485,7 +1852,9 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   defp endpoint_connection_label(connections_map, endpoint_id) do
     case Map.get(connections_map, endpoint_id) do
-      nil -> "No connection"
+      nil ->
+        "No connection"
+
       connections ->
         active = Enum.count(connections, &(&1.status == :active))
         if active > 0, do: "Connected", else: "Disconnected"
@@ -1494,7 +1863,9 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   defp endpoint_connection_color(connections_map, endpoint_id) do
     case Map.get(connections_map, endpoint_id) do
-      nil -> "warning"
+      nil ->
+        "warning"
+
       connections ->
         active = Enum.count(connections, &(&1.status == :active))
         if active > 0, do: "success", else: "warning"
@@ -1502,8 +1873,10 @@ defmodule SwatiWeb.AgentsLive.Form do
   end
 
   defp format_relative_time(nil), do: "Never"
+
   defp format_relative_time(datetime) do
     diff = DateTime.diff(DateTime.utc_now(), datetime, :second)
+
     cond do
       diff < 60 -> "just now"
       diff < 3600 -> "#{div(diff, 60)}m ago"
