@@ -37,6 +37,7 @@ defmodule SwatiWeb.Router do
     pipe_through :internal
 
     post "/runtime/resolve", RuntimeController, :resolve
+    post "/runtime/rejections", RuntimeRejectionsController, :create
     post "/sessions/:session_id/events", SessionsController, :events
     post "/sessions/:session_id/end", SessionsController, :end_session
     post "/sessions/:session_id/artifacts", SessionsController, :artifacts
@@ -107,6 +108,7 @@ defmodule SwatiWeb.Router do
       live "/trust", TrustConsoleLive.Index, :index
       live "/trust/policy", TrustConsoleLive.Policy, :index
       live "/trust/reliability", TrustConsoleLive.Reliability, :index
+      live "/trust/rejections", TrustConsoleLive.Rejections, :index
       live "/cases", CasesLive.Index, :index
       live "/cases/:id", CasesLive.Show, :show
       live "/sessions", SessionsLive.Index, :index

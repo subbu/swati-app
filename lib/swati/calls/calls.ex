@@ -8,6 +8,7 @@ defmodule Swati.Calls do
     Call,
     CallEvent,
     CallMarker,
+    CallRejection,
     CallSpeakerSegment,
     CallTimelineMeta,
     CallToolCall,
@@ -67,6 +68,47 @@ defmodule Swati.Calls do
     |> apply_sort(filters)
     |> Repo.all()
   end
+
+  def list_call_rejections(tenant_id, filters \\ %{}) do
+    limit =
+      Map.get(filters, :limit) ||
+        Map.get(filters, "limit") ||
+        200
+
+    limit = normalize_limit(limit)
+
+    CallRejection
+    |> Tenancy.scope(tenant_id)
+    |> order_by([r], desc: r.inserted_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  def create_call_rejection(attrs) do
+    %CallRejection{}
+    |> CallRejection.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: :nothing,
+      conflict_target:
+        {:unsafe_fragment,
+         "(provider, provider_call_id, reason_code) WHERE provider_call_id IS NOT NULL"}
+    )
+  end
+
+  defp normalize_limit(limit) when is_integer(limit) do
+    limit
+    |> max(1)
+    |> min(500)
+  end
+
+  defp normalize_limit(limit) when is_binary(limit) do
+    case Integer.parse(limit) do
+      {value, _} -> normalize_limit(value)
+      :error -> 200
+    end
+  end
+
+  defp normalize_limit(_limit), do: 200
 
   def get_call!(tenant_id, call_id) do
     Call

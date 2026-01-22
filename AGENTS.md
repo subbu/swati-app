@@ -403,3 +403,5 @@ And **never** do this:
 ### Use these credentials for all dev/testing:
 email: subbu@simplyguest.com
 pwd: CSwGFhvgB2KqqR3R2dk-oR7I
+
+email: subramani.athikunte@gmail.com pwd: CSwGFhvgB2KqqR3R2dk-oR7I

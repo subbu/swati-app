@@ -76,6 +76,9 @@ defmodule SwatiWeb.TrustConsoleLive.Index do
           <.link patch={~p"/trust/reliability"} class={nav_class(@active_tab == :reliability)}>
             Reliability
           </.link>
+          <.link patch={~p"/trust/rejections"} class={nav_class(@active_tab == :rejections)}>
+            Rejections
+          </.link>
         </nav>
 
         <section class="grid gap-6 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">

@@ -96,6 +96,16 @@ defmodule Swati.Channels.Queries do
     |> Repo.one()
   end
 
+  def get_endpoint_by_channel_key_any_status(channel_key, address)
+      when is_binary(channel_key) and is_binary(address) do
+    Endpoint
+    |> join(:inner, [e], c in Channel, on: c.id == e.channel_id)
+    |> where([e, c], c.key == ^channel_key)
+    |> where([e, _c], e.address == ^address)
+    |> preload([e, c], channel: c)
+    |> Repo.one()
+  end
+
   def get_endpoint_by_channel_type(channel_type, address)
       when is_binary(channel_type) and is_binary(address) do
     type =
@@ -117,6 +127,30 @@ defmodule Swati.Channels.Queries do
       |> where([e, c], c.status == :active)
       |> where([e, _c], e.address == ^address)
       |> where([e, _c], e.status == :active)
+      |> preload([e, c], channel: c)
+      |> Repo.one()
+    end
+  end
+
+  def get_endpoint_by_channel_type_any_status(channel_type, address)
+      when is_binary(channel_type) and is_binary(address) do
+    type =
+      case channel_type do
+        "voice" -> :voice
+        "email" -> :email
+        "chat" -> :chat
+        "whatsapp" -> :whatsapp
+        "custom" -> :custom
+        _ -> nil
+      end
+
+    if is_nil(type) do
+      nil
+    else
+      Endpoint
+      |> join(:inner, [e], c in Channel, on: c.id == e.channel_id)
+      |> where([e, c], c.type == ^type)
+      |> where([e, _c], e.address == ^address)
       |> preload([e, c], channel: c)
       |> Repo.one()
     end

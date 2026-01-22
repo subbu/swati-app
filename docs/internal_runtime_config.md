@@ -176,6 +176,52 @@ Notes:
 - `agent.system_prompt` is composed per call as Markdown: base agent instructions + call/customer/case context.
 - Policies may add Markdown blocks with `system_prompt.prepend` or `system_prompt.append` in tenant/channel/case policy (applied in that order).
 
+Error response:
+
+```json
+{
+  "error": {
+    "code": "agent_channel_disabled",
+    "message": "Agent not enabled for channel.",
+    "action": "enable_agent_channel",
+    "retryable": false,
+    "details": null
+  }
+}
+```
+
+Notes:
+- `error.code` is the canonical failure code for programmatic handling.
+- `error.action` is a suggested remediation for operators.
+- `error.retryable` signals whether a retry is expected to succeed without config changes.
+
+### Report runtime rejections
+
+`POST /internal/v1/runtime/rejections`
+
+Request example:
+
+```json
+{
+  "provider": "plivo",
+  "provider_call_id": "call-123",
+  "session_external_id": "call-123",
+  "endpoint_address": "+91...",
+  "from_address": "+91...",
+  "to_address": "+91...",
+  "channel_key": "voice",
+  "channel_type": "voice",
+  "direction": "inbound",
+  "occurred_at": "2026-01-22T10:00:00.123456Z",
+  "error": {
+    "code": "agent_channel_disabled",
+    "message": "Agent not enabled for channel.",
+    "action": "enable_agent_channel",
+    "retryable": false
+  }
+}
+```
+
 ### Session lifecycle
 
 #### Append events

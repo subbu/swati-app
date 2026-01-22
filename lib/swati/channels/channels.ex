@@ -66,8 +66,16 @@ defmodule Swati.Channels do
     Queries.get_endpoint_by_channel_key(channel_key, address)
   end
 
+  def get_endpoint_by_channel_key_any_status(channel_key, address) do
+    Queries.get_endpoint_by_channel_key_any_status(channel_key, address)
+  end
+
   def get_endpoint_by_channel_type(channel_type, address) do
     Queries.get_endpoint_by_channel_type(channel_type, address)
+  end
+
+  def get_endpoint_by_channel_type_any_status(channel_type, address) do
+    Queries.get_endpoint_by_channel_type_any_status(channel_type, address)
   end
 
   def get_endpoint_by_phone_number_id(tenant_id, phone_number_id) do
