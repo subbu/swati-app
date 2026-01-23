@@ -21,9 +21,9 @@ config :swati,
 config :swati,
   gmail_oauth: %{
     client_id:
-      System.get_env("SWATI_GMAIL_CLIENT_ID", "dev-google-client-id"),
+      System.get_env("SWATI_GCLOUD_CLIENT_ID", "dev-google-client-id"),
     client_secret:
-      System.get_env("SWATI_GMAIL_CLIENT_SECRET", "dev-google-client-secret")
+      System.get_env("SWATI_GCLOUD_CLIENT_SECRET", "dev-google-client-secret")
   }
 
 config :swati,
