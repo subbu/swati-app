@@ -20,6 +20,10 @@ defmodule Swati.Sessions do
     Queries.list_sessions(tenant_id, filters)
   end
 
+  def list_sessions_paginated(tenant_id, filters \\ %{}, flop_params \\ %{}) do
+    Queries.list_sessions_paginated(tenant_id, filters, flop_params)
+  end
+
   def get_session!(tenant_id, session_id) do
     Queries.get_session!(tenant_id, session_id)
   end

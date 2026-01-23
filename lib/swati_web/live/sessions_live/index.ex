@@ -32,6 +32,7 @@ defmodule SwatiWeb.SessionsLive.Index do
 
     visible_columns = Map.get(view_state, "columns", allowed_columns)
     hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
+    page_size = 20
 
     {filters, filters_changed?} = normalize_agent_filter(filters, agents)
     filters_active = filters_active?(filters)
@@ -47,6 +48,12 @@ defmodule SwatiWeb.SessionsLive.Index do
       |> assign(:sort, sort)
       |> assign(:visible_columns, visible_columns)
       |> assign(:hidden_columns_count, hidden_columns_count)
+      |> assign(:page, 1)
+      |> assign(:page_size, page_size)
+      |> assign(
+        :pagination,
+        %{page: 1, page_size: page_size, total_pages: 1, total_count: 0}
+      )
       |> assign(
         :columns_form,
         visible_columns
@@ -126,6 +133,7 @@ defmodule SwatiWeb.SessionsLive.Index do
      |> assign(:filters, merged_filters)
      |> assign(:filters_active, filters_active)
      |> assign(:filter_form, to_form(merged_filters, as: :filters))
+     |> assign(:page, 1)
      |> load_sessions(reset: true)}
   end
 
@@ -141,6 +149,7 @@ defmodule SwatiWeb.SessionsLive.Index do
      |> assign(:filters, merged_filters)
      |> assign(:filters_active, false)
      |> assign(:filter_form, to_form(merged_filters, as: :filters))
+     |> assign(:page, 1)
      |> load_sessions(reset: true)}
   end
 
@@ -152,6 +161,7 @@ defmodule SwatiWeb.SessionsLive.Index do
     {:noreply,
      socket
      |> assign(:sort, sort)
+     |> assign(:page, 1)
      |> load_sessions(reset: true)}
   end
 
@@ -223,6 +233,16 @@ defmodule SwatiWeb.SessionsLive.Index do
   @impl true
   def handle_event("close-session-sheet", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/sessions")}
+  end
+
+  @impl true
+  def handle_event("paginate", %{"page" => page}, socket) do
+    page = parse_page(page, socket.assigns.pagination)
+
+    {:noreply,
+     socket
+     |> assign(:page, page)
+     |> load_sessions(reset: true)}
   end
 
   @impl true
@@ -574,6 +594,73 @@ defmodule SwatiWeb.SessionsLive.Index do
               </.table_body>
             </.table>
           </div>
+
+          <div
+            id="sessions-pagination"
+            class="flex flex-wrap items-center justify-between gap-3 border-t border-base px-4 py-3 text-sm text-foreground-soft"
+          >
+            <% {range_start, range_end} = pagination_range(@pagination) %>
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-foreground">
+                {range_start}-{range_end}
+              </span>
+              <span>of</span>
+              <span class="font-medium text-foreground">{@pagination.total_count}</span>
+              <span>sessions</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <.button
+                id="sessions-first-page"
+                size="sm"
+                variant="ghost"
+                type="button"
+                phx-click="paginate"
+                phx-value-page="1"
+                disabled={@pagination.page == 1}
+              >
+                <.icon name="hero-chevron-double-left" class="size-4" />
+              </.button>
+              <.button
+                id="sessions-prev-page"
+                size="sm"
+                variant="ghost"
+                type="button"
+                phx-click="paginate"
+                phx-value-page={@pagination.page - 1}
+                disabled={@pagination.page <= 1}
+              >
+                <.icon name="hero-chevron-left" class="size-4" />
+                <span class="sr-only">Previous page</span>
+              </.button>
+              <span class="text-xs text-foreground-soft">
+                Page <span class="font-semibold text-foreground">{@pagination.page}</span> of
+                <span class="font-semibold text-foreground">{@pagination.total_pages}</span>
+              </span>
+              <.button
+                id="sessions-next-page"
+                size="sm"
+                variant="ghost"
+                type="button"
+                phx-click="paginate"
+                phx-value-page={@pagination.page + 1}
+                disabled={@pagination.page >= @pagination.total_pages}
+              >
+                <span class="sr-only">Next page</span>
+                <.icon name="hero-chevron-right" class="size-4" />
+              </.button>
+              <.button
+                id="sessions-last-page"
+                size="sm"
+                variant="ghost"
+                type="button"
+                phx-click="paginate"
+                phx-value-page={@pagination.total_pages}
+                disabled={@pagination.page >= @pagination.total_pages}
+              >
+                <.icon name="hero-chevron-double-right" class="size-4" />
+              </.button>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -694,14 +781,23 @@ defmodule SwatiWeb.SessionsLive.Index do
   defp load_sessions(socket, opts \\ []) do
     tenant_id = socket.assigns.current_scope.tenant.id
 
-    sessions =
-      Sessions.list_sessions(
-        tenant_id,
-        Map.put(socket.assigns.filters, "sort", socket.assigns.sort)
-      )
-      |> Repo.preload([:channel, :endpoint, :agent, :customer, :artifacts])
+    {sessions, pagination} =
+      case Sessions.list_sessions_paginated(
+             tenant_id,
+             socket.assigns.filters,
+             flop_params(socket)
+           ) do
+        {:ok, {sessions, pagination}} -> {sessions, pagination}
+        {:error, pagination} -> {[], pagination}
+      end
 
-    socket = assign(socket, :session_count, length(sessions))
+    pagination = ensure_pagination_defaults(pagination, socket.assigns.page, socket.assigns.page_size)
+    sessions = Repo.preload(sessions, [:channel, :endpoint, :agent, :customer, :artifacts])
+
+    socket =
+      socket
+      |> assign(:session_count, pagination.total_count)
+      |> assign(:pagination, pagination)
 
     if Keyword.get(opts, :reset, false) do
       stream(socket, :sessions, sessions, reset: true)
@@ -730,6 +826,55 @@ defmodule SwatiWeb.SessionsLive.Index do
     direction = Map.get(sort, "direction") || Map.get(sort, :direction) || "desc"
 
     %{column: to_string(column), direction: to_string(direction)}
+  end
+
+  defp flop_params(socket) do
+    %{
+      page: socket.assigns.page,
+      page_size: socket.assigns.page_size,
+      order_by: [sort_field(socket.assigns.sort.column)],
+      order_directions: [sort_direction(socket.assigns.sort.direction)]
+    }
+  end
+
+  defp sort_field("last_event_at"), do: :last_event_at
+  defp sort_field("status"), do: :status
+  defp sort_field("direction"), do: :direction
+  defp sort_field(_), do: :started_at
+
+  defp sort_direction("asc"), do: :asc
+  defp sort_direction(_), do: :desc
+
+  defp pagination_range(%{total_count: total_count}) when total_count in [nil, 0] do
+    {0, 0}
+  end
+
+  defp pagination_range(%{page: page, page_size: page_size, total_count: total_count}) do
+    start_index = max((page - 1) * page_size + 1, 1)
+    end_index = min(page * page_size, total_count)
+
+    {start_index, end_index}
+  end
+
+  defp parse_page(page, pagination) do
+    parsed_page =
+      case Integer.parse(to_string(page)) do
+        {value, ""} -> value
+        _ -> pagination.page || 1
+      end
+
+    parsed_page
+    |> max(1)
+    |> min(pagination.total_pages || 1)
+  end
+
+  defp ensure_pagination_defaults(pagination, page, page_size) do
+    %{
+      page: Map.get(pagination, :page) || page,
+      page_size: Map.get(pagination, :page_size) || page_size,
+      total_pages: Map.get(pagination, :total_pages) || 1,
+      total_count: Map.get(pagination, :total_count) || 0
+    }
   end
 
   defp persist_session_filters(socket, filters) do
