@@ -99,6 +99,54 @@ defmodule SwatiWeb.SessionsLive.Helpers do
     end
   end
 
+  def channel_badge(nil) do
+    %{label: "—", icon_name: "hero-minus-small", color: "primary"}
+  end
+
+  def channel_badge(channel) do
+    key = channel.key || channel.name || channel.type
+    normalized = key |> to_string() |> String.downcase()
+
+    case normalized do
+      "voice" ->
+        %{label: "Voice", icon_name: "hero-phone", color: "info"}
+
+      "sms" ->
+        %{label: "SMS", icon_name: "hero-device-phone-mobile", color: "warning"}
+
+      "whatsapp" ->
+        %{label: "WhatsApp", icon_name: "hero-chat-bubble-left-right", color: "success"}
+
+      "instagram" ->
+        %{label: "Instagram", icon_name: "hero-camera", color: "danger"}
+
+      "email" ->
+        %{label: "Email", icon_name: "hero-envelope", color: "primary"}
+
+      "webchat" ->
+        %{label: "Webchat", icon_name: "hero-chat-bubble-left-ellipsis", color: "info"}
+
+      "slack" ->
+        %{label: "Slack", icon_name: "hero-hashtag", color: "primary"}
+
+      "telegram" ->
+        %{label: "Telegram", icon_name: "hero-paper-airplane", color: "warning"}
+
+      "public" ->
+        %{label: "Public", icon_name: "hero-globe-alt", color: "success"}
+
+      "" ->
+        %{label: "—", icon_name: "hero-minus-small", color: "primary"}
+
+      _ ->
+        %{
+          label: titleize_channel(normalized),
+          icon_name: "hero-chat-bubble-left-right",
+          color: "info"
+        }
+    end
+  end
+
   def session_label(session) do
     external = session.external_id
     if is_binary(external) and external != "", do: external, else: short_id(session.id)
@@ -140,6 +188,29 @@ defmodule SwatiWeb.SessionsLive.Helpers do
     end
   end
 
+  def agent_display(session) do
+    case session.agent do
+      nil -> %{name: "Unassigned"}
+      agent -> %{name: agent.name}
+    end
+  end
+
+  def agent_avatar_url(avatars_by_agent, session) do
+    case Map.get(avatars_by_agent, session.agent_id) do
+      %{status: :ready, output_url: url} when is_binary(url) ->
+        url
+
+      _ ->
+        name =
+          case session.agent do
+            %{name: agent_name} when is_binary(agent_name) and agent_name != "" -> agent_name
+            _ -> "Agent"
+          end
+
+        "https://ui-avatars.com/api/?name=#{URI.encode_www_form(name)}"
+    end
+  end
+
   def priority_label(priority) do
     case to_string(priority || "") do
       "low" -> "Low"
@@ -165,6 +236,14 @@ defmodule SwatiWeb.SessionsLive.Helpers do
 
   defp plural_suffix(value) when value == 1, do: ""
   defp plural_suffix(_value), do: "s"
+
+  defp titleize_channel(label) do
+    label
+    |> String.replace(["_", "-"], " ")
+    |> String.split()
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
 
   def status_filter_label(filters) do
     case Map.get(filters, "status") do

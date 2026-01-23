@@ -87,7 +87,7 @@ defmodule SwatiWeb.Layouts do
             <.icon
               name="hero-chat-bubble-left-right"
               class="size-5 text-foreground-softer group-hover:text-foreground"
-            /> Sessions
+            /> Conversations
           </.navlink>
           <.navlink navigate={~p"/customers"}>
             <.icon
@@ -162,7 +162,7 @@ defmodule SwatiWeb.Layouts do
                   <.icon name="hero-adjustments-vertical" class="size-5" /> Channels
                 </.navlink>
                 <.navlink navigate={~p"/sessions"}>
-                  <.icon name="hero-chat-bubble-left-right" class="size-5" /> Sessions
+                  <.icon name="hero-chat-bubble-left-right" class="size-5" /> Conversations
                 </.navlink>
                 <.navlink navigate={~p"/customers"}>
                   <.icon name="hero-user" class="size-5" /> Customers

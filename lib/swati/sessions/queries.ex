@@ -17,6 +17,7 @@ defmodule Swati.Sessions.Queries do
   def list_sessions_paginated(tenant_id, filters \\ %{}, flop_params \\ %{}) do
     Session
     |> Tenancy.scope(tenant_id)
+    |> with_sort_joins()
     |> apply_filters(filters)
     |> Flop.validate_and_run(flop_params, for: Session)
   end
@@ -52,6 +53,16 @@ defmodule Swati.Sessions.Queries do
     |> maybe_filter(:endpoint_id, filters)
     |> maybe_filter(:case_id, filters)
     |> maybe_filter(:customer_id, filters)
+  end
+
+  defp with_sort_joins(query) do
+    query
+    |> Ecto.Query.with_named_binding(:channel, fn query, _binding ->
+      join(query, :left, [s], channel in assoc(s, :channel), as: :channel)
+    end)
+    |> Ecto.Query.with_named_binding(:customer, fn query, _binding ->
+      join(query, :left, [s], customer in assoc(s, :customer), as: :customer)
+    end)
   end
 
   defp apply_sort(query, filters) do

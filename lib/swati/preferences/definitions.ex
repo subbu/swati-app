@@ -6,10 +6,10 @@ defmodule Swati.Preferences.Definitions do
   @calls_index_statuses ~w(started in_progress ended failed cancelled error)
   @calls_index_sort_columns ~w(started_at from_number duration_seconds status agent_id)
   @sessions_index_key "sessions.index.view_state"
-  @sessions_index_columns ~w(session customer channel endpoint direction status last_event_at agent)
+  @sessions_index_columns ~w(session customer channel direction status last_event_at agent)
   @sessions_index_default_columns Enum.reject(@sessions_index_columns, &(&1 == "session"))
   @sessions_index_statuses ~w(open active waiting_on_customer closed)
-  @sessions_index_sort_columns ~w(started_at last_event_at status direction)
+  @sessions_index_sort_columns ~w(started_at last_event_at status direction channel customer)
   @cases_index_key "cases.index.view_state"
   @cases_index_columns ~w(case status priority customer assigned_agent updated_at)
   @cases_index_statuses ~w(new triage in_progress waiting_on_customer resolved closed)

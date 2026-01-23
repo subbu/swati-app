@@ -54,6 +54,27 @@ Notes:
 - `--user-id` accepts a UUID or a 1-based index (ordered by `users.inserted_at`).
 - If the user belongs to multiple tenants, pass `--tenant-id`.
 
+### Backfill session agents
+
+Task: `mix swati.backfill_session_agents`
+
+Backfills `sessions.agent_id` using `case.assigned_agent_id`, endpoint routing defaults,
+or a fallback published agent.
+
+Optional:
+- `--tenant-id`
+- `--dry-run` (print rows only)
+
+Examples:
+
+```bash
+MIX_ENV=prod mix swati.backfill_session_agents --tenant-id <tenant-uuid>
+```
+
+```bash
+MIX_ENV=prod mix swati.backfill_session_agents --dry-run
+```
+
 ### Normalize phone number E164 values
 
 Task: `mix swati.backfill_phone_numbers`

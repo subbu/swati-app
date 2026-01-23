@@ -12,8 +12,14 @@ defmodule Swati.Sessions.Session do
       :customer_id,
       :direction
     ],
-    sortable: [:started_at, :last_event_at, :status, :direction],
-    default_order: %{order_by: [:started_at], order_directions: [:desc]}
+    sortable: [:started_at, :last_event_at, :status, :direction, :channel_key, :customer_name],
+    default_order: %{order_by: [:started_at], order_directions: [:desc]},
+    adapter_opts: [
+      join_fields: [
+        channel_key: [binding: :channel, field: :key, ecto_type: :string],
+        customer_name: [binding: :customer, field: :name, ecto_type: :string]
+      ]
+    ]
   }
 
   @statuses [:open, :active, :waiting_on_customer, :closed]

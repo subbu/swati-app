@@ -5,6 +5,7 @@ defmodule SwatiWeb.SessionsLive.Index do
 
   alias Swati.Agents
   alias Swati.Approvals
+  alias Swati.Avatars
   alias Swati.Preferences
   alias Swati.Repo
   alias Swati.Sessions
@@ -17,6 +18,10 @@ defmodule SwatiWeb.SessionsLive.Index do
   def mount(_params, _session, socket) do
     tenant = socket.assigns.current_scope.tenant
     agents = Agents.list_agents(tenant.id)
+
+    avatars_by_agent =
+      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+
     view_state = Preferences.sessions_index_state(socket.assigns.current_scope)
     allowed_columns = Preferences.sessions_index_columns()
     default_sort = Map.get(Preferences.sessions_index_defaults(), "sort", %{})
@@ -40,6 +45,7 @@ defmodule SwatiWeb.SessionsLive.Index do
     socket =
       socket
       |> assign(:agents, agents)
+      |> assign(:avatars_by_agent, avatars_by_agent)
       |> assign(:filters, filters)
       |> assign(:filters_active, filters_active)
       |> assign(:filter_form, to_form(filters, as: :filters))
@@ -281,7 +287,7 @@ defmodule SwatiWeb.SessionsLive.Index do
               <.icon name="hero-chat-bubble-left-right" class="size-4" />
             </div>
             <div>
-              <h1 class="text-xl font-semibold text-foreground">Sessions</h1>
+              <h1 class="text-xl font-semibold text-foreground">Conversations</h1>
               <p class="text-sm text-foreground-soft">Track active and resolved conversations.</p>
             </div>
           </div>
@@ -409,14 +415,6 @@ defmodule SwatiWeb.SessionsLive.Index do
                     />
                   </div>
                   <div class="flex items-center justify-between mt-3">
-                    <.label for="endpoint" class="text-foreground">Endpoint</.label>
-                    <.switch
-                      id="endpoint"
-                      field={@columns_form[:endpoint]}
-                      value={@visible_columns |> Enum.member?("endpoint")}
-                    />
-                  </div>
-                  <div class="flex items-center justify-between mt-3">
                     <.label for="direction" class="text-foreground">Direction</.label>
                     <.switch
                       id="direction"
@@ -472,14 +470,27 @@ defmodule SwatiWeb.SessionsLive.Index do
                 <:col :if={"session" in @visible_columns} class="py-2" data-column="session">
                   Session
                 </:col>
-                <:col :if={"customer" in @visible_columns} class="py-2" data-column="customer">
-                  Customer
+                <:col
+                  :if={"customer" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="customer"
+                  data-column="customer"
+                >
+                  <button type="button" class={SessionsHelpers.sort_button_class("customer", @sort)}>
+                    Customer <SessionsHelpers.sort_icon column="customer" sort={@sort} />
+                  </button>
                 </:col>
-                <:col :if={"channel" in @visible_columns} class="py-2" data-column="channel">
-                  Channel
-                </:col>
-                <:col :if={"endpoint" in @visible_columns} class="py-2" data-column="endpoint">
-                  Endpoint
+                <:col
+                  :if={"channel" in @visible_columns}
+                  class="py-2"
+                  phx-click="sort"
+                  phx-value-column="channel"
+                  data-column="channel"
+                >
+                  <button type="button" class={SessionsHelpers.sort_button_class("channel", @sort)}>
+                    Channel <SessionsHelpers.sort_icon column="channel" sort={@sort} />
+                  </button>
                 </:col>
                 <:col
                   :if={"direction" in @visible_columns}
@@ -545,14 +556,11 @@ defmodule SwatiWeb.SessionsLive.Index do
                     </div>
                   </:cell>
                   <:cell :if={"channel" in @visible_columns} class="py-2 align-middle">
-                    <span class="text-foreground font-medium">
-                      {session.channel && session.channel.key}
-                    </span>
-                  </:cell>
-                  <:cell :if={"endpoint" in @visible_columns} class="py-2 align-middle">
-                    <span class="text-foreground font-medium">
-                      {SessionsHelpers.endpoint_address(session)}
-                    </span>
+                    <% channel_badge = SessionsHelpers.channel_badge(session.channel) %>
+                    <.badge size="sm" variant="ghost" color={channel_badge.color}>
+                      <.icon name={channel_badge.icon_name} class="icon" />
+                      {channel_badge.label}
+                    </.badge>
                   </:cell>
                   <:cell :if={"direction" in @visible_columns} class="py-2 align-middle">
                     <% direction = SessionsHelpers.direction_display(session) %>
@@ -577,9 +585,17 @@ defmodule SwatiWeb.SessionsLive.Index do
                     </div>
                   </:cell>
                   <:cell :if={"agent" in @visible_columns} class="py-2 align-middle">
-                    <span class="text-foreground font-medium">
-                      {SessionsHelpers.agent_name(session)}
-                    </span>
+                    <% agent = SessionsHelpers.agent_display(session) %>
+                    <% avatar_url = SessionsHelpers.agent_avatar_url(@avatars_by_agent, session) %>
+                    <div class="flex items-center gap-3">
+                      <img src={avatar_url} class="size-9 rounded-full" alt="" loading="lazy" />
+                      <div class="flex flex-col gap-0.5">
+                        <span class="font-semibold text-foreground">{agent.name}</span>
+                        <span class="text-xs text-foreground-softest">
+                          {SessionsHelpers.endpoint_address(session)}
+                        </span>
+                      </div>
+                    </div>
                   </:cell>
                   <:cell class="py-2 align-middle text-right">
                     <% transcript_url = SessionsHelpers.transcript_download_url(session) %>
@@ -868,10 +884,14 @@ defmodule SwatiWeb.SessionsLive.Index do
   defp sort_field("last_event_at"), do: :last_event_at
   defp sort_field("status"), do: :status
   defp sort_field("direction"), do: :direction
+  defp sort_field("channel"), do: :channel_key
+  defp sort_field("customer"), do: :customer_name
   defp sort_field(_), do: :started_at
 
   defp sort_direction("asc"), do: :asc
   defp sort_direction(_), do: :desc
+
+  defp agent_ids(agents), do: Enum.map(agents, & &1.id)
 
   defp pagination_range(%{total_count: total_count}) when total_count in [nil, 0] do
     {0, 0}
