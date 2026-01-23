@@ -1,6 +1,13 @@
 defmodule Swati.Sessions.Session do
   use Swati.DbSchema
 
+  @derive {
+    Flop.Schema,
+    filterable: [:status, :agent_id, :channel_id, :endpoint_id, :case_id, :customer_id, :direction],
+    sortable: [:started_at, :last_event_at, :status, :direction],
+    default_order: %{order_by: [:started_at], order_directions: [:desc]}
+  }
+
   @statuses [:open, :active, :waiting_on_customer, :closed]
   @directions [:inbound, :outbound]
 

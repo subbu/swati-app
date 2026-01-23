@@ -14,6 +14,13 @@ defmodule Swati.Sessions.Queries do
     |> Repo.all()
   end
 
+  def list_sessions_paginated(tenant_id, filters \\ %{}, flop_params \\ %{}) do
+    Session
+    |> Tenancy.scope(tenant_id)
+    |> apply_filters(filters)
+    |> Flop.validate_and_run(flop_params, for: Session)
+  end
+
   def get_session!(tenant_id, session_id) do
     Session
     |> Tenancy.scope(tenant_id)

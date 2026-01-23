@@ -69,6 +69,7 @@ defmodule Swati.MixProject do
       {:gen_smtp, "~> 1.3"},
       {:replicate, "~> 1.3.0"},
       {:fun_with_flags, "~> 1.13"},
+      {:flop, "~> 0.25.0"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
