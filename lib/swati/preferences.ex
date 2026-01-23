@@ -45,15 +45,30 @@ defmodule Swati.Preferences do
     if missing_scope?(current_scope) do
       Definitions.default(key)
     else
-      value =
+      preference =
         Preference
         |> Tenancy.scope(current_scope.tenant.id)
         |> where([pref], pref.user_id == ^current_scope.user.id)
         |> where([pref], pref.key == ^key)
-        |> select([pref], pref.value)
+        |> select([pref], %{value: pref.value, schema_version: pref.schema_version})
         |> Repo.one()
 
-      Definitions.normalize(key, value)
+      case preference do
+        nil ->
+          Definitions.default(key)
+
+        %{value: value, schema_version: schema_version} ->
+          current_version = Definitions.schema_version(key)
+          stored_version = schema_version || 0
+
+          if stored_version < current_version do
+            migrated = Definitions.migrate(key, value, stored_version)
+            _ = upsert(current_scope, key, migrated)
+            migrated
+          else
+            Definitions.normalize(key, value)
+          end
+      end
     end
   end
 

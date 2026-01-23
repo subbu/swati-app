@@ -30,6 +30,8 @@ config :swati, Swati.Repo,
   migration_primary_key: [type: :binary_id],
   migration_foreign_key: [type: :binary_id]
 
+config :flop, repo: Swati.Repo
+
 config :fun_with_flags, :persistence,
   adapter: FunWithFlags.Store.Persistent.Ecto,
   repo: Swati.Repo,

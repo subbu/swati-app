@@ -111,6 +111,7 @@ defmodule SwatiWeb.Router do
       live "/trust/rejections", TrustConsoleLive.Rejections, :index
       live "/cases", CasesLive.Index, :index
       live "/cases/:id", CasesLive.Show, :show
+      live "/customers", CustomersLive.Index, :index
       live "/sessions", SessionsLive.Index, :index
       live "/sessions/:id", SessionsLive.Index, :show
     end

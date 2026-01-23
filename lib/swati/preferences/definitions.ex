@@ -7,6 +7,7 @@ defmodule Swati.Preferences.Definitions do
   @calls_index_sort_columns ~w(started_at from_number duration_seconds status agent_id)
   @sessions_index_key "sessions.index.view_state"
   @sessions_index_columns ~w(session customer channel endpoint direction status last_event_at agent)
+  @sessions_index_default_columns Enum.reject(@sessions_index_columns, &(&1 == "session"))
   @sessions_index_statuses ~w(open active waiting_on_customer closed)
   @sessions_index_sort_columns ~w(started_at last_event_at status direction)
   @cases_index_key "cases.index.view_state"
@@ -25,7 +26,7 @@ defmodule Swati.Preferences.Definitions do
   def cases_index_defaults, do: default(@cases_index_key)
 
   def schema_version(@calls_index_key), do: 1
-  def schema_version(@sessions_index_key), do: 1
+  def schema_version(@sessions_index_key), do: 2
   def schema_version(@cases_index_key), do: 1
 
   def schema_version(key) do
@@ -42,7 +43,7 @@ defmodule Swati.Preferences.Definitions do
 
   def default(@sessions_index_key) do
     %{
-      "columns" => @sessions_index_columns,
+      "columns" => @sessions_index_default_columns,
       "filters" => default_sessions_filters(),
       "sort" => default_sessions_sort()
     }
@@ -122,6 +123,24 @@ defmodule Swati.Preferences.Definitions do
     raise ArgumentError, "unknown preference key: #{inspect(key)}"
   end
 
+  def migrate(@sessions_index_key, value, from_version) when from_version < 2 do
+    value = normalize(@sessions_index_key, value)
+    columns = Map.get(value, "columns", @sessions_index_default_columns)
+
+    columns =
+      if columns == @sessions_index_columns do
+        @sessions_index_default_columns
+      else
+        columns
+      end
+
+    Map.put(value, "columns", columns)
+  end
+
+  def migrate(key, value, _from_version) do
+    normalize(key, value)
+  end
+
   defp default_filters do
     %{"status" => "", "agent_id" => ""}
   end
@@ -164,7 +183,7 @@ defmodule Swati.Preferences.Definitions do
 
   defp normalize_columns(_columns), do: @calls_index_columns
 
-  defp normalize_sessions_columns(nil), do: @sessions_index_columns
+  defp normalize_sessions_columns(nil), do: @sessions_index_default_columns
 
   defp normalize_sessions_columns(columns) when is_list(columns) do
     columns =
@@ -175,12 +194,12 @@ defmodule Swati.Preferences.Definitions do
     normalized = Enum.filter(@sessions_index_columns, &(&1 in columns))
 
     case normalized do
-      [] -> @sessions_index_columns
+      [] -> @sessions_index_default_columns
       list -> list
     end
   end
 
-  defp normalize_sessions_columns(_columns), do: @sessions_index_columns
+  defp normalize_sessions_columns(_columns), do: @sessions_index_default_columns
 
   defp normalize_cases_columns(nil), do: @cases_index_columns
 

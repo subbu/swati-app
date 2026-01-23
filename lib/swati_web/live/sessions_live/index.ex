@@ -54,6 +54,7 @@ defmodule SwatiWeb.SessionsLive.Index do
         :pagination,
         %{page: 1, page_size: page_size, total_pages: 1, total_count: 0}
       )
+      |> assign(:customer_filter_id, nil)
       |> assign(
         :columns_form,
         visible_columns
@@ -108,15 +109,38 @@ defmodule SwatiWeb.SessionsLive.Index do
     end
   end
 
-  def handle_params(_params, _uri, socket) do
+  def handle_params(%{"customer_id" => customer_id}, _uri, socket) do
+    customer_id = SessionsHelpers.parse_id(customer_id)
+    filters = Map.put(socket.assigns.filters, "customer_id", customer_id)
+
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(:customer_filter_id, customer_id)
+     |> assign(:filters_active, filters_active?(filters))
+     |> assign(:page, 1)
+     |> assign(
        session_sheet_open: false,
        call: nil,
        approvals: [],
        handoffs: [],
        case_record: nil
-     )}
+     )
+     |> load_sessions(reset: true)}
+  end
+
+  def handle_params(_params, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(:customer_filter_id, nil)
+     |> assign(:filters_active, filters_active?(socket.assigns.filters))
+     |> assign(
+       session_sheet_open: false,
+       call: nil,
+       approvals: [],
+       handoffs: [],
+       case_record: nil
+     )
+     |> load_sessions(reset: true)}
   end
 
   @impl true
@@ -148,6 +172,7 @@ defmodule SwatiWeb.SessionsLive.Index do
      socket
      |> assign(:filters, merged_filters)
      |> assign(:filters_active, false)
+     |> assign(:customer_filter_id, nil)
      |> assign(:filter_form, to_form(merged_filters, as: :filters))
      |> assign(:page, 1)
      |> load_sessions(reset: true)}
@@ -633,8 +658,8 @@ defmodule SwatiWeb.SessionsLive.Index do
                 <span class="sr-only">Previous page</span>
               </.button>
               <span class="text-xs text-foreground-soft">
-                Page <span class="font-semibold text-foreground">{@pagination.page}</span> of
-                <span class="font-semibold text-foreground">{@pagination.total_pages}</span>
+                Page <span class="font-semibold text-foreground">{@pagination.page}</span>
+                of <span class="font-semibold text-foreground">{@pagination.total_pages}</span>
               </span>
               <.button
                 id="sessions-next-page"
@@ -780,18 +805,21 @@ defmodule SwatiWeb.SessionsLive.Index do
 
   defp load_sessions(socket, opts \\ []) do
     tenant_id = socket.assigns.current_scope.tenant.id
+    filters = effective_filters(socket)
 
     {sessions, pagination} =
       case Sessions.list_sessions_paginated(
              tenant_id,
-             socket.assigns.filters,
+             filters,
              flop_params(socket)
            ) do
         {:ok, {sessions, pagination}} -> {sessions, pagination}
         {:error, pagination} -> {[], pagination}
       end
 
-    pagination = ensure_pagination_defaults(pagination, socket.assigns.page, socket.assigns.page_size)
+    pagination =
+      ensure_pagination_defaults(pagination, socket.assigns.page, socket.assigns.page_size)
+
     sessions = Repo.preload(sessions, [:channel, :endpoint, :agent, :customer, :artifacts])
 
     socket =
@@ -898,6 +926,14 @@ defmodule SwatiWeb.SessionsLive.Index do
 
     Map.get(filters, "status") not in [nil, ""] or
       Map.get(filters, "agent_id") not in [nil, ""] or
+      Map.get(filters, "customer_id") not in [nil, ""] or
       query != ""
+  end
+
+  defp effective_filters(socket) do
+    case socket.assigns.customer_filter_id do
+      nil -> socket.assigns.filters
+      customer_id -> Map.put(socket.assigns.filters, "customer_id", customer_id)
+    end
   end
 end

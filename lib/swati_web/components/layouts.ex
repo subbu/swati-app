@@ -89,6 +89,12 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Sessions
           </.navlink>
+          <.navlink navigate={~p"/customers"}>
+            <.icon
+              name="hero-user"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Customers
+          </.navlink>
           <.navlink navigate={~p"/cases"}>
             <.icon
               name="hero-briefcase"
@@ -157,6 +163,9 @@ defmodule SwatiWeb.Layouts do
                 </.navlink>
                 <.navlink navigate={~p"/sessions"}>
                   <.icon name="hero-chat-bubble-left-right" class="size-5" /> Sessions
+                </.navlink>
+                <.navlink navigate={~p"/customers"}>
+                  <.icon name="hero-user" class="size-5" /> Customers
                 </.navlink>
                 <.navlink navigate={~p"/cases"}>
                   <.icon name="hero-briefcase" class="size-5" /> Cases

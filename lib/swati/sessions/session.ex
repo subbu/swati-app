@@ -3,7 +3,15 @@ defmodule Swati.Sessions.Session do
 
   @derive {
     Flop.Schema,
-    filterable: [:status, :agent_id, :channel_id, :endpoint_id, :case_id, :customer_id, :direction],
+    filterable: [
+      :status,
+      :agent_id,
+      :channel_id,
+      :endpoint_id,
+      :case_id,
+      :customer_id,
+      :direction
+    ],
     sortable: [:started_at, :last_event_at, :status, :direction],
     default_order: %{order_by: [:started_at], order_directions: [:desc]}
   }

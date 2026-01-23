@@ -7,6 +7,10 @@ defmodule Swati.Customers do
     Queries.list_customers(tenant_id, filters)
   end
 
+  def list_customers_paginated(tenant_id, filters \\ %{}, flop_params \\ %{}) do
+    Queries.list_customers_paginated(tenant_id, filters, flop_params)
+  end
+
   def get_customer!(tenant_id, customer_id) do
     Queries.get_customer!(tenant_id, customer_id)
   end

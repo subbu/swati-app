@@ -1,6 +1,13 @@
 defmodule Swati.Customers.Customer do
   use Swati.DbSchema
 
+  @derive {
+    Flop.Schema,
+    filterable: [:status],
+    sortable: [:name, :status, :inserted_at, :updated_at],
+    default_order: %{order_by: [:updated_at], order_directions: [:desc]}
+  }
+
   @statuses [:active, :inactive, :blocked]
 
   schema "customers" do
