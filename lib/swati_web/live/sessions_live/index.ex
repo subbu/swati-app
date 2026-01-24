@@ -287,7 +287,9 @@ defmodule SwatiWeb.SessionsLive.Index do
               <.icon name="hero-chat-bubble-left-right" class="size-4" />
             </div>
             <div>
-              <h1 class="text-xl font-semibold text-foreground">Conversations</h1>
+              <h1 class="text-xl font-semibold text-foreground">
+                Conversations
+              </h1>
               <p class="text-sm text-foreground-soft">Track active and resolved conversations.</p>
             </div>
           </div>
@@ -557,8 +559,8 @@ defmodule SwatiWeb.SessionsLive.Index do
                   </:cell>
                   <:cell :if={"channel" in @visible_columns} class="py-2 align-middle">
                     <% channel_badge = SessionsHelpers.channel_badge(session.channel) %>
-                    <.badge size="sm" variant="ghost" color={channel_badge.color}>
-                      <.icon name={channel_badge.icon_name} class="icon" />
+                    <.badge size="sm" variant="soft" color={channel_badge.color}>
+                      <SessionsHelpers.channel_icon channel={channel_badge.key} class="size-3" />
                       {channel_badge.label}
                     </.badge>
                   </:cell>
