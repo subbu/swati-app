@@ -1631,7 +1631,11 @@ defmodule SwatiWeb.CallsLive.Show do
               </span>
             </div>
             <div id="transcription-panel">
-              <div id="transcript-list" phx-hook=".ToolJsonFormatter" class="divide-y divide-base-200/40">
+              <div
+                id="transcript-list"
+                phx-hook=".ToolJsonFormatter"
+                class="divide-y divide-base-200/40"
+              >
                 <%= if @transcript_items == [] do %>
                   <div class="flex flex-col items-center justify-center py-12 text-center">
                     <.icon
@@ -1653,12 +1657,16 @@ defmodule SwatiWeb.CallsLive.Show do
                         data-speaker={if(item.role == :caller, do: "customer", else: "agent")}
                         class="group flex items-baseline gap-2 px-2 py-1 cursor-pointer hover:bg-base-200/30 transition-colors"
                       >
-                        <span class="text-[11px] font-mono tabular-nums text-foreground-softer/50 shrink-0 w-12">{item.offset}</span>
+                        <span class="text-[11px] font-mono tabular-nums text-foreground-softer/50 shrink-0 w-12">
+                          {item.offset}
+                        </span>
                         <span class={[
                           "text-[13px] font-semibold shrink-0",
                           item.role == :caller && "text-purple-500",
                           item.role == :agent && "text-blue-500"
-                        ]}>{item.label}</span>
+                        ]}>
+                          {item.label}
+                        </span>
                         <p class="text-[13px] leading-snug text-foreground">{item.text}</p>
                       </div>
                     <% else %>
@@ -1675,14 +1683,22 @@ defmodule SwatiWeb.CallsLive.Show do
                         >
                           <.accordion_item>
                             <:header class="!flex !items-baseline !justify-start gap-2 px-2 py-1 hover:bg-base-200/30 transition-colors">
-                              <span class="text-[11px] font-mono tabular-nums text-foreground-softer/50 shrink-0 w-12">{item.offset}</span>
-                              <span class="text-[13px] font-semibold text-amber-600 shrink-0">⚡ {item.name}</span>
+                              <span class="text-[11px] font-mono tabular-nums text-foreground-softer/50 shrink-0 w-12">
+                                {item.offset}
+                              </span>
+                              <span class="text-[13px] font-semibold text-amber-600 shrink-0">
+                                ⚡ {item.name}
+                              </span>
                               <span class={[
                                 "text-[12px]",
                                 item.status == "succeeded" && "text-success",
                                 item.status == "failed" && "text-danger"
-                              ]}>{item.status}</span>
-                              <span class="text-[11px] font-mono text-foreground-softer/50">{item.duration_ms}ms</span>
+                              ]}>
+                                {item.status}
+                              </span>
+                              <span class="text-[11px] font-mono text-foreground-softer/50">
+                                {item.duration_ms}ms
+                              </span>
                             </:header>
                             <:panel>
                               <div class="ml-14 mr-2 mb-2 pl-3 border-l-2 border-amber-500/30 space-y-2 text-xs text-foreground-soft">

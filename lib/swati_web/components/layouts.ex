@@ -77,11 +77,11 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Endpoints
           </.navlink>
-          <.navlink navigate={~p"/channels"}>
+          <.navlink navigate={~p"/surfaces"}>
             <.icon
               name="hero-adjustments-vertical"
               class="size-5 text-foreground-softer group-hover:text-foreground"
-            /> Channels
+            /> Surfaces
           </.navlink>
           <.navlink navigate={~p"/sessions"}>
             <.icon
@@ -158,8 +158,8 @@ defmodule SwatiWeb.Layouts do
                 <.navlink navigate={~p"/numbers"}>
                   <.icon name="hero-hashtag" class="size-5" /> Endpoints
                 </.navlink>
-                <.navlink navigate={~p"/channels"}>
-                  <.icon name="hero-adjustments-vertical" class="size-5" /> Channels
+                <.navlink navigate={~p"/surfaces"}>
+                  <.icon name="hero-adjustments-vertical" class="size-5" /> Surfaces
                 </.navlink>
                 <.navlink navigate={~p"/sessions"}>
                   <.icon name="hero-chat-bubble-left-right" class="size-5" /> Conversations

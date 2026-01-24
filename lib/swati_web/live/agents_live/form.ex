@@ -322,7 +322,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                 "size-10 flex items-center justify-center rounded-xl",
                 channel_type_gradient(@scope_channel.type)
               ]}>
-                <.icon name={channel_type_icon(@scope_channel.type)} class="size-5 text-white" />
+                <.channel_icon channel={@scope_channel.key} class="size-5 text-white" />
               </div>
               <div>
                 <h3 class="text-lg font-semibold text-foreground">{@scope_channel.name}</h3>
@@ -458,7 +458,7 @@ defmodule SwatiWeb.AgentsLive.Form do
           
     <!-- Actions -->
           <div class="flex items-center justify-between pt-4 border-t border-base-300">
-            <.link navigate={~p"/channels"} class="text-sm text-primary hover:underline">
+            <.link navigate={~p"/surfaces"} class="text-sm text-primary hover:underline">
               Manage connections
             </.link>
             <div class="flex items-center gap-2">
@@ -534,7 +534,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                 </h4>
                 <span class="text-xs text-base-content/40">
                   {length(tools)} unique
-                  <span :if={grants != length(tools)}> ·            {grants} grants</span>
+                  <span :if={grants != length(tools)}> ·             {grants} grants</span>
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">
@@ -644,8 +644,8 @@ defmodule SwatiWeb.AgentsLive.Form do
           class="channel-row group py-3 first:pt-0 last:pb-0 transition-colors hover:bg-base-200/30 border-b border-base-300/60 last:border-0"
         >
           <div class="flex items-start gap-3">
-            <.icon
-              name={channel_type_icon(channel.type)}
+            <.channel_icon
+              channel={channel.key}
               class="size-4 text-base-content/40 shrink-0 mt-0.5"
             />
             
@@ -1713,12 +1713,6 @@ defmodule SwatiWeb.AgentsLive.Form do
   defp source_label(:integrations), do: "From Integrations"
   defp source_label(:webhooks), do: "From Webhooks"
   defp source_label(_), do: "Other"
-
-  defp channel_type_icon(:voice), do: "hero-phone"
-  defp channel_type_icon(:email), do: "hero-envelope"
-  defp channel_type_icon(:chat), do: "hero-chat-bubble-left-right"
-  defp channel_type_icon(:whatsapp), do: "hero-chat-bubble-oval-left"
-  defp channel_type_icon(_), do: "hero-signal"
 
   defp channel_type_gradient(:voice), do: "bg-gradient-to-br from-blue-500 to-cyan-600 text-white"
   defp channel_type_gradient(:email), do: "bg-gradient-to-br from-rose-500 to-pink-600 text-white"

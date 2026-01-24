@@ -57,6 +57,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
      |> assign(:endpoint_sheet_open, false)
      |> assign(:agent_modal_open, false)
      |> assign(:agent_modal_surface, nil)
+     |> assign(:agent_modal_channel_id, nil)
      |> assign(:all_agents, all_agents)
      |> assign(:imap_sheet_open, false)
      |> assign(:imap_preset, :custom)
@@ -163,49 +164,50 @@ defmodule SwatiWeb.SurfacesLive.Index do
      |> assign(:selected_endpoint, nil)}
   end
 
-  def handle_event("open_agent_modal", %{"surface-type" => surface_type}, socket) do
+  def handle_event("open_agent_modal", %{"surface-type" => surface_type} = params, socket) do
+    channel_id = Map.get(params, "channel-id")
+
     {:noreply,
      socket
      |> assign(:agent_modal_open, true)
-     |> assign(:agent_modal_surface, String.to_existing_atom(surface_type))}
+     |> assign(:agent_modal_surface, String.to_existing_atom(surface_type))
+     |> assign(:agent_modal_channel_id, channel_id)}
   end
 
   def handle_event("close-agent-modal", _params, socket) do
     {:noreply,
      socket
      |> assign(:agent_modal_open, false)
-     |> assign(:agent_modal_surface, nil)}
+     |> assign(:agent_modal_surface, nil)
+     |> assign(:agent_modal_channel_id, nil)}
   end
 
-  def handle_event("assign_agent", %{"agent_id" => agent_id, "autonomy_level" => autonomy_level}, socket) do
+  def handle_event(
+        "assign_agent",
+        %{"agent_id" => agent_id, "autonomy_level" => autonomy_level},
+        socket
+      ) do
     tenant_id = socket.assigns.current_scope.tenant.id
-    surface_type = socket.assigns.agent_modal_surface
+    channel_id = socket.assigns.agent_modal_channel_id
 
-    # Find the channel for this surface type
-    surface = Enum.find(socket.assigns.surfaces, fn s -> s.type == surface_type end)
+    if is_nil(channel_id) do
+      {:noreply, put_flash(socket, :error, "No channel selected for assignment.")}
+    else
+      case Agents.assign_agent_to_channel(tenant_id, agent_id, channel_id, %{
+             autonomy_level: autonomy_level
+           }) do
+        {:ok, _agent_channel} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Agent assigned successfully.")
+           |> assign(:agent_modal_open, false)
+           |> assign(:agent_modal_surface, nil)
+           |> assign(:agent_modal_channel_id, nil)
+           |> reload_data()}
 
-    case surface do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Surface not found.")}
-
-      %{channels: []} ->
-        {:noreply, put_flash(socket, :error, "No channels available for this surface.")}
-
-      %{channels: [channel | _]} ->
-        case Agents.assign_agent_to_channel(tenant_id, agent_id, channel.id, %{
-               autonomy_level: autonomy_level
-             }) do
-          {:ok, _agent_channel} ->
-            {:noreply,
-             socket
-             |> put_flash(:info, "Agent assigned successfully.")
-             |> assign(:agent_modal_open, false)
-             |> assign(:agent_modal_surface, nil)
-             |> reload_data()}
-
-          {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, "Failed to assign agent.")}
-        end
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to assign agent.")}
+      end
     end
   end
 
@@ -213,7 +215,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="space-y-8">
+      <div id="surfaces-index" class="space-y-8">
         <%!-- Page Header --%>
         <header class="relative">
           <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -244,7 +246,11 @@ defmodule SwatiWeb.SurfacesLive.Index do
                 <.dropdown_link navigate={~p"/channels/outlook/connect"}>
                   <.icon name="hero-inbox" class="icon" /> Outlook
                 </.dropdown_link>
-                <.dropdown_button id="connect-zoho" phx-click="open-imap-sheet" phx-value-preset="zoho">
+                <.dropdown_button
+                  id="connect-zoho"
+                  phx-click="open-imap-sheet"
+                  phx-value-preset="zoho"
+                >
                   <.icon name="hero-envelope" class="icon" /> Zoho Mail
                 </.dropdown_button>
                 <.dropdown_button
@@ -270,7 +276,9 @@ defmodule SwatiWeb.SurfacesLive.Index do
             <span class="text-xs text-base-content/50 mt-1">Endpoints</span>
           </div>
           <div class="flex flex-col items-center p-4 bg-base-100 border border-base-300 rounded-lg">
-            <span class="text-2xl font-bold text-base-content">{format_health_percent(@stats.health_percent)}</span>
+            <span class="text-2xl font-bold text-base-content">
+              {format_health_percent(@stats.health_percent)}
+            </span>
             <span class="text-xs text-base-content/50 mt-1">Health</span>
           </div>
           <div class="flex flex-col items-center p-4 bg-base-100 border border-base-300 rounded-lg">
@@ -373,34 +381,50 @@ defmodule SwatiWeb.SurfacesLive.Index do
                   <.icon name="hero-arrow-left" class="h-4 w-4" />
                 </button>
                 <span class="text-sm text-base-content/60">
-                  Back to {if @selected_endpoint.channel, do: surface_label(@selected_endpoint.channel.type), else: "Surface"}
+                  Back to {if @selected_endpoint.channel,
+                    do: surface_label(@selected_endpoint.channel.type),
+                    else: "Surface"}
                 </span>
               </div>
-              <h3 class="text-lg font-semibold text-foreground font-mono">{@selected_endpoint.address}</h3>
+              <h3 class="text-lg font-semibold text-foreground font-mono">
+                {@selected_endpoint.address}
+              </h3>
               <p class="text-sm text-foreground-soft">
-                {endpoint_type_label(@selected_endpoint)} · {if @selected_endpoint.channel, do: @selected_endpoint.channel.name, else: "Unknown channel"}
+                {endpoint_type_label(@selected_endpoint)} · {if @selected_endpoint.channel,
+                  do: @selected_endpoint.channel.name,
+                  else: "Unknown channel"}
               </p>
             </header>
 
             <%!-- Connection Info --%>
             <section class="space-y-3">
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Connection</h4>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                Connection
+              </h4>
               <%= if @endpoint_connection do %>
                 <div class="rounded-lg border border-base-300 bg-base-200/30 p-4 space-y-3">
                   <div class="flex items-center justify-between">
                     <span class="text-sm text-base-content/70">Provider</span>
-                    <span class="text-sm font-medium text-base-content">{provider_label(@endpoint_connection)}</span>
+                    <span class="text-sm font-medium text-base-content">
+                      {provider_label(@endpoint_connection)}
+                    </span>
                   </div>
                   <div class="flex items-center justify-between">
                     <span class="text-sm text-base-content/70">Status</span>
-                    <.badge size="xs" variant="soft" color={connection_status_color(@endpoint_connection.status)}>
+                    <.badge
+                      size="xs"
+                      variant="soft"
+                      color={connection_status_color(@endpoint_connection.status)}
+                    >
                       {@endpoint_connection.status}
                     </.badge>
                   </div>
                   <div class="flex items-center justify-between">
                     <span class="text-sm text-base-content/70">Last Activity</span>
                     <span class="text-sm text-base-content">
-                      {if @endpoint_connection.last_synced_at, do: format_datetime(@endpoint_connection.last_synced_at), else: "Never"}
+                      {if @endpoint_connection.last_synced_at,
+                        do: format_datetime(@endpoint_connection.last_synced_at),
+                        else: "Never"}
                     </span>
                   </div>
                 </div>
@@ -414,12 +438,19 @@ defmodule SwatiWeb.SurfacesLive.Index do
             <%!-- Assigned Agents --%>
             <section class="space-y-3">
               <div class="flex items-center justify-between">
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Assigned Agents</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                  Assigned Agents
+                </h4>
                 <.button
                   size="xs"
                   variant="ghost"
                   phx-click="open_agent_modal"
-                  phx-value-surface-type={if @selected_endpoint.channel, do: @selected_endpoint.channel.type, else: "custom"}
+                  phx-value-surface-type={
+                    if @selected_endpoint.channel, do: @selected_endpoint.channel.type, else: "custom"
+                  }
+                  phx-value-channel-id={
+                    if @selected_endpoint.channel, do: @selected_endpoint.channel.id
+                  }
                 >
                   <.icon name="hero-plus" class="h-3 w-3 mr-1" /> Assign
                 </.button>
@@ -437,8 +468,12 @@ defmodule SwatiWeb.SurfacesLive.Index do
                           {agent_initial(assignment.agent.name)}
                         </div>
                         <div>
-                          <div class="font-medium text-sm text-base-content">{assignment.agent.name}</div>
-                          <div class="text-xs text-base-content/50">{scope_label(assignment.scope)}</div>
+                          <div class="font-medium text-sm text-base-content">
+                            {assignment.agent.name}
+                          </div>
+                          <div class="text-xs text-base-content/50">
+                            {scope_label(assignment.scope)}
+                          </div>
                         </div>
                       </div>
                       <.autonomy_indicator level={assignment.autonomy_level} />
@@ -460,7 +495,9 @@ defmodule SwatiWeb.SurfacesLive.Index do
         <div class="space-y-6">
           <header>
             <h3 class="text-lg font-semibold text-foreground">
-              Assign Agent to {if @agent_modal_surface, do: surface_label(@agent_modal_surface), else: "Surface"}
+              Assign Agent to {if @agent_modal_surface,
+                do: surface_label(@agent_modal_surface),
+                else: "Surface"}
             </h3>
           </header>
 
@@ -471,17 +508,26 @@ defmodule SwatiWeb.SurfacesLive.Index do
             class="space-y-6"
           >
             <section class="space-y-3">
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Select Agent</h4>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                Select Agent
+              </h4>
               <div class="space-y-2 max-h-48 overflow-y-auto">
                 <%= for agent <- @all_agents do %>
                   <label class="flex items-center gap-3 rounded-lg border border-base-300 bg-base-100 p-3 cursor-pointer hover:bg-base-200/50 transition-colors">
-                    <input type="radio" name="assignment[agent_id]" value={agent.id} class="radio radio-sm" />
+                    <input
+                      type="radio"
+                      name="assignment[agent_id]"
+                      value={agent.id}
+                      class="radio radio-sm"
+                    />
                     <div class={"flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold " <> agent_avatar_class(agent.name)}>
                       {agent_initial(agent.name)}
                     </div>
                     <div class="flex-1">
                       <div class="font-medium text-sm text-base-content">{agent.name}</div>
-                      <div class="text-xs text-base-content/50">{agent.status} · {agent.language}</div>
+                      <div class="text-xs text-base-content/50">
+                        {agent.status} · {agent.language}
+                      </div>
                     </div>
                   </label>
                 <% end %>
@@ -489,7 +535,9 @@ defmodule SwatiWeb.SurfacesLive.Index do
             </section>
 
             <section class="space-y-3">
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Autonomy Level</h4>
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                Autonomy Level
+              </h4>
               <div class="grid grid-cols-4 gap-2">
                 <label class="flex flex-col items-center gap-1.5 py-3 px-2 border border-base-300 rounded-lg cursor-pointer transition-all bg-base-100 hover:border-base-content/30 hover:bg-base-200/50 has-[:checked]:border-base-content/50 has-[:checked]:bg-base-200">
                   <input type="radio" name="assignment[autonomy_level]" value="shadow" class="hidden" />
@@ -497,17 +545,33 @@ defmodule SwatiWeb.SurfacesLive.Index do
                   <span class="text-xs font-medium text-base-content">Shadow</span>
                 </label>
                 <label class="flex flex-col items-center gap-1.5 py-3 px-2 border border-base-300 rounded-lg cursor-pointer transition-all bg-base-100 hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 dark:has-[:checked]:bg-amber-900/20">
-                  <input type="radio" name="assignment[autonomy_level]" value="draft" class="hidden" checked />
+                  <input
+                    type="radio"
+                    name="assignment[autonomy_level]"
+                    value="draft"
+                    class="hidden"
+                    checked
+                  />
                   <span class="text-xl">📝</span>
                   <span class="text-xs font-medium text-base-content">Draft</span>
                 </label>
                 <label class="flex flex-col items-center gap-1.5 py-3 px-2 border border-base-300 rounded-lg cursor-pointer transition-all bg-base-100 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-900/20">
-                  <input type="radio" name="assignment[autonomy_level]" value="execute" class="hidden" />
+                  <input
+                    type="radio"
+                    name="assignment[autonomy_level]"
+                    value="execute"
+                    class="hidden"
+                  />
                   <span class="text-xl">▶️</span>
                   <span class="text-xs font-medium text-base-content">Execute</span>
                 </label>
                 <label class="flex flex-col items-center gap-1.5 py-3 px-2 border border-base-300 rounded-lg cursor-pointer transition-all bg-base-100 hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50 dark:has-[:checked]:bg-violet-900/20">
-                  <input type="radio" name="assignment[autonomy_level]" value="autopilot" class="hidden" />
+                  <input
+                    type="radio"
+                    name="assignment[autonomy_level]"
+                    value="autopilot"
+                    class="hidden"
+                  />
                   <span class="text-xl">🚀</span>
                   <span class="text-xs font-medium text-base-content">Autopilot</span>
                 </label>
@@ -550,7 +614,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-center gap-3">
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-base-200 text-base-content/70">
-            <.icon name={surface_icon(@surface.type)} class="h-5 w-5" />
+            <.channel_icon channel={@surface.type} class="h-5 w-5" />
           </div>
           <div>
             <h3 class="font-semibold text-base-content">{surface_label(@surface.type)}</h3>
@@ -568,19 +632,33 @@ defmodule SwatiWeb.SurfacesLive.Index do
       <%= if not @is_coming_soon do %>
         <div class="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-base-300">
           <div class="text-center">
-            <div class="text-lg font-semibold text-base-content leading-tight">{@surface.stats.endpoint_count}</div>
-            <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">Endpoints</div>
+            <div class="text-lg font-semibold text-base-content leading-tight">
+              {@surface.stats.endpoint_count}
+            </div>
+            <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">
+              Endpoints
+            </div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-semibold text-base-content leading-tight">{@surface.stats.connection_count}</div>
-            <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">Connections</div>
+            <div class="text-lg font-semibold text-base-content leading-tight">
+              {@surface.stats.connection_count}
+            </div>
+            <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">
+              Connections
+            </div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-semibold text-base-content leading-tight">{format_last_sync(@surface.stats.last_synced_at)}</div>
-            <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">Last Sync</div>
+            <div class="text-lg font-semibold text-base-content leading-tight">
+              {format_last_sync(@surface.stats.last_synced_at)}
+            </div>
+            <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">
+              Last Sync
+            </div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-semibold text-base-content leading-tight">{@surface.stats.agent_count}</div>
+            <div class="text-lg font-semibold text-base-content leading-tight">
+              {@surface.stats.agent_count}
+            </div>
             <div class="text-[11px] text-base-content/50 uppercase tracking-wide mt-0.5">Agents</div>
           </div>
         </div>
@@ -589,10 +667,16 @@ defmodule SwatiWeb.SurfacesLive.Index do
         <%= if @has_data do %>
           <div class="flex flex-wrap gap-1.5 mt-3">
             <% {shown_endpoints, extra_count} = endpoints_preview(@surface.endpoints) %>
-            <span :for={endpoint <- shown_endpoints} class="inline-flex items-center px-2 py-1 text-[11px] font-mono bg-base-200 border border-base-300 rounded-full text-base-content/70">
+            <span
+              :for={endpoint <- shown_endpoints}
+              class="inline-flex items-center px-2 py-1 text-[11px] font-mono bg-base-200 border border-base-300 rounded-full text-base-content/70"
+            >
               {endpoint.address}
             </span>
-            <span :if={extra_count > 0} class="inline-flex items-center px-2 py-1 text-[11px] font-mono bg-transparent border border-dashed border-base-300 rounded-full text-base-content/70">
+            <span
+              :if={extra_count > 0}
+              class="inline-flex items-center px-2 py-1 text-[11px] font-mono bg-transparent border border-dashed border-base-300 rounded-full text-base-content/70"
+            >
               +{extra_count} more
             </span>
           </div>
@@ -635,7 +719,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
       <% else %>
         <div class="mt-6 flex flex-col items-center justify-center py-4 text-center">
           <div class="flex h-12 w-12 items-center justify-center rounded-full bg-base-200/60">
-            <.icon name={surface_icon(@surface.type)} class="h-5 w-5 text-base-content/40" />
+            <.channel_icon channel={@surface.type} class="h-5 w-5 text-base-content/40" />
           </div>
           <p class="mt-3 text-sm text-base-content/50">
             {surface_label(@surface.type)} support is coming soon.
@@ -745,9 +829,16 @@ defmodule SwatiWeb.SurfacesLive.Index do
   end
 
   defp autonomy_badge_class(:shadow), do: "bg-base-200 text-base-content/70"
-  defp autonomy_badge_class(:draft), do: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-  defp autonomy_badge_class(:execute), do: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-  defp autonomy_badge_class(:autopilot), do: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+
+  defp autonomy_badge_class(:draft),
+    do: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+
+  defp autonomy_badge_class(:execute),
+    do: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+
+  defp autonomy_badge_class(:autopilot),
+    do: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+
   defp autonomy_badge_class(_), do: "bg-base-200 text-base-content/70"
 
   defp autonomy_bar_color(:shadow), do: "bg-base-content/30"
@@ -831,12 +922,6 @@ defmodule SwatiWeb.SurfacesLive.Index do
       true -> "#{div(diff, 1440)}d"
     end
   end
-
-  defp surface_icon(:voice), do: "hero-phone"
-  defp surface_icon(:email), do: "hero-envelope"
-  defp surface_icon(:chat), do: "hero-chat-bubble-left-right"
-  defp surface_icon(:whatsapp), do: "hero-chat-bubble-oval-left"
-  defp surface_icon(:custom), do: "hero-puzzle-piece"
 
   defp surface_accent_class(:voice), do: "before:bg-blue-500"
   defp surface_accent_class(:email), do: "before:bg-orange-500"

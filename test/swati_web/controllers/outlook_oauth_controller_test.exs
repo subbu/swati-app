@@ -53,6 +53,6 @@ defmodule SwatiWeb.OutlookOAuthControllerTest do
 
     flash = conn.assigns[:flash] || conn.private[:phoenix_flash] || %{}
     assert Phoenix.Flash.get(flash, :info) == "Outlook connected."
-    assert redirected_to(conn) == ~p"/channels"
+    assert redirected_to(conn) == ~p"/surfaces"
   end
 end

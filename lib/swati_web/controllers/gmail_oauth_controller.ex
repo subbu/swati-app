@@ -20,14 +20,14 @@ defmodule SwatiWeb.GmailOAuthController do
 
         conn
         |> put_flash(:error, "Gmail OAuth is not configured.")
-        |> redirect(to: ~p"/channels")
+        |> redirect(to: ~p"/surfaces")
     end
   end
 
   def callback(conn, %{"error" => error}) do
     conn
     |> put_flash(:error, "Gmail OAuth failed: #{error}.")
-    |> redirect(to: ~p"/channels")
+    |> redirect(to: ~p"/surfaces")
   end
 
   def callback(conn, %{"code" => code, "state" => state}) do
@@ -39,21 +39,21 @@ defmodule SwatiWeb.GmailOAuthController do
          {:ok, _connection} <- Gmail.connect(tenant.id, code, redirect_uri(conn)) do
       conn
       |> put_flash(:info, "Gmail connected.")
-      |> redirect(to: ~p"/channels")
+      |> redirect(to: ~p"/surfaces")
     else
       reason ->
         Logger.warning("Gmail OAuth connect failed: #{inspect(reason)}")
 
         conn
         |> put_flash(:error, format_error(reason))
-        |> redirect(to: ~p"/channels")
+        |> redirect(to: ~p"/surfaces")
     end
   end
 
   def callback(conn, _params) do
     conn
     |> put_flash(:error, "Missing OAuth response.")
-    |> redirect(to: ~p"/channels")
+    |> redirect(to: ~p"/surfaces")
   end
 
   defp verify_state(state) do

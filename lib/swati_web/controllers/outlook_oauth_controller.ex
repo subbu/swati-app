@@ -20,14 +20,14 @@ defmodule SwatiWeb.OutlookOAuthController do
 
         conn
         |> put_flash(:error, "Outlook OAuth is not configured.")
-        |> redirect(to: ~p"/channels")
+        |> redirect(to: ~p"/surfaces")
     end
   end
 
   def callback(conn, %{"error" => error}) do
     conn
     |> put_flash(:error, "Outlook OAuth failed: #{error}.")
-    |> redirect(to: ~p"/channels")
+    |> redirect(to: ~p"/surfaces")
   end
 
   def callback(conn, %{"code" => code, "state" => state}) do
@@ -39,21 +39,21 @@ defmodule SwatiWeb.OutlookOAuthController do
          {:ok, _connection} <- Outlook.connect(tenant.id, code, redirect_uri(conn)) do
       conn
       |> put_flash(:info, "Outlook connected.")
-      |> redirect(to: ~p"/channels")
+      |> redirect(to: ~p"/surfaces")
     else
       reason ->
         Logger.warning("Outlook OAuth connect failed: #{inspect(reason)}")
 
         conn
         |> put_flash(:error, format_error(reason))
-        |> redirect(to: ~p"/channels")
+        |> redirect(to: ~p"/surfaces")
     end
   end
 
   def callback(conn, _params) do
     conn
     |> put_flash(:error, "Missing OAuth response.")
-    |> redirect(to: ~p"/channels")
+    |> redirect(to: ~p"/surfaces")
   end
 
   defp verify_state(state) do
