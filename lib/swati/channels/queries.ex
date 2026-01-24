@@ -1,6 +1,8 @@
 defmodule Swati.Channels.Queries do
   import Ecto.Query, warn: false
 
+  alias Swati.Agents.Agent
+  alias Swati.Agents.AgentChannel
   alias Swati.Channels.Channel
   alias Swati.Channels.ChannelConnection
   alias Swati.Channels.ChannelIntegration
@@ -224,6 +226,114 @@ defmodule Swati.Channels.Queries do
     |> order_by([c], asc: c.inserted_at)
     |> Repo.all()
     |> Enum.group_by(& &1.endpoint_id)
+  end
+
+  @doc """
+  Returns a unified view of all surfaces (channels grouped by type) for the Surfaces UI.
+
+  Returns a list of surface maps, each containing:
+  - type: :voice, :email, :chat, :whatsapp, or :custom
+  - channels: list of channels of this type
+  - endpoints: list of endpoints across all channels of this type
+  - connections: list of connections across all channels of this type
+  - agents: list of agents assigned to channels of this type with autonomy levels
+  - health: aggregated health status (:healthy, :warning, :error)
+  - stats: %{endpoint_count, connection_count, agent_count, last_synced_at}
+  """
+  def unified_surfaces_view(tenant_id) do
+    channels = list_channels(tenant_id)
+    endpoints = list_endpoints(tenant_id) |> Repo.preload(:channel)
+    connections = list_connections(tenant_id) |> Repo.preload([:channel, :endpoint])
+    health_map = channel_health_map(tenant_id)
+
+    agent_channels =
+      from(ac in AgentChannel,
+        join: a in Agent,
+        on: a.id == ac.agent_id,
+        where: a.tenant_id == ^tenant_id,
+        where: ac.enabled == true,
+        select: ac,
+        preload: [:agent]
+      )
+      |> Repo.all()
+
+    channel_types = [:voice, :email, :chat, :whatsapp, :custom]
+
+    Enum.map(channel_types, fn type ->
+      type_channels = Enum.filter(channels, &(&1.type == type))
+      type_channel_ids = Enum.map(type_channels, & &1.id) |> MapSet.new()
+
+      type_endpoints =
+        Enum.filter(endpoints, fn e ->
+          e.channel && MapSet.member?(type_channel_ids, e.channel.id)
+        end)
+
+      type_connections =
+        Enum.filter(connections, fn c ->
+          c.channel && MapSet.member?(type_channel_ids, c.channel.id)
+        end)
+
+      type_agent_channels =
+        Enum.filter(agent_channels, fn ac ->
+          MapSet.member?(type_channel_ids, ac.channel_id)
+        end)
+
+      type_agents =
+        type_agent_channels
+        |> Enum.uniq_by(& &1.agent_id)
+        |> Enum.map(fn ac ->
+          %{
+            agent: ac.agent,
+            autonomy_level: ac.autonomy_level,
+            channel_id: ac.channel_id
+          }
+        end)
+
+      health = compute_surface_health(type_channel_ids, health_map)
+
+      last_synced =
+        type_connections
+        |> Enum.map(& &1.last_synced_at)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.max_by(&DateTime.to_unix/1, fn -> nil end)
+
+      %{
+        type: type,
+        channels: type_channels,
+        endpoints: type_endpoints,
+        connections: type_connections,
+        agents: type_agents,
+        health: health,
+        stats: %{
+          endpoint_count: length(type_endpoints),
+          connection_count: length(type_connections),
+          agent_count: length(type_agents),
+          last_synced_at: last_synced
+        }
+      }
+    end)
+  end
+
+  defp compute_surface_health(channel_ids, health_map) do
+    healths =
+      channel_ids
+      |> MapSet.to_list()
+      |> Enum.map(&Map.get(health_map, &1))
+      |> Enum.reject(&is_nil/1)
+
+    cond do
+      healths == [] ->
+        :no_data
+
+      Enum.any?(healths, fn h -> h.error_count > 0 end) ->
+        :error
+
+      Enum.any?(healths, fn h -> h.active_count == 0 end) ->
+        :warning
+
+      true ->
+        :healthy
+    end
   end
 
   defp maybe_filter(query, key, filters) do

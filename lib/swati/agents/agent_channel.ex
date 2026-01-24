@@ -5,6 +5,10 @@ defmodule Swati.Agents.AgentChannel do
     field :enabled, :boolean, default: true
     field :scope, :map, default: %{"mode" => "all"}
 
+    field :autonomy_level, Ecto.Enum,
+      values: [:shadow, :draft, :execute, :autopilot],
+      default: :draft
+
     belongs_to :agent, Swati.Agents.Agent
     belongs_to :channel, Swati.Channels.Channel
 
@@ -13,7 +17,7 @@ defmodule Swati.Agents.AgentChannel do
 
   def changeset(agent_channel, attrs) do
     agent_channel
-    |> cast(attrs, [:agent_id, :channel_id, :enabled, :scope])
+    |> cast(attrs, [:agent_id, :channel_id, :enabled, :scope, :autonomy_level])
     |> validate_required([:agent_id, :channel_id, :enabled])
     |> unique_constraint([:agent_id, :channel_id])
   end

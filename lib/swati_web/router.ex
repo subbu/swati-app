@@ -104,7 +104,7 @@ defmodule SwatiWeb.Router do
       live "/webhooks/:id/edit", AgentDataLive.Index, :edit_webhook
       live "/webhooks/:id", WebhooksLive.Show, :show
       live "/numbers", PhoneNumbersLive.Index, :index
-      live "/channels", ChannelsLive.Index, :index
+      live "/surfaces", SurfacesLive.Index, :index
       live "/trust", TrustConsoleLive.Index, :index
       live "/trust/policy", TrustConsoleLive.Policy, :index
       live "/trust/reliability", TrustConsoleLive.Reliability, :index

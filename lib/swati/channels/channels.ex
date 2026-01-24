@@ -184,4 +184,8 @@ defmodule Swati.Channels do
   def channel_connections_by_endpoint(tenant_id, channel_id) do
     Queries.channel_connections_by_endpoint(tenant_id, channel_id)
   end
+
+  def unified_surfaces_view(tenant_id) do
+    Queries.unified_surfaces_view(tenant_id)
+  end
 end

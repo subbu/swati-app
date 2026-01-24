@@ -127,6 +127,19 @@ defmodule Swati.Agents do
     |> Repo.all()
   end
 
+  def list_agent_channels_for_channel(tenant_id, channel_id) do
+    from(ac in AgentChannel,
+      join: a in Agent,
+      on: a.id == ac.agent_id,
+      where: a.tenant_id == ^tenant_id,
+      where: ac.channel_id == ^channel_id,
+      where: ac.enabled == true,
+      select: ac,
+      preload: [:agent]
+    )
+    |> Repo.all()
+  end
+
   def list_agent_integrations_for_integrations(_tenant_id, []), do: []
 
   def list_agent_integrations_for_integrations(tenant_id, integration_ids) do
@@ -194,6 +207,35 @@ defmodule Swati.Agents do
       else
         [set: [enabled: enabled, scope: scope, updated_at: DateTime.utc_now()]]
       end
+
+    %AgentChannel{}
+    |> AgentChannel.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: updates,
+      conflict_target: [:agent_id, :channel_id]
+    )
+  end
+
+  def assign_agent_to_channel(_tenant_id, agent_id, channel_id, opts \\ %{}) do
+    autonomy_level = Map.get(opts, :autonomy_level, "draft")
+    scope = Map.get(opts, :scope, %{"mode" => "all"})
+
+    attrs = %{
+      agent_id: agent_id,
+      channel_id: channel_id,
+      enabled: true,
+      scope: scope,
+      autonomy_level: autonomy_level
+    }
+
+    updates = [
+      set: [
+        enabled: true,
+        scope: scope,
+        autonomy_level: autonomy_level,
+        updated_at: DateTime.utc_now()
+      ]
+    ]
 
     %AgentChannel{}
     |> AgentChannel.changeset(attrs)
