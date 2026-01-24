@@ -102,6 +102,16 @@
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+/* Align Fluxon tooltips with app theme */
+[phx-hook="Fluxon.Tooltip"] {
+    --background-tooltip: var(--color-base-100);
+    --foreground-primary: var(--color-base-content);
+}
+
+[data-theme=dark] [phx-hook="Fluxon.Tooltip"] {
+    --background-tooltip: var(--color-base-200);
+}
+
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session],
 [data-phx-teleported-src] {
@@ -1899,6 +1909,5 @@
         display: none;
     }
 }
-
 
 

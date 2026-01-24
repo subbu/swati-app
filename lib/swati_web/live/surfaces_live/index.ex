@@ -607,7 +607,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
       "relative bg-base-100 border border-base-300 rounded-xl p-5 transition-all overflow-hidden",
       "before:absolute before:top-0 before:left-0 before:right-0 before:h-[3px] before:transition-transform before:scale-x-0",
       surface_accent_class(@surface.type),
-      !@is_coming_soon && "hover:-translate-y-0.5 hover:shadow-md hover:before:scale-x-100",
+      !@is_coming_soon && "hover:shadow-md hover:before:scale-x-100",
       @is_coming_soon && "opacity-60 pointer-events-none"
     ]}>
       <%!-- Card Header --%>
@@ -799,7 +799,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
               <div class={[
                 "h-1.5 flex-1 rounded-full transition-colors",
                 idx <= @level_index && autonomy_bar_color(@level),
-                idx > @level_index && "bg-white/20"
+                idx > @level_index && "bg-base-300/60"
               ]} />
             <% end %>
           </div>
@@ -814,12 +814,14 @@ defmodule SwatiWeb.SurfacesLive.Index do
                 <span class="w-4 text-center">{idx + 1}.</span>
                 <span>{autonomy_label(lvl)}</span>
                 <%= if idx == @level_index do %>
-                  <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white/20">Current</span>
+                  <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-base-200 text-base-content/70">
+                    Current
+                  </span>
                 <% end %>
               </div>
             <% end %>
           </div>
-          <p class="pt-2 text-[10px] opacity-70 border-t border-white/20">
+          <p class="pt-2 text-[10px] opacity-70 border-t border-base-300/70">
             {autonomy_description(@level)}
           </p>
         </div>
