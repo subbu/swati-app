@@ -1630,8 +1630,8 @@ defmodule SwatiWeb.CallsLive.Show do
                 {length(@transcript_items)} messages
               </span>
             </div>
-            <div id="transcription-panel" class="space-y-3">
-              <div id="transcript-list" phx-hook=".ToolJsonFormatter" class="space-y-3">
+            <div id="transcription-panel">
+              <div id="transcript-list" phx-hook=".ToolJsonFormatter" class="divide-y divide-base-200/40">
                 <%= if @transcript_items == [] do %>
                   <div class="flex flex-col items-center justify-center py-12 text-center">
                     <.icon
@@ -1646,39 +1646,20 @@ defmodule SwatiWeb.CallsLive.Show do
                 <% else %>
                   <div :for={item <- @transcript_items} id={item_dom_id(item)}>
                     <%= if item.type == :message do %>
-                      <div class={[
-                        "flex gap-3",
-                        item.role == :caller && "justify-end"
-                      ]}>
-                        <div
-                          data-transcript-item="message"
-                          data-start-ms={item.start_ms || 0}
-                          data-end-ms={item.end_ms || item.start_ms || 0}
-                          data-speaker={if(item.role == :caller, do: "customer", else: "agent")}
-                          class={[
-                            "max-w-[78%] md:max-w-[72%] rounded-[1.25rem] px-3.5 py-2.5 cursor-pointer",
-                            item.role == :caller &&
-                              "bg-gradient-to-br from-base-100 to-base-100/95 border border-base-300/80 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_-2px_rgba(0,0,0,0.06)]",
-                            item.role == :agent &&
-                              "bg-gradient-to-br from-base-200/90 to-base-200/70 text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
-                          ]}
-                        >
-                          <p class="text-[14px] leading-relaxed tracking-[-0.005em]">{item.text}</p>
-                          <div class="mt-2 flex items-center gap-2 text-[11px] text-foreground-softer">
-                            <span
-                              class="inline-block size-1.5 rounded-full"
-                              style={
-                                if item.role == :caller,
-                                  do: "background-color: #a855f7",
-                                  else: "background-color: #2563eb"
-                              }
-                            >
-                            </span>
-                            <span class="uppercase tracking-wider font-medium">{item.label}</span>
-                            <span class="text-foreground-softer/50">·</span>
-                            <span class="font-mono tabular-nums">{item.offset}</span>
-                          </div>
-                        </div>
+                      <div
+                        data-transcript-item="message"
+                        data-start-ms={item.start_ms || 0}
+                        data-end-ms={item.end_ms || item.start_ms || 0}
+                        data-speaker={if(item.role == :caller, do: "customer", else: "agent")}
+                        class="group flex items-baseline gap-2 px-2 py-1 cursor-pointer hover:bg-base-200/30 transition-colors"
+                      >
+                        <span class="text-[11px] font-mono tabular-nums text-foreground-softer/50 shrink-0 w-12">{item.offset}</span>
+                        <span class={[
+                          "text-[13px] font-semibold shrink-0",
+                          item.role == :caller && "text-purple-500",
+                          item.role == :agent && "text-blue-500"
+                        ]}>{item.label}</span>
+                        <p class="text-[13px] leading-snug text-foreground">{item.text}</p>
                       </div>
                     <% else %>
                       <div
@@ -1686,99 +1667,60 @@ defmodule SwatiWeb.CallsLive.Show do
                         data-start-ms={item.start_ms || 0}
                         data-end-ms={item.end_ms || item.start_ms || 0}
                         data-speaker="tool"
-                        class="rounded-[1.25rem] border border-base-300/70 bg-gradient-to-b from-base-100 to-base-100/95 p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_-2px_rgba(0,0,0,0.05)] space-y-2.5"
+                        class="group"
                       >
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                          <div class="flex items-center gap-2.5">
-                            <div class={[
-                              "flex items-center justify-center size-7 rounded-lg",
-                              item.status == "succeeded" && "bg-success/10",
-                              item.status == "failed" && "bg-danger/10"
-                            ]}>
-                              <.icon
-                                name={
-                                  if item.status == "succeeded",
-                                    do: "hero-wrench-screwdriver",
-                                    else: "hero-exclamation-triangle"
-                                }
-                                class={"size-4 #{if item.status == "succeeded", do: "text-success", else: "text-danger"}"}
-                              />
-                            </div>
-                            <div>
-                              <p class="text-[13px] font-semibold text-foreground leading-tight">
-                                {item.name}
-                              </p>
-                              <p class="text-[11px] text-foreground-softer capitalize">
-                                {item.status}
-                              </p>
-                            </div>
-                          </div>
-                          <div class="flex items-center gap-2 text-[11px] text-foreground-softer">
-                            <span class="font-mono tabular-nums">{item.offset}</span>
-                            <span class="text-foreground-softer/50">·</span>
-                            <span class="font-mono tabular-nums">{item.duration_ms}ms</span>
-                          </div>
-                        </div>
-
                         <.accordion
                           id={"tool-accordion-#{item.id}"}
-                          class="rounded-xl border border-base-200/80 overflow-hidden"
+                          class="border-0"
                         >
                           <.accordion_item>
-                            <:header class="flex items-center justify-between gap-3 text-[13px] font-medium text-foreground bg-base-200/30 px-3.5 py-2.5">
-                              <div class="flex items-center gap-2">
-                                <.icon
-                                  name="hero-command-line"
-                                  class="size-3.5 text-foreground-softer"
-                                />
-                                <span>MCP call details</span>
-                              </div>
-                              <.icon
-                                name="hero-chevron-down"
-                                class="swati-accordion-chevron size-4 text-foreground-softer"
-                              />
+                            <:header class="!flex !items-baseline !justify-start gap-2 px-2 py-1 hover:bg-base-200/30 transition-colors">
+                              <span class="text-[11px] font-mono tabular-nums text-foreground-softer/50 shrink-0 w-12">{item.offset}</span>
+                              <span class="text-[13px] font-semibold text-amber-600 shrink-0">⚡ {item.name}</span>
+                              <span class={[
+                                "text-[12px]",
+                                item.status == "succeeded" && "text-success",
+                                item.status == "failed" && "text-danger"
+                              ]}>{item.status}</span>
+                              <span class="text-[11px] font-mono text-foreground-softer/50">{item.duration_ms}ms</span>
                             </:header>
                             <:panel>
-                              <div class="p-3.5 space-y-4 text-xs text-foreground-soft bg-base-200/15">
-                                <div class="flex items-center justify-between">
-                                  <span class="uppercase tracking-wider text-[10px] font-medium text-foreground-softer">
-                                    MCP server
-                                  </span>
-                                  <.badge size="xs" variant="surface" class="font-mono">
-                                    {item.mcp_server}
-                                  </.badge>
+                              <div class="ml-14 mr-2 mb-2 pl-3 border-l-2 border-amber-500/30 space-y-2 text-xs text-foreground-soft">
+                                <div class="flex items-center gap-2">
+                                  <span class="text-foreground-softer">server:</span>
+                                  <span class="font-mono">{item.mcp_server}</span>
                                 </div>
 
-                                <div class="rounded-lg border border-base-200/80 bg-base-200/40 p-3 space-y-2">
-                                  <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
+                                <div>
+                                  <p class="text-[10px] uppercase tracking-wide font-medium text-foreground-softer mb-1">
                                     Invokes
                                   </p>
                                   <pre
                                     id={"tool-invokes-#{item.id}"}
                                     data-json-pre
                                     phx-no-curly-interpolation
-                                    class="swati-code-block whitespace-pre-wrap text-foreground"
+                                    class="swati-code-block whitespace-pre-wrap text-foreground text-[11px] bg-base-200/40 rounded p-2"
                                   ><%= tool_detail_text(item.invokes || item.args) %></pre>
                                 </div>
 
-                                <div class="rounded-lg border border-base-200/80 bg-base-200/40 p-3 space-y-2">
-                                  <div class="flex items-center justify-between">
-                                    <p class="text-[10px] uppercase tracking-wider font-medium text-foreground-softer">
+                                <div>
+                                  <div class="flex items-center justify-between mb-1">
+                                    <p class="text-[10px] uppercase tracking-wide font-medium text-foreground-softer">
                                       Results
                                     </p>
                                     <.button
                                       variant="ghost"
                                       size="icon-xs"
-                                      class="size-6 rounded-md hover:bg-base-200"
+                                      class="size-5 rounded hover:bg-base-200"
                                     >
-                                      <.icon name="hero-clipboard" class="size-3.5" />
+                                      <.icon name="hero-clipboard" class="size-3" />
                                     </.button>
                                   </div>
                                   <pre
                                     id={"tool-results-#{item.id}"}
                                     data-json-pre
                                     phx-no-curly-interpolation
-                                    class="swati-code-block whitespace-pre-wrap text-foreground"
+                                    class="swati-code-block whitespace-pre-wrap text-foreground text-[11px] bg-base-200/40 rounded p-2"
                                   ><%= tool_detail_text(item.results || item.response) %></pre>
                                 </div>
                               </div>
