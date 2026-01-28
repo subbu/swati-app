@@ -17,10 +17,16 @@ defmodule Swati.Telephony.Providers.Plivo do
   end
 
   def configure_inbound(number_meta, answer_url) do
-    with {:ok, app} <- request(:post, endpoint("Application/"), %{"answer_url" => answer_url}),
+    provider_number_id =
+      Map.get(number_meta, "provider_number_id") || Map.get(number_meta, :provider_number_id)
+
+    with {:ok, app} <-
+           request(:post, endpoint("Application/"), %{
+             "answer_url" => answer_url,
+             "app_name" => app_name(provider_number_id)
+           }),
          app_id when is_binary(app_id) <- Map.get(app, "app_id") || Map.get(app, :app_id),
-         provider_number_id when is_binary(provider_number_id) <-
-           Map.get(number_meta, "provider_number_id") || Map.get(number_meta, :provider_number_id),
+         provider_number_id when is_binary(provider_number_id) <- provider_number_id,
          {:ok, _} <-
            request(:post, endpoint("Number/#{provider_number_id}/"), %{"app_id" => app_id}) do
       {:ok, %{"app_id" => app_id}}
@@ -121,6 +127,14 @@ defmodule Swati.Telephony.Providers.Plivo do
   end
 
   defp redact_url(url), do: inspect(url)
+
+  defp app_name(provider_number_id) when is_binary(provider_number_id) do
+    "swati-#{provider_number_id}-#{System.unique_integer([:positive])}"
+  end
+
+  defp app_name(_provider_number_id) do
+    "swati-#{System.unique_integer([:positive])}"
+  end
 
   defp summarize_body(body) when is_map(body), do: Map.keys(body)
   defp summarize_body(body) when is_list(body), do: "list(#{length(body)})"

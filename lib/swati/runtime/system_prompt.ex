@@ -11,6 +11,7 @@ defmodule Swati.Runtime.SystemPrompt do
     session = Map.get(opts, :session)
     endpoint = Map.get(opts, :endpoint)
     channel = Map.get(opts, :channel)
+    tool_policy = Map.get(opts, :tool_policy)
     prompt_overrides = Map.get(opts, :prompt_overrides) || %{prepend: [], append: []}
 
     memory =
@@ -25,6 +26,7 @@ defmodule Swati.Runtime.SystemPrompt do
         render_blocks(Map.get(prompt_overrides, :prepend, [])),
         role_section(agent_name, instructions),
         style_section(),
+        tool_policy_section(tool_policy),
         context_section(channel, endpoint, session, customer),
         customer_section(customer, identity),
         case_section(case_record, memory),
@@ -69,6 +71,29 @@ defmodule Swati.Runtime.SystemPrompt do
     ]
     |> Enum.join("\n")
   end
+
+  defp tool_policy_section(nil), do: nil
+
+  defp tool_policy_section(policy) when is_map(policy) do
+    allow = tool_list(Map.get(policy, "allow"))
+    deny = tool_list(Map.get(policy, "deny"))
+
+    bullets =
+      [
+        nested_list_with_empty("Allowed tools", allow, "None"),
+        nested_list_with_empty("Denied tools", deny, "None"),
+        bullet("Max calls per turn", Map.get(policy, "max_calls_per_turn"))
+      ]
+      |> List.flatten()
+      |> Enum.reject(&blank?/1)
+
+    ["## Tools and Policies", bullets]
+    |> List.flatten()
+    |> Enum.reject(&blank?/1)
+    |> Enum.join("\n")
+  end
+
+  defp tool_policy_section(_policy), do: nil
 
   defp context_section(channel, endpoint, session, customer) do
     bullets =
@@ -221,6 +246,27 @@ defmodule Swati.Runtime.SystemPrompt do
   defp nested_list(label, items) do
     ["- #{label}:" | Enum.map(items, &"  - #{&1}")]
   end
+
+  defp nested_list_with_empty(label, [], empty_text), do: ["- #{label}: #{empty_text}"]
+
+  defp nested_list_with_empty(label, items, _empty_text) do
+    ["- #{label}:" | Enum.map(items, &"  - #{&1}")]
+  end
+
+  defp tool_list(items) when is_list(items) do
+    items
+    |> Enum.map(fn item ->
+      cond do
+        is_binary(item) -> String.trim(item)
+        is_atom(item) -> Atom.to_string(item)
+        true -> nil
+      end
+    end)
+    |> Enum.reject(&blank?/1)
+    |> Enum.uniq()
+  end
+
+  defp tool_list(_items), do: []
 
   defp list_items(items) when is_list(items) do
     items

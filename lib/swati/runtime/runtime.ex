@@ -3,6 +3,7 @@ defmodule Swati.Runtime do
   alias Swati.Agents.EscalationPolicy
   alias Swati.Channels
   alias Swati.Channels.ToolAllowlist, as: ChannelToolAllowlist
+  alias Swati.Channels.ToolDefinitions, as: ChannelToolDefinitions
   alias Swati.Cases
   alias Swati.Cases.Linking, as: CaseLinking
   alias Swati.Customers
@@ -99,6 +100,14 @@ defmodule Swati.Runtime do
       prompt_overrides =
         SystemPromptPolicy.compose([tenant.policy, channel.policy, case_record.policy])
 
+      channel_tool_names = ChannelToolAllowlist.allowed_tools(channel)
+      tool_allow = Map.get(tool_policy, "allow", [])
+
+      channel_tool_definitions =
+        channel_tool_names
+        |> Enum.filter(&(&1 in tool_allow))
+        |> ChannelToolDefinitions.definitions()
+
       system_prompt =
         SystemPrompt.build(%{
           agent_name: agent.name,
@@ -109,6 +118,7 @@ defmodule Swati.Runtime do
           session: session,
           endpoint: endpoint,
           channel: channel,
+          tool_policy: tool_policy,
           prompt_overrides: prompt_overrides
         })
 
@@ -122,7 +132,14 @@ defmodule Swati.Runtime do
          case: case_payload(case_record),
          case_linking: case_linking,
          session: session_payload(session),
-         agent: agent_payload(agent, version.config, tool_policy, system_prompt),
+         agent:
+           agent_payload(
+             agent,
+             version.config,
+             tool_policy,
+             system_prompt,
+             channel_tool_definitions
+           ),
          integrations: integrations_json,
          webhooks: webhooks_json,
          logging: %{
@@ -440,7 +457,7 @@ defmodule Swati.Runtime do
     }
   end
 
-  defp agent_payload(agent, config, tool_policy, system_prompt) do
+  defp agent_payload(agent, config, tool_policy, system_prompt, tool_definitions) do
     config = config || %{}
 
     %{
@@ -452,6 +469,7 @@ defmodule Swati.Runtime do
       llm: Map.get(config, "llm") || %{provider: agent.llm_provider, model: agent.llm_model},
       system_prompt: system_prompt || Map.get(config, "system_prompt"),
       tool_policy: tool_policy,
+      tool_definitions: List.wrap(tool_definitions),
       escalation_policy: EscalationPolicy.normalize(Map.get(config, "escalation_policy"))
     }
   end

@@ -8,6 +8,7 @@ config :swati, Swati.Repo,
   database: "swati_dev",
   pool_size: 5,
   stacktrace: true,
+  log: false,
   show_sensitive_data_on_connection_error: true
 
 config :swati,

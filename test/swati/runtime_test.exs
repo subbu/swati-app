@@ -35,6 +35,18 @@ defmodule Swati.RuntimeTest do
 
     {:ok, _endpoint} = Channels.ensure_endpoint_for_phone_number(phone_number)
     channel = Channels.get_channel_by_key(scope.tenant.id, "voice")
+
+    {:ok, _channel} =
+      Channels.update_channel(channel, %{
+        policy: %{
+          "system_prompt" => %{
+            "append" => [
+              "## Channel Tooling\n- Voice channel tools: channel.message.send, channel.thread.fetch, channel.thread.close, channel.handoff.request, channel.handoff.transfer\n- Always follow the Tool Policy section for allow/deny and max calls per turn."
+            ]
+          }
+        }
+      })
+
     {:ok, _agent_channel} = Agents.upsert_agent_channel(agent.id, channel.id, true)
 
     {:ok, payload} =
@@ -50,10 +62,14 @@ defmodule Swati.RuntimeTest do
     assert payload.session.external_id == "call-123"
     assert payload.agent.id == agent.id
     assert "channel.message.send" in payload.agent.tool_policy["allow"]
+    assert Enum.any?(payload.agent.tool_definitions, &(&1["name"] == "channel.message.send"))
     assert payload.case_linking["strategy"] == "new_case"
     assert payload.config_version == 5
     assert payload.policy.tool_policy["allow"] == payload.agent.tool_policy["allow"]
     assert payload.agent.system_prompt =~ "# Swati Voice Agent System Prompt"
+    assert payload.agent.system_prompt =~ "## Tools and Policies"
+    assert payload.agent.system_prompt =~ "channel.message.send"
+    assert payload.agent.system_prompt =~ "## Channel Tooling"
     assert payload.agent.system_prompt =~ "## Customer"
     assert payload.agent.system_prompt =~ "+15550001111"
   end

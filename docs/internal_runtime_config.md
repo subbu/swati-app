@@ -98,6 +98,13 @@ Response example:
       "deny": [],
       "max_calls_per_turn": 3
     },
+    "tool_definitions": [
+      {
+        "name": "channel.message.send",
+        "description": "Send a message to the current channel/session.",
+        "parameters": {"type": "object", "properties": {"text": {"type": "string"}}}
+      }
+    ],
     "escalation_policy": {"enabled": true}
   },
   "integrations": [
@@ -172,6 +179,7 @@ Response example:
 Notes:
 - `tool_policy.allow` defaults to the union of tool names from enabled integrations, webhooks, and `channel.capabilities.tools` when the agent allowlist is empty.
 - If the agent allowlist is set, the response filters it to tools present in those sources.
+- `agent.tool_definitions` carries control-plane tool schemas (e.g., channel tools). The execution plane merges these with MCP tool schemas.
 - Runtime resolution fails with `agent_channel_disabled` or `agent_channel_scope_denied` when the agent is not assigned to the channel or scoped away from the endpoint.
 - `agent.system_prompt` is composed per call as Markdown: base agent instructions + call/customer/case context.
 - Policies may add Markdown blocks with `system_prompt.prepend` or `system_prompt.append` in tenant/channel/case policy (applied in that order).
@@ -255,6 +263,7 @@ Request example:
 
 Notes:
 - Timestamps must be RFC3339 with microsecond precision (e.g. `2026-01-01T08:00:01.000000Z`).
+- `status` accepts session statuses (`open`, `active`, `waiting_on_customer`, `closed`). `cancelled`/`canceled` are treated as `closed`.
 
 #### Artifacts
 
