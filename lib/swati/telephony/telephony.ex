@@ -11,6 +11,10 @@ defmodule Swati.Telephony do
     Queries.list_phone_numbers(tenant_id, filters)
   end
 
+  def count_phone_numbers(tenant_id) do
+    Queries.count_phone_numbers(tenant_id)
+  end
+
   def get_phone_number!(tenant_id, id) do
     Queries.get_phone_number!(tenant_id, id)
   end

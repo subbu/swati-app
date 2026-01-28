@@ -7,8 +7,6 @@ defmodule SwatiWeb.AgentsLive.Form do
   alias Swati.Channels
   alias Swati.Integrations
   alias Swati.Webhooks
-  alias SwatiWeb.Formatting
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -534,7 +532,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                 </h4>
                 <span class="text-xs text-base-content/40">
                   {length(tools)} unique
-                  <span :if={grants != length(tools)}> ·              {grants} grants</span>
+                  <span :if={grants != length(tools)}> ·                  {grants} grants</span>
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">
@@ -868,38 +866,6 @@ defmodule SwatiWeb.AgentsLive.Form do
     </div>
     """
   end
-
-  # Stat Chip Component - compact inline stat display
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :value, :string, required: true
-  attr :color, :string, default: "info"
-
-  defp stat_chip(assigns) do
-    ~H"""
-    <div class="stat-chip flex items-center gap-1.5">
-      <div class={[
-        "size-5 flex items-center justify-center rounded",
-        stat_chip_bg(@color)
-      ]}>
-        <.icon name={@icon} class="size-3 text-base-content/60" />
-      </div>
-      <div class="flex flex-col">
-        <span class="text-[10px] text-base-content/40 uppercase tracking-wider leading-none">
-          {@label}
-        </span>
-        <span class="text-xs font-medium text-base-content/80 leading-tight">{@value}</span>
-      </div>
-    </div>
-    """
-  end
-
-  defp stat_chip_bg("success"), do: "bg-success/10"
-  defp stat_chip_bg("warning"), do: "bg-warning/10"
-  defp stat_chip_bg("danger"), do: "bg-error/10"
-  defp stat_chip_bg("info"), do: "bg-info/10"
-  defp stat_chip_bg("primary"), do: "bg-primary/10"
-  defp stat_chip_bg(_), do: "bg-base-200"
 
   # Hero Stat Component - prominent stat display for portrait card
   attr :label, :string, required: true
@@ -1680,28 +1646,10 @@ defmodule SwatiWeb.AgentsLive.Form do
     "#{count} words"
   end
 
-  defp tab_icon("tools"), do: "hero-wrench-screwdriver"
-  defp tab_icon("channels"), do: "hero-signal"
-  defp tab_icon("integrations"), do: "hero-cube"
-  defp tab_icon("webhooks"), do: "hero-bolt"
-  defp tab_icon(_), do: "hero-squares-2x2"
-
-  defp tab_count("tools", assigns), do: effective_tools_count(assigns.effective_tools)
-  defp tab_count("channels", assigns), do: length(assigns.channels)
-  defp tab_count("integrations", assigns), do: length(assigns.integrations)
-  defp tab_count("webhooks", assigns), do: length(assigns.webhooks)
-  defp tab_count(_, _), do: 0
-
   defp effective_tools_count(effective_tools) do
     effective_tools
     |> Enum.flat_map(fn {_source, tools, _grants} -> tools end)
     |> length()
-  end
-
-  defp effective_tools_grants(effective_tools) do
-    effective_tools
-    |> Enum.map(fn {_source, _tools, grants} -> grants end)
-    |> Enum.sum()
   end
 
   defp source_icon(:channels), do: "hero-signal"
@@ -1807,40 +1755,6 @@ defmodule SwatiWeb.AgentsLive.Form do
   defp format_channel_type(type) when is_binary(type), do: type
   defp format_channel_type(_), do: "unknown"
 
-  defp has_channel_health?(health_map, channel_id) do
-    Map.has_key?(health_map, channel_id)
-  end
-
-  defp has_custom_state?(channel_states, channel_id) do
-    Map.has_key?(channel_states, channel_id)
-  end
-
-  defp channel_health_label(health_map, channel_id) do
-    case Map.get(health_map, channel_id) do
-      nil -> "Not connected"
-      %{active_count: _active, error_count: error} when error > 0 -> "Needs attention"
-      %{active_count: active} when active > 0 -> "Connected"
-      _ -> "Not connected"
-    end
-  end
-
-  defp channel_health_color(health_map, channel_id) do
-    case Map.get(health_map, channel_id) do
-      nil -> "warning"
-      %{active_count: _active, error_count: error} when error > 0 -> "warning"
-      %{active_count: active} when active > 0 -> "success"
-      _ -> "warning"
-    end
-  end
-
-  defp integration_status_color(:active), do: "success"
-  defp integration_status_color(:disabled), do: "warning"
-  defp integration_status_color(_), do: "info"
-
-  defp webhook_status_color(:active), do: "success"
-  defp webhook_status_color(:disabled), do: "warning"
-  defp webhook_status_color(_), do: "info"
-
   defp endpoint_connection_label(connections_map, endpoint_id) do
     case Map.get(connections_map, endpoint_id) do
       nil ->
@@ -1915,41 +1829,6 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   defp avatar_ready?(avatar) do
     avatar.status == :ready and is_binary(avatar.output_url)
-  end
-
-  defp avatar_status_label(nil), do: "No avatar yet"
-  defp avatar_status_label(%{status: :queued}), do: "Avatar queued"
-  defp avatar_status_label(%{status: :running}), do: "Avatar generating"
-  defp avatar_status_label(%{status: :failed}), do: "Avatar failed"
-  defp avatar_status_label(%{status: :ready}), do: "Avatar ready"
-  defp avatar_status_label(_avatar), do: "Avatar pending"
-
-  defp avatar_subtitle(nil, _tenant), do: "Generate a sticker-style avatar via Replicate."
-
-  defp avatar_subtitle(%{status: :ready, generated_at: %DateTime{} = generated_at}, tenant) do
-    "Generated #{Formatting.datetime(generated_at, tenant)}"
-  end
-
-  defp avatar_subtitle(%{status: :failed, error: error}, _tenant)
-       when is_binary(error) and error != "" do
-    avatar_error_message(error)
-  end
-
-  defp avatar_subtitle(%{status: :failed}, _tenant), do: "Try again to regenerate."
-  defp avatar_subtitle(_avatar, _tenant), do: "Background job running."
-
-  defp avatar_error_message(message) do
-    if avatar_auth_error?(message) do
-      "Replicate auth failed. Check REPLICATE_API_TOKEN."
-    else
-      message
-    end
-  end
-
-  defp avatar_auth_error?(message) do
-    message
-    |> String.downcase()
-    |> String.contains?("authentication token")
   end
 
   defp status_options do

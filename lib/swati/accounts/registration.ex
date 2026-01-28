@@ -2,15 +2,16 @@ defmodule Swati.Accounts.Registration do
   alias Swati.Accounts.User
   alias Swati.Audit
   alias Swati.Repo
-  alias Swati.Tenancy.{Membership, Tenant}
+  alias Swati.Tenancy.{Membership, Tenant, Tenants}
 
   def register_user(attrs) do
     tenant_name = Map.get(attrs, "tenant_name") || Map.get(attrs, :tenant_name)
+    tenant_slug = Tenants.unique_slug(tenant_name || "")
     user_changeset = User.registration_changeset(%User{}, attrs)
 
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:user, user_changeset)
-    |> Ecto.Multi.insert(:tenant, Tenant.changeset(%Tenant{}, %{name: tenant_name}))
+    |> Ecto.Multi.insert(:tenant, Tenant.changeset(%Tenant{}, %{name: tenant_name, slug: tenant_slug}))
     |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, user: user} ->
       Membership.changeset(%Membership{}, %{
         tenant_id: tenant.id,

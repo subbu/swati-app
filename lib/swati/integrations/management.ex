@@ -1,5 +1,6 @@
 defmodule Swati.Integrations.Management do
   alias Swati.Audit
+  alias Swati.Billing
   alias Swati.Integrations.Attrs
   alias Swati.Integrations.Integration
   alias Swati.Integrations.Secrets
@@ -9,38 +10,46 @@ defmodule Swati.Integrations.Management do
     attrs = Attrs.normalize(attrs)
     auth_token = Map.get(attrs, "auth_token")
 
-    multi =
-      Ecto.Multi.new()
-      |> Ecto.Multi.run(:secret, fn repo, _ ->
-        Secrets.upsert(repo, tenant_id, attrs, auth_token)
-      end)
-      |> Ecto.Multi.insert(:integration, fn %{secret: secret} ->
-        integration_attrs =
-          attrs
-          |> Map.drop(["auth_token"])
-          |> Map.put("tenant_id", tenant_id)
-          |> Secrets.put_secret_id(secret)
+    with :ok <- Billing.ensure_integration_limit(tenant_id) do
+      multi =
+        Ecto.Multi.new()
+        |> Ecto.Multi.run(:secret, fn repo, _ ->
+          Secrets.upsert(repo, tenant_id, attrs, auth_token)
+        end)
+        |> Ecto.Multi.insert(:integration, fn %{secret: secret} ->
+          integration_attrs =
+            attrs
+            |> Map.drop(["auth_token"])
+            |> Map.put("tenant_id", tenant_id)
+            |> Secrets.put_secret_id(secret)
 
-        Integration.changeset(%Integration{}, integration_attrs)
-      end)
-      |> Ecto.Multi.run(:audit, fn _repo, %{integration: integration} ->
-        Audit.log(
-          tenant_id,
-          actor.id,
-          "integration.create",
-          "integration",
-          integration.id,
-          attrs,
-          %{}
-        )
+          Integration.changeset(%Integration{}, integration_attrs)
+        end)
+        |> Ecto.Multi.run(:audit, fn _repo, %{integration: integration} ->
+          Audit.log(
+            tenant_id,
+            actor.id,
+            "integration.create",
+            "integration",
+            integration.id,
+            attrs,
+            %{}
+          )
 
-        {:ok, :logged}
-      end)
+          {:ok, :logged}
+        end)
 
-    case Repo.transaction(multi) do
-      {:ok, %{integration: integration}} -> {:ok, integration}
-      {:error, _step, %Ecto.Changeset{} = changeset, _} -> {:error, changeset}
-      {:error, _step, reason, _} -> {:error, reason}
+      case Repo.transaction(multi) do
+        {:ok, %{integration: integration}} ->
+          _ = Billing.refresh_usage_counts(tenant_id)
+          {:ok, integration}
+
+        {:error, _step, %Ecto.Changeset{} = changeset, _} ->
+          {:error, changeset}
+
+        {:error, _step, reason, _} ->
+          {:error, reason}
+      end
     end
   end
 

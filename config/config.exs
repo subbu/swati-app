@@ -26,6 +26,12 @@ config :swati,
   channel_sync_interval_seconds: 300,
   channel_sync_cron: "*/5 * * * *"
 
+config :swati, :billing,
+  grace_period_days: 7,
+  grace_notification_offsets_hours: [0, 24, 72, 144, 168],
+  subscription_total_count: 120,
+  subscription_customer_notify: true
+
 config :swati, Swati.Repo,
   migration_primary_key: [type: :binary_id],
   migration_foreign_key: [type: :binary_id]

@@ -116,6 +116,12 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Members
           </.navlink>
+          <.navlink navigate={~p"/settings/billing"}>
+            <.icon
+              name="hero-credit-card"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Billing
+          </.navlink>
           <.navlink navigate={~p"/users/settings"}>
             <.icon
               name="hero-cog-6-tooth"
@@ -179,6 +185,9 @@ defmodule SwatiWeb.Layouts do
                 <.navlink navigate={~p"/settings/members"}>
                   <.icon name="hero-user-group" class="size-5" /> Members
                 </.navlink>
+                <.navlink navigate={~p"/settings/billing"}>
+                  <.icon name="hero-credit-card" class="size-5" /> Billing
+                </.navlink>
                 <.navlink navigate={~p"/users/settings"}>
                   <.icon name="hero-cog-6-tooth" class="size-5" /> Settings
                 </.navlink>
@@ -219,6 +228,7 @@ defmodule SwatiWeb.Layouts do
 
                 <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
                 <.dropdown_link navigate={~p"/settings/members"}>Members</.dropdown_link>
+                <.dropdown_link navigate={~p"/settings/billing"}>Billing</.dropdown_link>
                 <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
               </.dropdown>
             </div>
@@ -248,6 +258,7 @@ defmodule SwatiWeb.Layouts do
 
                   <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
                   <.dropdown_link navigate={~p"/settings/members"}>Members</.dropdown_link>
+                  <.dropdown_link navigate={~p"/settings/billing"}>Billing</.dropdown_link>
                   <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
                 </.dropdown>
               </div>

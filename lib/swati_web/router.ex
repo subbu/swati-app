@@ -27,10 +27,13 @@ defmodule SwatiWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/billing/complete", BillingCompleteController, :show
   end
 
   scope "/api/v1", SwatiWeb do
     pipe_through :api
+
+    post "/billing/razorpay/webhook", BillingWebhookController, :razorpay
   end
 
   scope "/internal/v1", SwatiWeb.Internal do
@@ -89,6 +92,7 @@ defmodule SwatiWeb.Router do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
       live "/settings/members", TenantLive.Members, :index
+      live "/settings/billing", BillingLive.Index, :index
 
       live "/onboarding", OnboardingLive, :index
       live "/dashboard", DashboardLive.Index, :index

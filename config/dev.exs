@@ -44,6 +44,11 @@ config :swati,
        :plivo_auth_token,
        System.get_env("PLIVO_AUTH_TOKEN")
 
+config :swati, :razorpay,
+  key_id: "rzp_test_SV8KDRa9A961gA",
+  key_secret: "no9j6HLrE10ERqJCSnIt4IHq",
+  webhook_secret: "9zsr6Hb6rg8pefHPDHlEWRbneEENkdKKGqlKzexQzDA"
+
 config :swati,
   avatar_s3_bucket: "subbu-dev-avatars",
   avatar_s3_region: "eu-central",

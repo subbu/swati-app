@@ -13,6 +13,13 @@ defmodule Swati.Telephony.Queries do
     |> Repo.all()
   end
 
+  def count_phone_numbers(tenant_id) do
+    from(n in PhoneNumber,
+      where: n.tenant_id == ^tenant_id and n.status != ^:released
+    )
+    |> Repo.aggregate(:count, :id)
+  end
+
   def list_phone_numbers(tenant_id, filters) when is_map(filters) do
     filters = normalize_filters(filters)
 

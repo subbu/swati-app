@@ -60,12 +60,24 @@ defmodule Swati.Tenancy.Memberships do
     end
   end
 
-  def authorized?(%Scope{role: role}, :manage_members) when role in [:owner, :admin], do: true
+  def authorized?(%Scope{role: role}, action)
+      when action in [:manage_members, :manage_billing] and role in [:owner, :admin],
+      do: true
+
   def authorized?(nil, _action), do: false
   def authorized?(_current_scope, _action), do: false
 
   def get_membership!(tenant_id, user_id) do
     Repo.get_by!(Membership, tenant_id: tenant_id, user_id: user_id)
+  end
+
+  def list_owner_emails(tenant_id) do
+    from(m in Membership,
+      where: m.tenant_id == ^tenant_id and m.role in [:owner, :admin],
+      join: u in assoc(m, :user),
+      select: u.email
+    )
+    |> Repo.all()
   end
 
   def require_role!(%Membership{role: role}, allowed_roles) when is_list(allowed_roles) do

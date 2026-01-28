@@ -1,6 +1,7 @@
 defmodule Swati.Calls do
   import Ecto.Query, warn: false
 
+  alias Swati.Billing
   alias Swati.Repo
   alias Swati.Tenancy
 
@@ -44,9 +45,18 @@ defmodule Swati.Calls do
   end
 
   def set_call_end(call_id, ended_at, duration, status) do
-    Repo.get!(Call, call_id)
-    |> Call.changeset(%{ended_at: ended_at, duration_seconds: duration, status: status})
-    |> Repo.update()
+    call = Repo.get!(Call, call_id)
+
+    case call
+         |> Call.changeset(%{ended_at: ended_at, duration_seconds: duration, status: status})
+         |> Repo.update() do
+      {:ok, call} ->
+        _ = Billing.record_call_minutes(call)
+        {:ok, call}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def set_call_artifacts(call_id, recording_map, transcript_map) do

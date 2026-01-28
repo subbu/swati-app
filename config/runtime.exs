@@ -21,6 +21,7 @@ if System.get_env("PHX_SERVER") do
 end
 
 channel_sync_cron = Application.get_env(:swati, :channel_sync_cron, "*/5 * * * *")
+billing_reconcile_cron = Application.get_env(:swati, :billing_reconcile_cron, "0 3 * * *")
 
 oban_plugins =
   if config_env() == :test do
@@ -28,7 +29,11 @@ oban_plugins =
   else
     [
       Oban.Plugins.Pruner,
-      {Oban.Plugins.Cron, crontab: [{channel_sync_cron, Swati.Workers.SyncChannelConnections}]}
+      {Oban.Plugins.Cron,
+       crontab: [
+         {channel_sync_cron, Swati.Workers.SyncChannelConnections},
+         {billing_reconcile_cron, Swati.Workers.ReconcileSubscriptions}
+       ]}
     ]
   end
 
@@ -36,7 +41,23 @@ config :swati, Oban,
   repo: Swati.Repo,
   engine: Oban.Engines.Basic,
   plugins: oban_plugins,
-  queues: [default: 10, integrations: 10, telephony: 5, calls: 10, media: 5, channels: 5]
+  queues: [
+    default: 10,
+    integrations: 10,
+    telephony: 5,
+    calls: 10,
+    media: 5,
+    channels: 5,
+    billing: 5
+  ]
+
+razorpay_config = Application.get_env(:swati, :razorpay, [])
+
+config :swati, :razorpay,
+  key_id: System.get_env("RAZORPAY_KEY_ID") || Keyword.get(razorpay_config, :key_id),
+  key_secret: System.get_env("RAZORPAY_KEY_SECRET") || Keyword.get(razorpay_config, :key_secret),
+  webhook_secret:
+    System.get_env("RAZORPAY_WEBHOOK_SECRET") || Keyword.get(razorpay_config, :webhook_secret)
 
 config :replicate,
   replicate_api_token: System.get_env("REPLICATE_API_TOKEN")

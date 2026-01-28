@@ -9,6 +9,10 @@ defmodule Swati.Integrations do
     Queries.list_integrations(tenant_id)
   end
 
+  def count_integrations(tenant_id) do
+    Queries.count_integrations(tenant_id)
+  end
+
   def get_integration!(tenant_id, integration_id) do
     Queries.get_integration!(tenant_id, integration_id)
   end

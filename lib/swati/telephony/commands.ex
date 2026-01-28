@@ -2,6 +2,7 @@ defmodule Swati.Telephony.Commands do
   require Logger
 
   alias Swati.Audit
+  alias Swati.Billing
   alias Swati.Channels
   alias Swati.Repo
   alias Swati.Telephony.AnswerUrl
@@ -24,7 +25,8 @@ defmodule Swati.Telephony.Commands do
     )
 
     result =
-      with {:ok, provider_meta} <- provider_module(provider).buy_number(e164, attrs),
+      with :ok <- Billing.ensure_phone_number_limit(tenant_id),
+           {:ok, provider_meta} <- provider_module(provider).buy_number(e164, attrs),
            {:ok, phone_number} <-
              %PhoneNumber{}
              |> PhoneNumber.changeset(%{
@@ -54,6 +56,7 @@ defmodule Swati.Telephony.Commands do
         )
 
         _ = Channels.ensure_endpoint_for_phone_number(phone_number)
+        _ = Billing.refresh_usage_counts(tenant_id)
 
         {:ok, phone_number}
       end

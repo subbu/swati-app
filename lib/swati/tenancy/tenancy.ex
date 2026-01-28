@@ -3,6 +3,7 @@ defmodule Swati.Tenancy do
 
   alias Swati.Accounts.User
   alias Swati.Tenancy.Memberships
+  alias Swati.Tenancy.Tenant
   alias Swati.Tenancy.Tenants
 
   def scope(queryable, tenant_id) do
@@ -19,6 +20,18 @@ defmodule Swati.Tenancy do
 
   def get_tenant!(tenant_id) do
     Tenants.get_tenant!(tenant_id)
+  end
+
+  def get_tenant_by_slug(slug) do
+    Tenants.get_tenant_by_slug(slug)
+  end
+
+  def update_billing_plan(%Tenant{} = tenant, plan_code) do
+    Tenants.update_billing_plan(tenant, plan_code)
+  end
+
+  def update_billing_status(%Tenant{} = tenant, status) do
+    Tenants.update_billing_status(tenant, status)
   end
 
   def get_membership!(tenant_id, user_id) do

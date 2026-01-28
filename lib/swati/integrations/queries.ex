@@ -12,6 +12,13 @@ defmodule Swati.Integrations.Queries do
     |> Repo.all()
   end
 
+  def count_integrations(tenant_id) do
+    from(i in Integration,
+      where: i.tenant_id == ^tenant_id and i.status == ^:active
+    )
+    |> Repo.aggregate(:count, :id)
+  end
+
   def get_integration!(tenant_id, integration_id) do
     Integration
     |> Tenancy.scope(tenant_id)

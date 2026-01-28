@@ -108,6 +108,22 @@ defmodule Swati.AccountsTest do
       assert user.tenant.name == tenant_name
       assert user.membership.role == :owner
     end
+
+    test "uses a unique tenant slug when the name collides" do
+      tenant_name = "Acme"
+
+      {:ok, first_user} =
+        Accounts.register_user(valid_user_attributes(email: unique_user_email(), tenant_name: tenant_name))
+
+      {:ok, second_user} =
+        Accounts.register_user(valid_user_attributes(email: unique_user_email(), tenant_name: tenant_name))
+
+      first_tenant = Repo.preload(first_user, :tenant).tenant
+      second_tenant = Repo.preload(second_user, :tenant).tenant
+
+      assert first_tenant.slug == "acme"
+      assert second_tenant.slug == "acme-1"
+    end
   end
 
   describe "list_members/1" do

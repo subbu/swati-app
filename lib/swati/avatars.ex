@@ -9,6 +9,16 @@ defmodule Swati.Avatars do
   alias Swati.Tenancy
   alias Swati.Workers.GenerateAgentAvatar
 
+  def topic(tenant_id), do: "avatars:#{tenant_id}"
+
+  def subscribe(tenant_id) do
+    Phoenix.PubSub.subscribe(Swati.PubSub, topic(tenant_id))
+  end
+
+  def broadcast_avatar_update(%AgentAvatar{} = avatar) do
+    Phoenix.PubSub.broadcast(Swati.PubSub, topic(avatar.tenant_id), {:avatar_updated, avatar})
+  end
+
   def request_agent_avatar(current_scope, %Agent{} = agent, opts \\ %{}) do
     attrs = build_avatar_attrs(current_scope, agent, opts)
 
@@ -28,8 +38,12 @@ defmodule Swati.Avatars do
       end
     end)
     |> case do
-      {:ok, avatar} -> {:ok, avatar}
-      {:error, %Ecto.Changeset{} = changeset} -> {:error, changeset}
+      {:ok, avatar} ->
+        broadcast_avatar_update(avatar)
+        {:ok, avatar}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -58,6 +72,21 @@ defmodule Swati.Avatars do
     end
   end
 
+  def delete_latest_avatar(current_scope, agent_id) do
+    case get_latest_avatar(current_scope, agent_id) do
+      nil -> {:error, :not_found}
+      avatar -> delete_avatar(current_scope, avatar)
+    end
+  end
+
+  def delete_avatar(current_scope, %AgentAvatar{} = avatar) do
+    if avatar.tenant_id != current_scope.tenant.id do
+      {:error, :not_found}
+    else
+      Repo.delete(avatar)
+    end
+  end
+
   def generate_avatar(avatar_id) do
     avatar = Repo.get!(AgentAvatar, avatar_id) |> Repo.preload(:agent)
 
@@ -71,7 +100,8 @@ defmodule Swati.Avatars do
       _status ->
         result =
           try do
-            with {:ok, avatar} <- update_avatar(avatar, %{status: :running, error: nil}),
+            with {:ok, avatar} <-
+                   update_avatar_and_broadcast(avatar, %{status: :running, error: nil}),
                  {:ok, prediction} <- fetch_or_create_prediction(avatar, avatar.agent),
                  {:ok, avatar} <- maybe_set_prediction_id(avatar, prediction.id),
                  {:ok, prediction} <- Replicate.wait(prediction),
@@ -79,7 +109,7 @@ defmodule Swati.Avatars do
                  {:ok, %{public_url: public_url}} <-
                    Storage.store_from_url(avatar.agent_id, source_url),
                  {:ok, avatar} <-
-                   update_avatar(avatar, %{
+                   update_avatar_and_broadcast(avatar, %{
                      status: :ready,
                      source_url: source_url,
                      output_url: public_url,
@@ -97,7 +127,9 @@ defmodule Swati.Avatars do
             {:ok, avatar}
 
           {:error, reason} ->
-            {:ok, avatar} = update_avatar(avatar, %{status: :failed, error: format_error(reason)})
+            {:ok, avatar} =
+              update_avatar_and_broadcast(avatar, %{status: :failed, error: format_error(reason)})
+
             {:error, avatar}
         end
     end
@@ -148,6 +180,17 @@ defmodule Swati.Avatars do
     avatar
     |> AgentAvatar.changeset(attrs)
     |> Repo.update()
+  end
+
+  defp update_avatar_and_broadcast(%AgentAvatar{} = avatar, attrs) do
+    case update_avatar(avatar, attrs) do
+      {:ok, avatar} ->
+        broadcast_avatar_update(avatar)
+        {:ok, avatar}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp format_error(%MatchError{term: {:error, message}}) when is_binary(message) do

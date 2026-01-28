@@ -32,7 +32,12 @@ defmodule SwatiWeb.AgentsLive.Index do
         <section class="rounded-xl border border-base-300 bg-base-100">
           <div class="flex flex-wrap items-center gap-2 px-4 py-3">
             <%!-- Search Input --%>
-            <.form for={@filter_form} id="agents-filter" phx-change="filter" class="flex-1 min-w-[200px] max-w-sm">
+            <.form
+              for={@filter_form}
+              id="agents-filter"
+              phx-change="filter"
+              class="flex-1 min-w-[200px] max-w-sm"
+            >
               <.input
                 field={@filter_form[:query]}
                 type="text"
@@ -62,7 +67,8 @@ defmodule SwatiWeb.AgentsLive.Index do
                 :for={{label, value} <- status_options()}
                 phx-click={JS.push("filter", value: %{filters: %{"status" => value}})}
               >
-                <span class={["mr-2 inline-block h-2 w-2 rounded-full", status_dot_for_filter(value)]}></span>
+                <span class={["mr-2 inline-block h-2 w-2 rounded-full", status_dot_for_filter(value)]}>
+                </span>
                 {label}
               </.dropdown_button>
             </.dropdown>
@@ -257,7 +263,9 @@ defmodule SwatiWeb.AgentsLive.Index do
                         </div>
                         <div class="min-w-0">
                           <p class="font-semibold text-base-content truncate">{agent.name}</p>
-                          <p class="text-xs text-base-content/50 truncate">{model_short(agent.llm_model)}</p>
+                          <p class="text-xs text-base-content/50 truncate">
+                            {model_short(agent.llm_model)}
+                          </p>
                         </div>
                       </div>
                     </:cell>
@@ -283,10 +291,14 @@ defmodule SwatiWeb.AgentsLive.Index do
                       <% end %>
                     </:cell>
                     <:cell class="py-3">
-                      <span class="text-sm font-medium">{Map.get(@stats_by_agent[agent.id] || %{}, :calls, 0)}</span>
+                      <span class="text-sm font-medium">
+                        {Map.get(@stats_by_agent[agent.id] || %{}, :calls, 0)}
+                      </span>
                     </:cell>
                     <:cell class="py-3">
-                      <span class="text-sm">{format_minutes(Map.get(@stats_by_agent[agent.id] || %{}, :minutes, 0))}</span>
+                      <span class="text-sm">
+                        {format_minutes(Map.get(@stats_by_agent[agent.id] || %{}, :minutes, 0))}
+                      </span>
                     </:cell>
                     <:cell class="py-3 pr-4 text-right">
                       <.dropdown placement="bottom-end">
@@ -343,13 +355,9 @@ defmodule SwatiWeb.AgentsLive.Index do
 
   defp agent_card(assigns) do
     ~H"""
-    <div
-      class="group relative flex flex-col overflow-hidden rounded-2xl border border-base-300 bg-base-100 transition-all duration-200 hover:shadow-lg hover:shadow-base-300/50 hover:-translate-y-0.5"
-      phx-click="select_agent"
-      phx-value-id={@agent.id}
-    >
-      <%!-- Avatar Hero Section --%>
-      <div class="relative aspect-square overflow-hidden bg-gradient-to-br from-base-200 via-base-200/80 to-base-300">
+    <div class="group relative flex flex-col overflow-hidden rounded-2xl border border-base-300 bg-base-100 transition-all duration-200 hover:shadow-lg hover:shadow-base-300/50">
+      <%!-- Avatar Hero Section (clickable) --%>
+      <div class="relative aspect-square cursor-pointer overflow-hidden bg-gradient-to-br from-base-200 via-base-200/80 to-base-300">
         <%!-- Background pattern --%>
         <div class="absolute inset-0 opacity-30">
           <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.1),transparent_70%)]">
@@ -365,15 +373,37 @@ defmodule SwatiWeb.AgentsLive.Index do
             loading="lazy"
           />
         <% else %>
-          <div class="flex h-full w-full items-center justify-center">
+          <div class="flex h-full w-full flex-col items-center justify-center gap-3">
             <span class="text-6xl font-bold text-base-content/20 transition-colors group-hover:text-base-content/30">
               {initials(@agent.name)}
             </span>
+            <%= if avatar_can_generate?(@avatar) do %>
+              <.button
+                size="xs"
+                variant="soft"
+                type="button"
+                phx-click="generate_avatar"
+                phx-value-id={@agent.id}
+                class="relative z-30"
+              >
+                <.icon name="hero-sparkles" class="icon" />
+                {avatar_generate_label(@avatar)}
+              </.button>
+            <% end %>
           </div>
         <% end %>
 
+        <button
+          type="button"
+          class="absolute inset-0 z-10"
+          phx-click="select_agent"
+          phx-value-id={@agent.id}
+          aria-label={"View #{@agent.name}"}
+        >
+        </button>
+
         <%!-- Status Badge Overlay --%>
-        <div class="absolute right-3 top-3">
+        <div class="absolute right-3 top-3 z-30">
           <div class={[
             "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-sm",
             status_badge_class(@agent.status)
@@ -383,20 +413,48 @@ defmodule SwatiWeb.AgentsLive.Index do
           </div>
         </div>
 
-        <%!-- Channels Overlay --%>
-        <%= if @channels != [] do %>
-          <div class="absolute bottom-3 left-3 flex items-center gap-1">
-            <.channel_pill :for={channel <- Enum.take(@channels, 3)} channel={channel} />
-            <%= if length(@channels) > 3 do %>
-              <span class="rounded-full bg-base-content/10 px-2 py-0.5 text-[10px] font-medium text-base-content/70 backdrop-blur-sm">
-                +{length(@channels) - 3}
-              </span>
-            <% end %>
+        <%!-- Avatar Status + Actions --%>
+        <div class="absolute left-3 top-3 z-30">
+          <.button
+            :if={avatar_deletable?(@avatar)}
+            size="xs"
+            variant="ghost"
+            type="button"
+            phx-click="delete_avatar"
+            phx-value-id={@agent.id}
+            class="bg-base-100/80 backdrop-blur-sm hover:bg-base-100"
+            aria-label="Delete avatar"
+          >
+            <.icon name="hero-trash" class="h-3 w-3" />
+          </.button>
+        </div>
+        <%= if avatar_status_visible?(@avatar) do %>
+          <div class="absolute bottom-3 left-3 z-30">
+            <.badge
+              size="xs"
+              variant="surface"
+              color={avatar_status_color(@avatar)}
+              class="gap-1 bg-base-100/90 backdrop-blur-sm"
+            >
+              <%= if avatar_status_running?(@avatar) do %>
+                <span class="flex items-center gap-1">
+                  <span class="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:0ms]">
+                  </span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:120ms]">
+                  </span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:240ms]">
+                  </span>
+                </span>
+              <% else %>
+                <.icon name={avatar_status_icon(@avatar)} class="icon" />
+              <% end %>
+              {avatar_status_label(@avatar)}
+            </.badge>
           </div>
         <% end %>
 
         <%!-- Quick Actions Overlay (on hover) --%>
-        <div class="absolute inset-0 flex items-center justify-center gap-2 bg-base-content/0 opacity-0 transition-all duration-200 group-hover:bg-base-content/5 group-hover:opacity-100">
+        <div class="absolute inset-0 z-20 flex items-center justify-center gap-2 bg-base-content/0 opacity-0 transition-all duration-200 group-hover:bg-base-content/5 group-hover:opacity-100">
           <.link
             navigate={~p"/agents/#{@agent.id}/edit"}
             class="flex h-10 w-10 items-center justify-center rounded-full bg-base-100/90 text-base-content shadow-lg backdrop-blur-sm transition-transform hover:scale-110"
@@ -414,27 +472,57 @@ defmodule SwatiWeb.AgentsLive.Index do
         </div>
       </div>
 
+      <%!-- Channel Row --%>
+      <%= if @channels != [] do %>
+        <div class="grid grid-cols-4 gap-1 border-b border-base-200 bg-base-50 p-2">
+          <.channel_badge :for={channel <- Enum.take(@channels, 3)} channel={channel} />
+          <%= if length(@channels) > 3 do %>
+            <.popover id={"channels-#{@agent.id}"} placement="bottom-end" class="min-w-40">
+              <button
+                type="button"
+                class="flex w-full flex-col items-center justify-center rounded-lg bg-base-200 py-1.5 text-[10px] font-medium text-base-content/60 hover:bg-base-300"
+              >
+                +{length(@channels) - 3}
+              </button>
+              <:content>
+                <div class="p-2">
+                  <p class="mb-2 text-[10px] font-medium uppercase tracking-wide text-base-content/50">
+                    More Channels
+                  </p>
+                  <div class="space-y-1">
+                    <.channel_popover_item
+                      :for={channel <- Enum.drop(@channels, 3)}
+                      channel={channel}
+                    />
+                  </div>
+                </div>
+              </:content>
+            </.popover>
+          <% end %>
+        </div>
+      <% end %>
+
       <%!-- Info Section --%>
-      <div class="flex flex-1 flex-col p-4">
+      <div class="flex-1 px-4 pt-4 pb-2">
         <h3 class="font-semibold text-base-content truncate">{@agent.name}</h3>
         <p class="mt-0.5 text-xs text-base-content/50 truncate">
           {model_short(@agent.llm_model)} · {language_flag(@agent.language)} {@agent.language}
         </p>
+      </div>
 
-        <%!-- Stats Row --%>
-        <div class="mt-3 flex items-center gap-4 border-t border-base-200 pt-3">
-          <.mini_stat icon="hero-phone" value={Map.get(@stats, :calls, 0)} label="calls" />
-          <.mini_stat
-            icon="hero-clock"
-            value={format_minutes(Map.get(@stats, :minutes, 0))}
-            label="mins"
-          />
-          <.mini_stat
-            icon="hero-arrow-trending-up"
-            value={format_percent(Map.get(@stats, :completion_rate, 0))}
-            label="rate"
-          />
-        </div>
+      <%!-- Stats Row (always at bottom) --%>
+      <div class="flex items-center gap-4 border-t border-base-200 px-4 py-3">
+        <.mini_stat icon="hero-phone" value={Map.get(@stats, :calls, 0)} label="calls" />
+        <.mini_stat
+          icon="hero-clock"
+          value={format_minutes(Map.get(@stats, :minutes, 0))}
+          label="mins"
+        />
+        <.mini_stat
+          icon="hero-arrow-trending-up"
+          value={format_percent(Map.get(@stats, :completion_rate, 0))}
+          label="rate"
+        />
       </div>
     </div>
     """
@@ -477,6 +565,58 @@ defmodule SwatiWeb.AgentsLive.Index do
   defp channel_pill_color(:chat), do: "bg-teal-500/90 text-white"
   defp channel_pill_color(:whatsapp), do: "bg-green-500/90 text-white"
   defp channel_pill_color(_), do: "bg-base-content/20 text-base-content"
+
+  # Channel Badge Component (for card row - icon with tiny label)
+  attr :channel, :map, required: true
+
+  defp channel_badge(assigns) do
+    ~H"""
+    <div class={[
+      "flex flex-col items-center justify-center gap-0.5 rounded-lg py-1.5",
+      channel_badge_color(@channel.type)
+    ]}>
+      <.channel_icon channel={@channel.type} class="h-3.5 w-3.5" />
+      <span class="text-[10px] font-medium leading-none">{channel_type_short(@channel.type)}</span>
+    </div>
+    """
+  end
+
+  defp channel_badge_color(:voice),
+    do: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"
+
+  defp channel_badge_color(:email),
+    do: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400"
+
+  defp channel_badge_color(:chat),
+    do: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400"
+
+  defp channel_badge_color(:whatsapp),
+    do: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"
+
+  defp channel_badge_color(_), do: "bg-base-200 text-base-content/70"
+
+  defp channel_type_short(:voice), do: "Voice"
+  defp channel_type_short(:email), do: "Email"
+  defp channel_type_short(:chat), do: "Chat"
+  defp channel_type_short(:whatsapp), do: "WA"
+  defp channel_type_short(type), do: type |> to_string() |> String.slice(0..4)
+
+  # Channel Popover Item (for overflow popover)
+  attr :channel, :map, required: true
+
+  defp channel_popover_item(assigns) do
+    ~H"""
+    <div class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-base-100">
+      <div class={[
+        "flex h-5 w-5 items-center justify-center rounded",
+        channel_badge_color(@channel.type)
+      ]}>
+        <.channel_icon channel={@channel.type} class="h-3 w-3" />
+      </div>
+      <span class="text-xs text-base-content">{@channel.name}</span>
+    </div>
+    """
+  end
 
   # Empty State Component
   defp empty_state(assigns) do
@@ -657,7 +797,10 @@ defmodule SwatiWeb.AgentsLive.Index do
   defp channel_row(assigns) do
     ~H"""
     <div class="flex items-center gap-3 rounded-lg border border-base-300 bg-base-100 p-3">
-      <div class={["flex h-8 w-8 items-center justify-center rounded-lg", channel_row_bg(@channel.type)]}>
+      <div class={[
+        "flex h-8 w-8 items-center justify-center rounded-lg",
+        channel_row_bg(@channel.type)
+      ]}>
         <.channel_icon channel={@channel.type} class="h-4 w-4 text-white" />
       </div>
       <div class="flex-1 min-w-0">
@@ -680,6 +823,10 @@ defmodule SwatiWeb.AgentsLive.Index do
   def mount(_params, _session, socket) do
     tenant = socket.assigns.current_scope.tenant
     agents = Agents.list_agents(tenant.id)
+
+    if connected?(socket) do
+      Avatars.subscribe(tenant.id)
+    end
 
     avatars_by_agent =
       Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
@@ -730,7 +877,8 @@ defmodule SwatiWeb.AgentsLive.Index do
   def handle_event("reset_filters", _params, socket) do
     default_filters = %{"status" => "", "language" => "", "query" => ""}
 
-    sorted_agents = sort_agents(socket.assigns.all_agents, socket.assigns.sort, socket.assigns.stats_by_agent)
+    sorted_agents =
+      sort_agents(socket.assigns.all_agents, socket.assigns.sort, socket.assigns.stats_by_agent)
 
     {:noreply,
      socket
@@ -754,7 +902,8 @@ defmodule SwatiWeb.AgentsLive.Index do
         %{field: field, direction: default_dir}
       end
 
-    sorted_agents = sort_agents(socket.assigns.filtered_agents, new_sort, socket.assigns.stats_by_agent)
+    sorted_agents =
+      sort_agents(socket.assigns.filtered_agents, new_sort, socket.assigns.stats_by_agent)
 
     {:noreply,
      socket
@@ -769,7 +918,7 @@ defmodule SwatiWeb.AgentsLive.Index do
 
   @impl true
   def handle_event("select_agent", %{"id" => agent_id}, socket) do
-    agent = Enum.find(socket.assigns.all_agents, &(&1.id == agent_id))
+    agent = find_agent(socket.assigns.all_agents, agent_id)
 
     {:noreply,
      socket
@@ -783,6 +932,66 @@ defmodule SwatiWeb.AgentsLive.Index do
      socket
      |> assign(:sheet_open, false)
      |> assign(:selected_agent, nil)}
+  end
+
+  @impl true
+  def handle_event("generate_avatar", %{"id" => agent_id}, socket) do
+    case find_agent(socket.assigns.all_agents, agent_id) do
+      nil ->
+        {:noreply, socket}
+
+      agent ->
+        case Avatars.request_agent_avatar(socket.assigns.current_scope, agent) do
+          {:ok, avatar} ->
+            avatars_by_agent =
+              socket.assigns.avatars_by_agent
+              |> Map.put(agent.id, avatar)
+
+            {:noreply, assign(socket, :avatars_by_agent, avatars_by_agent)}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Unable to queue avatar generation.")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_event("delete_avatar", %{"id" => agent_id}, socket) do
+    case find_agent(socket.assigns.all_agents, agent_id) do
+      nil ->
+        {:noreply, socket}
+
+      agent ->
+        case Avatars.delete_latest_avatar(socket.assigns.current_scope, agent.id) do
+          {:ok, _avatar} ->
+            latest = Avatars.get_latest_avatar(socket.assigns.current_scope, agent.id)
+
+            avatars_by_agent =
+              if latest do
+                Map.put(socket.assigns.avatars_by_agent, agent.id, latest)
+              else
+                Map.delete(socket.assigns.avatars_by_agent, agent.id)
+              end
+
+            {:noreply,
+             socket
+             |> assign(:avatars_by_agent, avatars_by_agent)
+             |> put_flash(:info, "Avatar deleted.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Unable to delete avatar.")}
+        end
+    end
+  end
+
+  @impl true
+  def handle_info({:avatar_updated, avatar}, socket) do
+    if find_agent(socket.assigns.all_agents, avatar.agent_id) do
+      avatars_by_agent = Map.put(socket.assigns.avatars_by_agent, avatar.agent_id, avatar)
+      {:noreply, assign(socket, :avatars_by_agent, avatars_by_agent)}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Filter Logic
@@ -810,8 +1019,13 @@ defmodule SwatiWeb.AgentsLive.Index do
 
     Enum.filter(agents, fn agent ->
       name_match = agent.name && String.contains?(String.downcase(agent.name), query_lower)
-      model_match = agent.llm_model && String.contains?(String.downcase(agent.llm_model), query_lower)
-      lang_match = agent.language && String.contains?(String.downcase(agent.language), query_lower)
+
+      model_match =
+        agent.llm_model && String.contains?(String.downcase(agent.llm_model), query_lower)
+
+      lang_match =
+        agent.language && String.contains?(String.downcase(agent.language), query_lower)
+
       name_match or model_match or lang_match
     end)
   end
@@ -840,14 +1054,22 @@ defmodule SwatiWeb.AgentsLive.Index do
           Enum.sort_by(agents, &(&1.language || ""), :asc)
 
         "calls" ->
-          Enum.sort_by(agents, fn agent ->
-            Map.get(stats_by_agent[agent.id] || %{}, :calls, 0)
-          end, :desc)
+          Enum.sort_by(
+            agents,
+            fn agent ->
+              Map.get(stats_by_agent[agent.id] || %{}, :calls, 0)
+            end,
+            :desc
+          )
 
         "minutes" ->
-          Enum.sort_by(agents, fn agent ->
-            Map.get(stats_by_agent[agent.id] || %{}, :minutes, 0)
-          end, :desc)
+          Enum.sort_by(
+            agents,
+            fn agent ->
+              Map.get(stats_by_agent[agent.id] || %{}, :minutes, 0)
+            end,
+            :desc
+          )
 
         _ ->
           agents
@@ -1005,6 +1227,10 @@ defmodule SwatiWeb.AgentsLive.Index do
 
   defp agent_ids(agents), do: Enum.map(agents, & &1.id)
 
+  defp find_agent(agents, agent_id) do
+    Enum.find(agents, fn agent -> to_string(agent.id) == to_string(agent_id) end)
+  end
+
   defp initials(nil), do: "?"
 
   defp initials(name) when is_binary(name) do
@@ -1020,6 +1246,44 @@ defmodule SwatiWeb.AgentsLive.Index do
 
   defp avatar_ready?(%{status: :ready, output_url: url}) when is_binary(url), do: true
   defp avatar_ready?(_), do: false
+
+  defp avatar_can_generate?(nil), do: true
+  defp avatar_can_generate?(%{status: :failed}), do: true
+  defp avatar_can_generate?(_), do: false
+
+  defp avatar_generate_label(nil), do: "Generate avatar"
+  defp avatar_generate_label(%{status: :failed}), do: "Retry avatar"
+  defp avatar_generate_label(_), do: "Generate avatar"
+
+  defp avatar_deletable?(%{status: status}) when status in [:ready, :failed], do: true
+  defp avatar_deletable?(_), do: false
+
+  defp avatar_status_visible?(%{status: :ready}), do: false
+  defp avatar_status_visible?(_), do: true
+
+  defp avatar_status_running?(%{status: :running}), do: true
+  defp avatar_status_running?(_), do: false
+
+  defp avatar_status_label(nil), do: "No avatar"
+  defp avatar_status_label(%{status: :queued}), do: "Queued"
+  defp avatar_status_label(%{status: :running}), do: "Generating"
+  defp avatar_status_label(%{status: :ready}), do: "Ready"
+  defp avatar_status_label(%{status: :failed}), do: "Failed"
+  defp avatar_status_label(_), do: "Unknown"
+
+  defp avatar_status_color(nil), do: "info"
+  defp avatar_status_color(%{status: :queued}), do: "warning"
+  defp avatar_status_color(%{status: :running}), do: "warning"
+  defp avatar_status_color(%{status: :ready}), do: "success"
+  defp avatar_status_color(%{status: :failed}), do: "danger"
+  defp avatar_status_color(_), do: "info"
+
+  defp avatar_status_icon(nil), do: "hero-photo"
+  defp avatar_status_icon(%{status: :queued}), do: "hero-clock"
+  defp avatar_status_icon(%{status: :running}), do: "hero-arrow-path"
+  defp avatar_status_icon(%{status: :ready}), do: "hero-check"
+  defp avatar_status_icon(%{status: :failed}), do: "hero-x-mark"
+  defp avatar_status_icon(_), do: "hero-photo"
 
   # Filter & Sort Options
 

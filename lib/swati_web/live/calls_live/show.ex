@@ -1898,7 +1898,7 @@ defmodule SwatiWeb.CallsLive.Show do
          duration_ms,
          next_start_ms,
          total_duration_ms,
-         opts \\ []
+         opts
        ) do
     start_ms = safe_ms(start_ms)
     explicit_end_ms = safe_ms(explicit_end_ms)
@@ -1934,7 +1934,7 @@ defmodule SwatiWeb.CallsLive.Show do
     |> max(start_ms)
   end
 
-  defp with_inferred_end_ms(items, total_duration_ms, duration_field, opts \\ []) do
+  defp with_inferred_end_ms(items, total_duration_ms, duration_field, opts) do
     sorted =
       items
       |> Enum.sort_by(fn item -> safe_ms(Map.get(item, :start_ms)) end, :asc)

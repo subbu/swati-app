@@ -23,6 +23,11 @@ config :swati,
 config :swati, :internal_api_token, "test-internal-token"
 config :swati, :media_gateway_base_url, "http://localhost:4100"
 
+config :swati, :razorpay,
+  key_id: "test_razorpay_key",
+  key_secret: "test_razorpay_secret",
+  webhook_secret: "test_razorpay_webhook"
+
 config :swati, Oban, testing: :inline
 
 # We don't run a server during test. If one is required,
