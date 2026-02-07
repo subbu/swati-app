@@ -8,28 +8,35 @@ defmodule SwatiWeb.CustomersLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    filters = %{"status" => "", "query" => ""}
-    sort = sort_assign(%{})
-    page_size = 20
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :view_customers) do
+      filters = %{"status" => "", "query" => ""}
+      sort = sort_assign(%{})
+      page_size = 20
 
-    socket =
-      socket
-      |> assign(:filters, filters)
-      |> assign(:filters_active, filters_active?(filters))
-      |> assign(:filter_form, to_form(filters, as: :filters))
-      |> assign(:status_options, CustomersHelpers.status_options())
-      |> assign(:sort, sort)
-      |> assign(:page, 1)
-      |> assign(:page_size, page_size)
-      |> assign(
-        :pagination,
-        %{page: 1, page_size: page_size, total_pages: 1, total_count: 0}
-      )
-      |> assign(:edit_modal_open, false)
-      |> assign(:edit_customer, nil)
-      |> assign(:edit_form, to_form(%{}, as: :customer))
+      socket =
+        socket
+        |> assign(:filters, filters)
+        |> assign(:filters_active, filters_active?(filters))
+        |> assign(:filter_form, to_form(filters, as: :filters))
+        |> assign(:status_options, CustomersHelpers.status_options())
+        |> assign(:sort, sort)
+        |> assign(:page, 1)
+        |> assign(:page_size, page_size)
+        |> assign(
+          :pagination,
+          %{page: 1, page_size: page_size, total_pages: 1, total_count: 0}
+        )
+        |> assign(:edit_modal_open, false)
+        |> assign(:edit_customer, nil)
+        |> assign(:edit_form, to_form(%{}, as: :customer))
 
-    {:ok, load_customers(socket)}
+      {:ok, load_customers(socket)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

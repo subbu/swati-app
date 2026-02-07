@@ -1,7 +1,7 @@
 defmodule Swati.Accounts.MembershipInvite do
   use Swati.DbSchema
 
-  @roles [:owner, :admin, :agent, :member, :viewer]
+  @roles [:owner, :admin, :staff, :member, :viewer]
 
   embedded_schema do
     field :email, :string

@@ -5,6 +5,8 @@ defmodule SwatiWeb.Layouts do
   """
   use SwatiWeb, :html
 
+  alias Swati.Accounts.Scope
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -59,49 +61,49 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Dashboard
           </.navlink>
-          <.navlink navigate={~p"/agents"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_agents)} navigate={~p"/agents"}>
             <.icon
               name="hero-user-circle"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Agents
           </.navlink>
-          <.navlink navigate={~p"/agent-data"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_integrations)} navigate={~p"/agent-data"}>
             <.icon
               name="hero-wrench-screwdriver"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Agent data
           </.navlink>
-          <.navlink navigate={~p"/numbers"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/numbers"}>
             <.icon
               name="hero-hashtag"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Endpoints
           </.navlink>
-          <.navlink navigate={~p"/surfaces"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/surfaces"}>
             <.icon
               name="hero-adjustments-vertical"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Surfaces
           </.navlink>
-          <.navlink navigate={~p"/sessions"}>
+          <.navlink :if={Scope.can?(@current_scope, :view_sessions)} navigate={~p"/sessions"}>
             <.icon
               name="hero-chat-bubble-left-right"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Conversations
           </.navlink>
-          <.navlink navigate={~p"/customers"}>
+          <.navlink :if={Scope.can?(@current_scope, :view_customers)} navigate={~p"/customers"}>
             <.icon
               name="hero-user"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Customers
           </.navlink>
-          <.navlink navigate={~p"/cases"}>
+          <.navlink :if={Scope.can?(@current_scope, :view_cases)} navigate={~p"/cases"}>
             <.icon
               name="hero-briefcase"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Cases
           </.navlink>
-          <.navlink navigate={~p"/trust"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_trust)} navigate={~p"/trust"}>
             <.icon
               name="hero-shield-check"
               class="size-5 text-foreground-softer group-hover:text-foreground"
@@ -110,13 +112,13 @@ defmodule SwatiWeb.Layouts do
         </.navlist>
 
         <.navlist heading="Organization">
-          <.navlink navigate={~p"/settings/members"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_members)} navigate={~p"/settings/members"}>
             <.icon
               name="hero-user-group"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Members
           </.navlink>
-          <.navlink navigate={~p"/settings/billing"}>
+          <.navlink :if={Scope.can?(@current_scope, :view_billing)} navigate={~p"/settings/billing"}>
             <.icon
               name="hero-credit-card"
               class="size-5 text-foreground-softer group-hover:text-foreground"
@@ -155,37 +157,37 @@ defmodule SwatiWeb.Layouts do
                 <.navlink navigate={~p"/dashboard"}>
                   <.icon name="hero-chart-bar-square" class="size-5" /> Dashboard
                 </.navlink>
-                <.navlink navigate={~p"/agents"}>
+                <.navlink :if={Scope.can?(@current_scope, :manage_agents)} navigate={~p"/agents"}>
                   <.icon name="hero-user-circle" class="size-5" /> Agents
                 </.navlink>
-                <.navlink navigate={~p"/agent-data"}>
+                <.navlink :if={Scope.can?(@current_scope, :manage_integrations)} navigate={~p"/agent-data"}>
                   <.icon name="hero-wrench-screwdriver" class="size-5" /> Agent data
                 </.navlink>
-                <.navlink navigate={~p"/numbers"}>
+                <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/numbers"}>
                   <.icon name="hero-hashtag" class="size-5" /> Endpoints
                 </.navlink>
-                <.navlink navigate={~p"/surfaces"}>
+                <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/surfaces"}>
                   <.icon name="hero-adjustments-vertical" class="size-5" /> Surfaces
                 </.navlink>
-                <.navlink navigate={~p"/sessions"}>
+                <.navlink :if={Scope.can?(@current_scope, :view_sessions)} navigate={~p"/sessions"}>
                   <.icon name="hero-chat-bubble-left-right" class="size-5" /> Conversations
                 </.navlink>
-                <.navlink navigate={~p"/customers"}>
+                <.navlink :if={Scope.can?(@current_scope, :view_customers)} navigate={~p"/customers"}>
                   <.icon name="hero-user" class="size-5" /> Customers
                 </.navlink>
-                <.navlink navigate={~p"/cases"}>
+                <.navlink :if={Scope.can?(@current_scope, :view_cases)} navigate={~p"/cases"}>
                   <.icon name="hero-briefcase" class="size-5" /> Cases
                 </.navlink>
-                <.navlink navigate={~p"/trust"}>
+                <.navlink :if={Scope.can?(@current_scope, :manage_trust)} navigate={~p"/trust"}>
                   <.icon name="hero-shield-check" class="size-5" /> Trust console
                 </.navlink>
               </.navlist>
 
               <.navlist heading="Organization">
-                <.navlink navigate={~p"/settings/members"}>
+                <.navlink :if={Scope.can?(@current_scope, :manage_members)} navigate={~p"/settings/members"}>
                   <.icon name="hero-user-group" class="size-5" /> Members
                 </.navlink>
-                <.navlink navigate={~p"/settings/billing"}>
+                <.navlink :if={Scope.can?(@current_scope, :view_billing)} navigate={~p"/settings/billing"}>
                   <.icon name="hero-credit-card" class="size-5" /> Billing
                 </.navlink>
                 <.navlink navigate={~p"/users/settings"}>

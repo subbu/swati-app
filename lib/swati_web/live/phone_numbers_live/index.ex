@@ -498,43 +498,50 @@ defmodule SwatiWeb.PhoneNumbersLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_channels) do
+      tenant = socket.assigns.current_scope.tenant
 
-    agents = Agents.list_agents(tenant.id)
-    phone_numbers = Telephony.list_phone_numbers(tenant.id)
+      agents = Agents.list_agents(tenant.id)
+      phone_numbers = Telephony.list_phone_numbers(tenant.id)
 
-    avatars_by_agent =
-      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+      avatars_by_agent =
+        Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
 
-    search_params = %{
-      "country_iso" => @default_country_iso,
-      "region_city" => "",
-      "pattern" => ""
-    }
+      search_params = %{
+        "country_iso" => @default_country_iso,
+        "region_city" => "",
+        "pattern" => ""
+      }
 
-    buy_settings = %{"agent_id" => "", "auto_activate" => false}
+      buy_settings = %{"agent_id" => "", "auto_activate" => false}
 
-    {:ok,
-     socket
-     |> assign(:agents, agents)
-     |> assign(:avatars_by_agent, avatars_by_agent)
-     |> assign(:phone_numbers, phone_numbers)
-     |> assign(:default_country_iso, @default_country_iso)
-     |> assign(:search_params, search_params)
-     |> assign(:buy_settings, buy_settings)
-     |> assign(:available_numbers, [])
-     |> assign(:available_meta, nil)
-     |> assign(:buy_sheet_open, false)
-     |> assign(:assign_modal_open, false)
-     |> assign(:assign_target, nil)
-     |> assign(:purchase_modal_open, false)
-     |> assign(:purchase_summary, nil)
-     |> assign(:simulate_enabled, FunWithFlags.enabled?(@simulate_flag))
-     |> assign(:agents_by_id, Map.new(agents, &{&1.id, &1}))
-     |> assign(:agent_assign_options, agent_assign_options(agents))
-     |> assign(:city_options, city_options())
-     |> assign(:search_form, to_form(search_params, as: :search))
-     |> assign(:buy_settings_form, to_form(buy_settings, as: :settings))}
+      {:ok,
+       socket
+       |> assign(:agents, agents)
+       |> assign(:avatars_by_agent, avatars_by_agent)
+       |> assign(:phone_numbers, phone_numbers)
+       |> assign(:default_country_iso, @default_country_iso)
+       |> assign(:search_params, search_params)
+       |> assign(:buy_settings, buy_settings)
+       |> assign(:available_numbers, [])
+       |> assign(:available_meta, nil)
+       |> assign(:buy_sheet_open, false)
+       |> assign(:assign_modal_open, false)
+       |> assign(:assign_target, nil)
+       |> assign(:purchase_modal_open, false)
+       |> assign(:purchase_summary, nil)
+       |> assign(:simulate_enabled, FunWithFlags.enabled?(@simulate_flag))
+       |> assign(:agents_by_id, Map.new(agents, &{&1.id, &1}))
+       |> assign(:agent_assign_options, agent_assign_options(agents))
+       |> assign(:city_options, city_options())
+       |> assign(:search_form, to_form(search_params, as: :search))
+       |> assign(:buy_settings_form, to_form(buy_settings, as: :settings))}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

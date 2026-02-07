@@ -315,16 +315,23 @@ defmodule SwatiWeb.BillingLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    socket =
-      socket
-      |> stream_configure(:invoices, dom_id: &invoice_dom_id/1)
-      |> assign(:page_title, "Billing")
-      |> assign(:can_manage?, Accounts.authorized?(socket.assigns.current_scope, :manage_billing))
-      |> assign(:plan_notice, nil)
-      |> assign(:payment_link, nil)
-      |> assign(:invoice_error, false)
+    if Accounts.authorized?(socket.assigns.current_scope, :view_billing) do
+      socket =
+        socket
+        |> stream_configure(:invoices, dom_id: &invoice_dom_id/1)
+        |> assign(:page_title, "Billing")
+        |> assign(:can_manage?, Accounts.authorized?(socket.assigns.current_scope, :manage_billing))
+        |> assign(:plan_notice, nil)
+        |> assign(:payment_link, nil)
+        |> assign(:invoice_error, false)
 
-    {:ok, load_billing(socket)}
+      {:ok, load_billing(socket)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

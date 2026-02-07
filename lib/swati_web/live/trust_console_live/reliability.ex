@@ -5,16 +5,23 @@ defmodule SwatiWeb.TrustConsoleLive.Reliability do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_trust) do
+      tenant = socket.assigns.current_scope.tenant
 
-    tools = Trust.tool_reliability(tenant.id)
-    channels = Trust.channel_health(tenant.id)
+      tools = Trust.tool_reliability(tenant.id)
+      channels = Trust.channel_health(tenant.id)
 
-    {:ok,
-     socket
-     |> assign(:tools, tools)
-     |> assign(:channels, channels)
-     |> assign(:active_tab, :reliability)}
+      {:ok,
+       socket
+       |> assign(:tools, tools)
+       |> assign(:channels, channels)
+       |> assign(:active_tab, :reliability)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

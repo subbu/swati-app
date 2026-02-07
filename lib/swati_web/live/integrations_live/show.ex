@@ -312,28 +312,35 @@ defmodule SwatiWeb.IntegrationsLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    integration = Integrations.get_integration!(socket.assigns.current_scope.tenant.id, id)
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_integrations) do
+      integration = Integrations.get_integration!(socket.assigns.current_scope.tenant.id, id)
 
-    socket =
-      socket
-      |> assign(:integration, integration)
-      |> assign(:allowed_tools, integration.allowed_tools || [])
-      |> assign(:allowlist_seeded, integration.allowed_tools != [])
-      |> assign(:available_tools, [])
-      |> assign(:tools_state, :idle)
-      |> assign(:tools_error, nil)
-      |> assign(:tools_form, to_form(%{}, as: :tools))
-      |> assign(:expanded_tools, MapSet.new())
-
-    socket =
-      if connected?(socket) do
-        send(self(), :load_tools)
-        assign(socket, :tools_state, :loading)
-      else
+      socket =
         socket
-      end
+        |> assign(:integration, integration)
+        |> assign(:allowed_tools, integration.allowed_tools || [])
+        |> assign(:allowlist_seeded, integration.allowed_tools != [])
+        |> assign(:available_tools, [])
+        |> assign(:tools_state, :idle)
+        |> assign(:tools_error, nil)
+        |> assign(:tools_form, to_form(%{}, as: :tools))
+        |> assign(:expanded_tools, MapSet.new())
 
-    {:ok, socket}
+      socket =
+        if connected?(socket) do
+          send(self(), :load_tools)
+          assign(socket, :tools_state, :loading)
+        else
+          socket
+        end
+
+      {:ok, socket}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

@@ -986,38 +986,45 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> assign(:status_options, status_options())
-     |> assign(:language_options, language_options())
-     |> assign(:voice_options, voice_options())
-     |> assign(:channels, [])
-     |> assign(:channel_states, %{})
-     |> assign(:channel_health, %{})
-     |> assign(:channel_search, "")
-     |> assign(:integrations, [])
-     |> assign(:integration_states, %{})
-     |> assign(:webhooks, [])
-     |> assign(:webhook_states, %{})
-     |> assign(:active_tab, "channels")
-     |> assign(:effective_tools, [])
-     |> assign(:scope_sheet_open, false)
-     |> assign(:scope_channel, nil)
-     |> assign(:scope_health, %{})
-     |> assign(:scope_endpoints, [])
-     |> assign(:scope_connections, %{})
-     |> assign(:scope_mode, "all")
-     |> assign(:scope_selected_ids, [])
-     |> assign(:expanded_sections, %{
-       "attributes" => false,
-       "voice" => false,
-       "instructions" => true,
-       "escalation" => false,
-       "tools" => false,
-       "channels" => true,
-       "integrations" => false,
-       "webhooks" => false
-     })}
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_agents) do
+      {:ok,
+       socket
+       |> assign(:status_options, status_options())
+       |> assign(:language_options, language_options())
+       |> assign(:voice_options, voice_options())
+       |> assign(:channels, [])
+       |> assign(:channel_states, %{})
+       |> assign(:channel_health, %{})
+       |> assign(:channel_search, "")
+       |> assign(:integrations, [])
+       |> assign(:integration_states, %{})
+       |> assign(:webhooks, [])
+       |> assign(:webhook_states, %{})
+       |> assign(:active_tab, "channels")
+       |> assign(:effective_tools, [])
+       |> assign(:scope_sheet_open, false)
+       |> assign(:scope_channel, nil)
+       |> assign(:scope_health, %{})
+       |> assign(:scope_endpoints, [])
+       |> assign(:scope_connections, %{})
+       |> assign(:scope_mode, "all")
+       |> assign(:scope_selected_ids, [])
+       |> assign(:expanded_sections, %{
+         "attributes" => false,
+         "voice" => false,
+         "instructions" => true,
+         "escalation" => false,
+         "tools" => false,
+         "channels" => true,
+         "integrations" => false,
+         "webhooks" => false
+       })}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

@@ -25,7 +25,14 @@ defmodule SwatiWeb.IntegrationsLive.Form do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_integrations) do
+      {:ok, socket}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

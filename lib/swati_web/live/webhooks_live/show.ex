@@ -220,13 +220,20 @@ defmodule SwatiWeb.WebhooksLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    webhook = Webhooks.get_webhook!(socket.assigns.current_scope.tenant.id, id)
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_webhooks) do
+      webhook = Webhooks.get_webhook!(socket.assigns.current_scope.tenant.id, id)
 
-    {:ok,
-     socket
-     |> assign(:webhook, webhook)
-     |> assign(:payload_text, format_payload(webhook))
-     |> assign(:delete_modal_open, false)}
+      {:ok,
+       socket
+       |> assign(:webhook, webhook)
+       |> assign(:payload_text, format_payload(webhook))
+       |> assign(:delete_modal_open, false)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

@@ -821,38 +821,45 @@ defmodule SwatiWeb.AgentsLive.Index do
   # Mount and Event Handlers
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-    agents = Agents.list_agents(tenant.id)
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_agents) do
+      tenant = socket.assigns.current_scope.tenant
+      agents = Agents.list_agents(tenant.id)
 
-    if connected?(socket) do
-      Avatars.subscribe(tenant.id)
+      if connected?(socket) do
+        Avatars.subscribe(tenant.id)
+      end
+
+      avatars_by_agent =
+        Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
+
+      channels_by_agent = load_channels_by_agent(tenant.id, agents)
+      stats_by_agent = load_stats_by_agent(tenant.id, agents)
+
+      # Initial filter/sort state
+      default_filters = %{"status" => "", "language" => "", "query" => ""}
+      default_sort = %{field: "name", direction: "asc"}
+
+      {:ok,
+       socket
+       |> assign(:all_agents, agents)
+       |> assign(:filtered_agents, agents)
+       |> assign(:avatars_by_agent, avatars_by_agent)
+       |> assign(:channels_by_agent, channels_by_agent)
+       |> assign(:stats_by_agent, stats_by_agent)
+       |> assign(:all_agents_count, length(agents))
+       |> assign(:filters, default_filters)
+       |> assign(:filters_active, false)
+       |> assign(:filter_form, to_form(default_filters, as: :filters))
+       |> assign(:sort, default_sort)
+       |> assign(:view_mode, "grid")
+       |> assign(:sheet_open, false)
+       |> assign(:selected_agent, nil)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
     end
-
-    avatars_by_agent =
-      Avatars.latest_avatars_by_agent(socket.assigns.current_scope, agent_ids(agents))
-
-    channels_by_agent = load_channels_by_agent(tenant.id, agents)
-    stats_by_agent = load_stats_by_agent(tenant.id, agents)
-
-    # Initial filter/sort state
-    default_filters = %{"status" => "", "language" => "", "query" => ""}
-    default_sort = %{field: "name", direction: "asc"}
-
-    {:ok,
-     socket
-     |> assign(:all_agents, agents)
-     |> assign(:filtered_agents, agents)
-     |> assign(:avatars_by_agent, avatars_by_agent)
-     |> assign(:channels_by_agent, channels_by_agent)
-     |> assign(:stats_by_agent, stats_by_agent)
-     |> assign(:all_agents_count, length(agents))
-     |> assign(:filters, default_filters)
-     |> assign(:filters_active, false)
-     |> assign(:filter_form, to_form(default_filters, as: :filters))
-     |> assign(:sort, default_sort)
-     |> assign(:view_mode, "grid")
-     |> assign(:sheet_open, false)
-     |> assign(:selected_agent, nil)}
   end
 
   @impl true

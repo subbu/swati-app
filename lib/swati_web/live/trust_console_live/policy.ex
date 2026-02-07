@@ -6,17 +6,24 @@ defmodule SwatiWeb.TrustConsoleLive.Policy do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_trust) do
+      tenant = socket.assigns.current_scope.tenant
 
-    tools = Tools.list_tools(tenant.id)
-    channels = Channels.list_channels(tenant.id)
+      tools = Tools.list_tools(tenant.id)
+      channels = Channels.list_channels(tenant.id)
 
-    {:ok,
-     socket
-     |> assign(:tools, tools)
-     |> assign(:channels, channels)
-     |> assign(:tenant_policy_json, Jason.encode!(tenant.policy || %{}, pretty: true))
-     |> assign(:active_tab, :policy)}
+      {:ok,
+       socket
+       |> assign(:tools, tools)
+       |> assign(:channels, channels)
+       |> assign(:tenant_policy_json, Jason.encode!(tenant.policy || %{}, pretty: true))
+       |> assign(:active_tab, :policy)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

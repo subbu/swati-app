@@ -7,49 +7,56 @@ defmodule SwatiWeb.ChannelsLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-    channels = Channels.list_channels(tenant.id)
-    endpoints = Channels.list_endpoints(tenant.id) |> Repo.preload(:channel)
-    connections = Channels.list_connections(tenant.id) |> Repo.preload([:channel, :endpoint])
-    connections_by_provider = Enum.group_by(connections, & &1.provider)
-    imap_defaults = Imap.default_params()
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_channels) do
+      tenant = socket.assigns.current_scope.tenant
+      channels = Channels.list_channels(tenant.id)
+      endpoints = Channels.list_endpoints(tenant.id) |> Repo.preload(:channel)
+      connections = Channels.list_connections(tenant.id) |> Repo.preload([:channel, :endpoint])
+      connections_by_provider = Enum.group_by(connections, & &1.provider)
+      imap_defaults = Imap.default_params()
 
-    providers = [
-      %{
-        id: :gmail,
-        name: "Gmail",
-        description: "Google Workspace and Gmail inboxes.",
-        icon: "hero-envelope",
-        status: :available
-      },
-      %{
-        id: :outlook,
-        name: "Outlook",
-        description: "Microsoft 365 and Outlook inboxes.",
-        icon: "hero-inbox",
-        status: :available
-      },
-      %{
-        id: :imap,
-        name: "IMAP/SMTP",
-        description: "Custom IMAP/SMTP credentials.",
-        icon: "hero-server-stack",
-        status: :available
-      }
-    ]
+      providers = [
+        %{
+          id: :gmail,
+          name: "Gmail",
+          description: "Google Workspace and Gmail inboxes.",
+          icon: "hero-envelope",
+          status: :available
+        },
+        %{
+          id: :outlook,
+          name: "Outlook",
+          description: "Microsoft 365 and Outlook inboxes.",
+          icon: "hero-inbox",
+          status: :available
+        },
+        %{
+          id: :imap,
+          name: "IMAP/SMTP",
+          description: "Custom IMAP/SMTP credentials.",
+          icon: "hero-server-stack",
+          status: :available
+        }
+      ]
 
-    {:ok,
-     socket
-     |> assign(:channels, channels)
-     |> assign(:endpoints, endpoints)
-     |> assign(:connections, connections)
-     |> assign(:connections_by_provider, connections_by_provider)
-     |> assign(:providers, providers)
-     |> assign(:sync_providers, Channels.sync_providers())
-     |> assign(:imap_sheet_open, false)
-     |> assign(:imap_preset, :custom)
-     |> assign(:imap_provider_label, Map.get(imap_defaults, "provider_label"))
-     |> assign(:imap_form, to_form(Imap.changeset(imap_defaults), as: :imap))}
+      {:ok,
+       socket
+       |> assign(:channels, channels)
+       |> assign(:endpoints, endpoints)
+       |> assign(:connections, connections)
+       |> assign(:connections_by_provider, connections_by_provider)
+       |> assign(:providers, providers)
+       |> assign(:sync_providers, Channels.sync_providers())
+       |> assign(:imap_sheet_open, false)
+       |> assign(:imap_preset, :custom)
+       |> assign(:imap_provider_label, Map.get(imap_defaults, "provider_label"))
+       |> assign(:imap_form, to_form(Imap.changeset(imap_defaults), as: :imap))}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

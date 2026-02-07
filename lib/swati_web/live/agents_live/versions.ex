@@ -40,10 +40,17 @@ defmodule SwatiWeb.AgentsLive.Versions do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    agent = Agents.get_agent!(socket.assigns.current_scope.tenant.id, id)
-    versions = Agents.list_agent_versions(agent.id)
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_agents) do
+      agent = Agents.get_agent!(socket.assigns.current_scope.tenant.id, id)
+      versions = Agents.list_agent_versions(agent.id)
 
-    {:ok, assign(socket, agent: agent, versions: versions)}
+      {:ok, assign(socket, agent: agent, versions: versions)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   defp format_datetime(nil, _tenant), do: "—"

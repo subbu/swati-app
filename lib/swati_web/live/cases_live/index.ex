@@ -9,53 +9,60 @@ defmodule SwatiWeb.CasesLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-    agents = Agents.list_agents(tenant.id)
-    view_state = Preferences.cases_index_state(socket.assigns.current_scope)
-    allowed_columns = Preferences.cases_index_columns()
-    default_sort = Map.get(Preferences.cases_index_defaults(), "sort", %{})
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :view_cases) do
+      tenant = socket.assigns.current_scope.tenant
+      agents = Agents.list_agents(tenant.id)
+      view_state = Preferences.cases_index_state(socket.assigns.current_scope)
+      allowed_columns = Preferences.cases_index_columns()
+      default_sort = Map.get(Preferences.cases_index_defaults(), "sort", %{})
 
-    filters =
-      %{"status" => "", "assigned_agent_id" => "", "query" => ""}
-      |> Map.merge(Map.get(view_state, "filters", %{}))
+      filters =
+        %{"status" => "", "assigned_agent_id" => "", "query" => ""}
+        |> Map.merge(Map.get(view_state, "filters", %{}))
 
-    sort =
-      view_state
-      |> Map.get("sort", default_sort)
-      |> sort_assign()
+      sort =
+        view_state
+        |> Map.get("sort", default_sort)
+        |> sort_assign()
 
-    visible_columns = Map.get(view_state, "columns", allowed_columns)
-    hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
+      visible_columns = Map.get(view_state, "columns", allowed_columns)
+      hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
 
-    {filters, filters_changed?} = normalize_agent_filter(filters, agents)
-    filters_active = filters_active?(filters)
+      {filters, filters_changed?} = normalize_agent_filter(filters, agents)
+      filters_active = filters_active?(filters)
 
-    socket =
-      socket
-      |> assign(:agents, agents)
-      |> assign(:filters, filters)
-      |> assign(:filters_active, filters_active)
-      |> assign(:filter_form, to_form(filters, as: :filters))
-      |> assign(:status_options, CasesHelpers.status_options())
-      |> assign(:agent_options, CasesHelpers.agent_options(agents))
-      |> assign(:sort, sort)
-      |> assign(:visible_columns, visible_columns)
-      |> assign(:hidden_columns_count, hidden_columns_count)
-      |> assign(
-        :columns_form,
-        visible_columns
-        |> columns_form_map(allowed_columns)
-        |> to_form()
-      )
+      socket =
+        socket
+        |> assign(:agents, agents)
+        |> assign(:filters, filters)
+        |> assign(:filters_active, filters_active)
+        |> assign(:filter_form, to_form(filters, as: :filters))
+        |> assign(:status_options, CasesHelpers.status_options())
+        |> assign(:agent_options, CasesHelpers.agent_options(agents))
+        |> assign(:sort, sort)
+        |> assign(:visible_columns, visible_columns)
+        |> assign(:hidden_columns_count, hidden_columns_count)
+        |> assign(
+          :columns_form,
+          visible_columns
+          |> columns_form_map(allowed_columns)
+          |> to_form()
+        )
 
-    _ =
-      if filters_changed? do
-        persist_case_filters(socket, filters)
-      else
-        :ok
-      end
+      _ =
+        if filters_changed? do
+          persist_case_filters(socket, filters)
+        else
+          :ok
+        end
 
-    {:ok, load_cases(socket)}
+      {:ok, load_cases(socket)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

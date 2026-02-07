@@ -6,13 +6,20 @@ defmodule SwatiWeb.TrustConsoleLive.Rejections do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-    rejections = Calls.list_call_rejections(tenant.id)
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_trust) do
+      tenant = socket.assigns.current_scope.tenant
+      rejections = Calls.list_call_rejections(tenant.id)
 
-    {:ok,
-     socket
-     |> assign(:rejections, rejections)
-     |> assign(:active_tab, :rejections)}
+      {:ok,
+       socket
+       |> assign(:rejections, rejections)
+       |> assign(:active_tab, :rejections)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

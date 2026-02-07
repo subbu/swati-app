@@ -2,6 +2,7 @@ defmodule SwatiWeb.TenantLive.Members do
   use SwatiWeb, :live_view
 
   alias Swati.Accounts
+  alias Swati.Tenancy.Membership
   alias SwatiWeb.Formatting
 
   @impl true
@@ -52,32 +53,71 @@ defmodule SwatiWeb.TenantLive.Members do
           <div>
             <h2 class="text-lg font-semibold">Current members</h2>
             <p class="text-sm text-base-content/70">
-              Roles control who can manage members.
+              Roles control what each person can see and do.
             </p>
           </div>
 
           <.table>
             <.table_head>
+              <:col>Name</:col>
               <:col>Email</:col>
+              <:col>Title</:col>
               <:col>Role</:col>
               <:col>Joined</:col>
+              <:col></:col>
             </.table_head>
             <.table_body id="members" phx-update="stream">
               <.table_row id="members-empty" class="hidden only:table-row">
-                <:cell colspan="3" class="text-sm text-base-content/70 text-center py-6">
+                <:cell colspan="6" class="text-sm text-base-content/70 text-center py-6">
                   No members yet.
                 </:cell>
               </.table_row>
 
               <.table_row :for={{id, membership} <- @streams.members} id={id}>
-                <:cell class="font-medium">{membership.user.email}</:cell>
+                <:cell class="font-medium">
+                  {Membership.display_name(membership)}
+                </:cell>
+                <:cell class="text-sm text-base-content/70">
+                  {membership.user.email}
+                </:cell>
+                <:cell class="text-sm text-base-content/70">
+                  {membership.title || "—"}
+                </:cell>
                 <:cell>
-                  <.badge color={role_color(membership.role)} variant="soft">
-                    {format_role(membership.role)}
-                  </.badge>
+                  <%= if membership.user_id == @current_scope.user.id do %>
+                    <.badge color={role_color(membership.role)} variant="soft">
+                      {format_role(membership.role)}
+                    </.badge>
+                  <% else %>
+                    <form phx-change="change_role" phx-value-membership-id={membership.id}>
+                      <select
+                        name="role"
+                        class="select select-sm select-bordered"
+                        phx-debounce="300"
+                      >
+                        <%= for {label, value} <- role_select_options() do %>
+                          <option value={value} selected={membership.role == value}>
+                            {label}
+                          </option>
+                        <% end %>
+                      </select>
+                    </form>
+                  <% end %>
                 </:cell>
                 <:cell class="text-sm text-base-content/70">
                   {format_date(membership.inserted_at, @current_scope.tenant)}
+                </:cell>
+                <:cell>
+                  <.button
+                    :if={membership.user_id != @current_scope.user.id}
+                    phx-click="remove_member"
+                    phx-value-membership-id={membership.id}
+                    variant="ghost"
+                    size="sm"
+                    data-confirm="Remove this member? They will lose access to this workspace."
+                  >
+                    <.icon name="hero-trash" class="size-4 text-error" />
+                  </.button>
                 </:cell>
               </.table_row>
             </.table_body>
@@ -123,6 +163,48 @@ defmodule SwatiWeb.TenantLive.Members do
     end
   end
 
+  @impl true
+  def handle_event("change_role", %{"membership-id" => membership_id, "role" => role}, socket) do
+    role_atom = String.to_existing_atom(role)
+
+    case Accounts.update_member_role(socket.assigns.current_scope, membership_id, role_atom) do
+      {:ok, _membership} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Role updated.")
+         |> refresh_members()}
+
+      {:error, :cannot_change_own_role} ->
+        {:noreply, put_flash(socket, :error, "You cannot change your own role.")}
+
+      {:error, :last_owner} ->
+        {:noreply, put_flash(socket, :error, "Cannot change role of the last owner.")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to update role.")}
+    end
+  end
+
+  @impl true
+  def handle_event("remove_member", %{"membership-id" => membership_id}, socket) do
+    case Accounts.remove_member(socket.assigns.current_scope, membership_id) do
+      {:ok, _membership} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Member removed.")
+         |> refresh_members()}
+
+      {:error, :cannot_remove_self} ->
+        {:noreply, put_flash(socket, :error, "You cannot remove yourself.")}
+
+      {:error, :last_owner} ->
+        {:noreply, put_flash(socket, :error, "Cannot remove the last owner.")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to remove member.")}
+    end
+  end
+
   defp load_members(socket) do
     case Accounts.list_members(socket.assigns.current_scope) do
       {:ok, members} ->
@@ -154,9 +236,19 @@ defmodule SwatiWeb.TenantLive.Members do
 
   defp role_options do
     [
+      {"Owner — Full access, including billing", :owner},
+      {"Admin — Full access, except billing", :admin},
+      {"Staff — Cases, customers, sessions", :staff},
+      {"Member — View and work on assigned cases", :member},
+      {"Viewer — Read-only access", :viewer}
+    ]
+  end
+
+  defp role_select_options do
+    [
       {"Owner", :owner},
       {"Admin", :admin},
-      {"Agent", :agent},
+      {"Staff", :staff},
       {"Member", :member},
       {"Viewer", :viewer}
     ]
@@ -166,7 +258,7 @@ defmodule SwatiWeb.TenantLive.Members do
 
   defp role_color(:owner), do: "primary"
   defp role_color(:admin), do: "info"
-  defp role_color(:agent), do: "accent"
+  defp role_color(:staff), do: "accent"
   defp role_color(:member), do: "success"
   defp role_color(:viewer), do: "neutral"
   defp role_color(_), do: "primary"

@@ -60,12 +60,77 @@ defmodule Swati.Tenancy.Memberships do
     end
   end
 
-  def authorized?(%Scope{role: role}, action)
-      when action in [:manage_members, :manage_billing] and role in [:owner, :admin],
-      do: true
+  @role_permissions %{
+    owner: [
+      :view_dashboard,
+      :view_sessions,
+      :view_cases,
+      :view_customers,
+      :manage_agents,
+      :manage_channels,
+      :manage_integrations,
+      :manage_webhooks,
+      :manage_trust,
+      :manage_cases,
+      :assign_cases,
+      :update_case_status,
+      :manage_customers,
+      :manage_members,
+      :manage_billing,
+      :manage_settings,
+      :view_billing
+    ],
+    admin: [
+      :view_dashboard,
+      :view_sessions,
+      :view_cases,
+      :view_customers,
+      :manage_agents,
+      :manage_channels,
+      :manage_integrations,
+      :manage_webhooks,
+      :manage_trust,
+      :manage_cases,
+      :assign_cases,
+      :update_case_status,
+      :manage_customers,
+      :manage_members,
+      :manage_settings,
+      :view_billing
+    ],
+    staff: [
+      :view_dashboard,
+      :view_sessions,
+      :view_cases,
+      :view_customers,
+      :manage_cases,
+      :assign_cases,
+      :update_case_status,
+      :manage_customers
+    ],
+    member: [
+      :view_dashboard,
+      :view_sessions,
+      :view_cases,
+      :update_case_status
+    ],
+    viewer: [
+      :view_dashboard,
+      :view_sessions,
+      :view_cases
+    ]
+  }
+
+  def authorized?(%Scope{role: role}, action) when is_atom(role) and is_atom(action) do
+    action in Map.get(@role_permissions, role, [])
+  end
 
   def authorized?(nil, _action), do: false
   def authorized?(_current_scope, _action), do: false
+
+  def permissions_for_role(role) when is_atom(role) do
+    Map.get(@role_permissions, role, [])
+  end
 
   def get_membership!(tenant_id, user_id) do
     Repo.get_by!(Membership, tenant_id: tenant_id, user_id: user_id)
@@ -80,6 +145,86 @@ defmodule Swati.Tenancy.Memberships do
     |> Repo.all()
   end
 
+  def update_member_role(%Scope{} = current_scope, membership_id, new_role) do
+    with :ok <- authorize(current_scope, :manage_members),
+         %Tenant{id: tenant_id} <- current_scope.tenant do
+      membership = Repo.get_by!(Membership, id: membership_id, tenant_id: tenant_id)
+
+      cond do
+        membership.user_id == current_scope.user.id ->
+          {:error, :cannot_change_own_role}
+
+        membership.role == :owner and not has_other_owners?(tenant_id, membership.user_id) ->
+          {:error, :last_owner}
+
+        true ->
+          membership
+          |> Ecto.Changeset.change(role: new_role)
+          |> Repo.update()
+      end
+    else
+      nil -> {:error, :missing_tenant}
+      {:error, :unauthorized} -> {:error, :unauthorized}
+    end
+  end
+
+  def remove_member(%Scope{} = current_scope, membership_id) do
+    with :ok <- authorize(current_scope, :manage_members),
+         %Tenant{id: tenant_id} <- current_scope.tenant do
+      membership = Repo.get_by!(Membership, id: membership_id, tenant_id: tenant_id)
+
+      cond do
+        membership.user_id == current_scope.user.id ->
+          {:error, :cannot_remove_self}
+
+        membership.role == :owner and not has_other_owners?(tenant_id, membership.user_id) ->
+          {:error, :last_owner}
+
+        true ->
+          Repo.delete(membership)
+      end
+    else
+      nil -> {:error, :missing_tenant}
+      {:error, :unauthorized} -> {:error, :unauthorized}
+    end
+  end
+
+  def update_member_profile(%Scope{} = current_scope, membership_id, attrs) do
+    %Tenant{id: tenant_id} = current_scope.tenant
+    membership = Repo.get_by!(Membership, id: membership_id, tenant_id: tenant_id)
+
+    is_own_profile = membership.user_id == current_scope.user.id
+    can_manage = authorized?(current_scope, :manage_members)
+
+    if is_own_profile or can_manage do
+      membership
+      |> Membership.profile_changeset(attrs)
+      |> Repo.update()
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def list_assignable_members(tenant_id) do
+    from(m in Membership,
+      where: m.tenant_id == ^tenant_id,
+      where: m.role in [:owner, :admin, :staff],
+      join: u in assoc(m, :user),
+      preload: [user: u],
+      order_by: [asc: m.display_name, asc: u.email]
+    )
+    |> Repo.all()
+  end
+
+  defp has_other_owners?(tenant_id, exclude_user_id) do
+    from(m in Membership,
+      where: m.tenant_id == ^tenant_id,
+      where: m.role == :owner,
+      where: m.user_id != ^exclude_user_id
+    )
+    |> Repo.exists?()
+  end
+
   def require_role!(%Membership{role: role}, allowed_roles) when is_list(allowed_roles) do
     if role in allowed_roles do
       :ok
@@ -88,9 +233,11 @@ defmodule Swati.Tenancy.Memberships do
     end
   end
 
-  defp authorize(current_scope, action) do
+  def authorize(%Scope{} = current_scope, action) do
     if authorized?(current_scope, action), do: :ok, else: {:error, :unauthorized}
   end
+
+  def authorize(nil, _action), do: {:error, :unauthorized}
 
   defp create_membership_for_user(user, tenant_id, role, invite_url_fun, changeset) do
     case Repo.insert(

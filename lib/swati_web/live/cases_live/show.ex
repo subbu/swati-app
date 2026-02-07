@@ -1,36 +1,50 @@
 defmodule SwatiWeb.CasesLive.Show do
   use SwatiWeb, :live_view
 
+  alias Swati.Accounts
   alias Swati.Approvals
   alias Swati.Cases
   alias Swati.Handoffs
   alias Swati.Repo
   alias Swati.Sessions
+  alias Swati.Tenancy.Membership
   alias SwatiWeb.CasesLive.Helpers, as: CasesHelpers
   alias SwatiWeb.SessionsLive.Helpers, as: SessionsHelpers
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    tenant_id = socket.assigns.current_scope.tenant.id
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :view_cases) do
+      tenant_id = socket.assigns.current_scope.tenant.id
 
-    case_record =
-      Cases.get_case!(tenant_id, id)
-      |> Repo.preload([:customer])
+      case_record =
+        Cases.get_case!(tenant_id, id)
+        |> Repo.preload([:customer])
 
-    sessions =
-      Sessions.list_sessions(tenant_id, %{case_id: case_record.id})
-      |> Repo.preload([:channel, :endpoint, :agent])
+      sessions =
+        Sessions.list_sessions(tenant_id, %{case_id: case_record.id})
+        |> Repo.preload([:channel, :endpoint, :agent])
 
-    approvals = Approvals.list_approvals(tenant_id, %{case_id: case_record.id})
-    handoffs = Handoffs.list_handoffs(tenant_id, %{case_id: case_record.id})
+      approvals = Approvals.list_approvals(tenant_id, %{case_id: case_record.id})
+      handoffs = Handoffs.list_handoffs(tenant_id, %{case_id: case_record.id})
 
-    {:ok,
-     socket
-     |> assign(:case_record, case_record)
-     |> assign(:memory, case_record.memory || %{})
-     |> assign(:approvals, approvals)
-     |> assign(:handoffs, handoffs)
-     |> stream(:sessions, sessions)}
+      can_assign = Accounts.authorized?(socket.assigns.current_scope, :assign_cases)
+      assignable_members = if can_assign, do: Accounts.list_assignable_members(tenant_id), else: []
+
+      {:ok,
+       socket
+       |> assign(:case_record, case_record)
+       |> assign(:memory, case_record.memory || %{})
+       |> assign(:approvals, approvals)
+       |> assign(:handoffs, handoffs)
+       |> assign(:can_assign, can_assign)
+       |> assign(:assignable_members, assignable_members)
+       |> stream(:sessions, sessions)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true
@@ -124,6 +138,33 @@ defmodule SwatiWeb.CasesLive.Show do
 
           <div class="space-y-4">
             <div class="rounded-base border border-base bg-base p-4">
+              <h2 class="text-sm font-semibold text-foreground">Assigned to</h2>
+              <%= if @can_assign do %>
+                <form phx-change="assign_case" class="mt-2">
+                  <select name="assigned_user_id" class="select select-sm select-bordered w-full">
+                    <option value="">Unassigned</option>
+                    <%= for member <- @assignable_members do %>
+                      <option
+                        value={member.user_id}
+                        selected={@case_record.assigned_user_id == member.user_id}
+                      >
+                        {Membership.display_name(member)}{if member.title, do: " — #{member.title}", else: ""}
+                      </option>
+                    <% end %>
+                  </select>
+                </form>
+              <% else %>
+                <p class="mt-2 text-sm text-foreground-soft">
+                  <%= if @case_record.assigned_user_id do %>
+                    Assigned
+                  <% else %>
+                    Unassigned
+                  <% end %>
+                </p>
+              <% end %>
+            </div>
+
+            <div class="rounded-base border border-base bg-base p-4">
               <h2 class="text-sm font-semibold text-foreground">Commitments</h2>
               <ul class="mt-2 space-y-1 text-sm text-foreground-soft">
                 <li :for={item <- Map.get(@memory, "commitments", [])}>
@@ -204,5 +245,29 @@ defmodule SwatiWeb.CasesLive.Show do
       </div>
     </Layouts.app>
     """
+  end
+
+  @impl true
+  def handle_event("assign_case", %{"assigned_user_id" => user_id}, socket) do
+    if Accounts.authorized?(socket.assigns.current_scope, :assign_cases) do
+      assigned_user_id = if user_id == "", do: nil, else: user_id
+
+      case Cases.update_case(socket.assigns.case_record, %{
+             assigned_user_id: assigned_user_id
+           }) do
+        {:ok, updated_case} ->
+          updated_case = Repo.preload(updated_case, [:customer])
+
+          {:noreply,
+           socket
+           |> assign(:case_record, updated_case)
+           |> put_flash(:info, "Case assignment updated.")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to update assignment.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to assign cases.")}
+    end
   end
 end

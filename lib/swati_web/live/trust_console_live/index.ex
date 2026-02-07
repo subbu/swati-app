@@ -8,15 +8,22 @@ defmodule SwatiWeb.TrustConsoleLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-    cases = Trust.list_recent_cases(tenant.id)
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_trust) do
+      tenant = socket.assigns.current_scope.tenant
+      cases = Trust.list_recent_cases(tenant.id)
 
-    {:ok,
-     socket
-     |> assign(:cases, cases)
-     |> assign(:selected_case, nil)
-     |> assign(:timeline_events, [])
-     |> assign(:active_tab, :timeline)}
+      {:ok,
+       socket
+       |> assign(:cases, cases)
+       |> assign(:selected_case, nil)
+       |> assign(:timeline_events, [])
+       |> assign(:active_tab, :timeline)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

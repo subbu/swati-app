@@ -30,17 +30,24 @@ defmodule SwatiWeb.SessionsLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    tenant_id = socket.assigns.current_scope.tenant.id
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :view_sessions) do
+      tenant_id = socket.assigns.current_scope.tenant.id
 
-    session =
-      Sessions.get_session!(tenant_id, id)
-      |> Repo.preload([:agent, events: from(e in SessionEvent, order_by: [asc: e.ts])])
+      session =
+        Sessions.get_session!(tenant_id, id)
+        |> Repo.preload([:agent, events: from(e in SessionEvent, order_by: [asc: e.ts])])
 
-    timeline = Sessions.get_session_timeline(tenant_id, id)
+      timeline = Sessions.get_session_timeline(tenant_id, id)
 
-    call_like = SessionsHelpers.build_call_like(session)
-    assigns = CallsShow.detail_assigns(call_like, timeline)
+      call_like = SessionsHelpers.build_call_like(session)
+      assigns = CallsShow.detail_assigns(call_like, timeline)
 
-    {:ok, assign(socket, assigns)}
+      {:ok, assign(socket, assigns)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 end

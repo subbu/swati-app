@@ -8,61 +8,68 @@ defmodule SwatiWeb.SurfacesLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    tenant = socket.assigns.current_scope.tenant
-    surfaces = Channels.unified_surfaces_view(tenant.id)
-    connections = Channels.list_connections(tenant.id) |> Repo.preload([:channel, :endpoint])
-    connections_by_provider = Enum.group_by(connections, & &1.provider)
-    imap_defaults = Imap.default_params()
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_channels) do
+      tenant = socket.assigns.current_scope.tenant
+      surfaces = Channels.unified_surfaces_view(tenant.id)
+      connections = Channels.list_connections(tenant.id) |> Repo.preload([:channel, :endpoint])
+      connections_by_provider = Enum.group_by(connections, & &1.provider)
+      imap_defaults = Imap.default_params()
 
-    # Compute aggregate stats
-    stats = compute_aggregate_stats(surfaces)
+      # Compute aggregate stats
+      stats = compute_aggregate_stats(surfaces)
 
-    providers = [
-      %{
-        id: :gmail,
-        name: "Gmail",
-        description: "Google Workspace and Gmail inboxes.",
-        icon: "hero-envelope",
-        status: :available
-      },
-      %{
-        id: :outlook,
-        name: "Outlook",
-        description: "Microsoft 365 and Outlook inboxes.",
-        icon: "hero-inbox",
-        status: :available
-      },
-      %{
-        id: :imap,
-        name: "IMAP/SMTP",
-        description: "Custom IMAP/SMTP credentials.",
-        icon: "hero-server-stack",
-        status: :available
-      }
-    ]
+      providers = [
+        %{
+          id: :gmail,
+          name: "Gmail",
+          description: "Google Workspace and Gmail inboxes.",
+          icon: "hero-envelope",
+          status: :available
+        },
+        %{
+          id: :outlook,
+          name: "Outlook",
+          description: "Microsoft 365 and Outlook inboxes.",
+          icon: "hero-inbox",
+          status: :available
+        },
+        %{
+          id: :imap,
+          name: "IMAP/SMTP",
+          description: "Custom IMAP/SMTP credentials.",
+          icon: "hero-server-stack",
+          status: :available
+        }
+      ]
 
-    # Load all agents for assignment modal
-    all_agents = Agents.list_agents(tenant.id)
+      # Load all agents for assignment modal
+      all_agents = Agents.list_agents(tenant.id)
 
-    {:ok,
-     socket
-     |> assign(:surfaces, surfaces)
-     |> assign(:stats, stats)
-     |> assign(:connections, connections)
-     |> assign(:connections_by_provider, connections_by_provider)
-     |> assign(:providers, providers)
-     |> assign(:sync_providers, Channels.sync_providers())
-     |> assign(:expanded_surface, nil)
-     |> assign(:selected_endpoint, nil)
-     |> assign(:endpoint_sheet_open, false)
-     |> assign(:agent_modal_open, false)
-     |> assign(:agent_modal_surface, nil)
-     |> assign(:agent_modal_channel_id, nil)
-     |> assign(:all_agents, all_agents)
-     |> assign(:imap_sheet_open, false)
-     |> assign(:imap_preset, :custom)
-     |> assign(:imap_provider_label, Map.get(imap_defaults, "provider_label"))
-     |> assign(:imap_form, to_form(Imap.changeset(imap_defaults), as: :imap))}
+      {:ok,
+       socket
+       |> assign(:surfaces, surfaces)
+       |> assign(:stats, stats)
+       |> assign(:connections, connections)
+       |> assign(:connections_by_provider, connections_by_provider)
+       |> assign(:providers, providers)
+       |> assign(:sync_providers, Channels.sync_providers())
+       |> assign(:expanded_surface, nil)
+       |> assign(:selected_endpoint, nil)
+       |> assign(:endpoint_sheet_open, false)
+       |> assign(:agent_modal_open, false)
+       |> assign(:agent_modal_surface, nil)
+       |> assign(:agent_modal_channel_id, nil)
+       |> assign(:all_agents, all_agents)
+       |> assign(:imap_sheet_open, false)
+       |> assign(:imap_preset, :custom)
+       |> assign(:imap_provider_label, Map.get(imap_defaults, "provider_label"))
+       |> assign(:imap_form, to_form(Imap.changeset(imap_defaults), as: :imap))}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

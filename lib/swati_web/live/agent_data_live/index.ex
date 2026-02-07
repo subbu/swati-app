@@ -282,17 +282,24 @@ defmodule SwatiWeb.AgentDataLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> load_integrations()
-     |> assign(:integration_sheet_open, false)
-     |> assign(:integration_form_action, nil)
-     |> assign(:integration_form_integration, nil)
-     |> assign(:webhook_sheet_open, false)
-     |> assign(:webhook_form_action, nil)
-     |> assign(:webhook_form_webhook, nil)
-     |> assign(:tool_name_locked, false)
-     |> load_webhooks(nil)}
+    if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_integrations) do
+      {:ok,
+       socket
+       |> load_integrations()
+       |> assign(:integration_sheet_open, false)
+       |> assign(:integration_form_action, nil)
+       |> assign(:integration_form_integration, nil)
+       |> assign(:webhook_sheet_open, false)
+       |> assign(:webhook_form_action, nil)
+       |> assign(:webhook_form_webhook, nil)
+       |> assign(:tool_name_locked, false)
+       |> load_webhooks(nil)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You don't have permission to access this page.")
+       |> redirect(to: ~p"/dashboard")}
+    end
   end
 
   @impl true

@@ -43,4 +43,13 @@ defmodule Swati.Accounts.Scope do
   end
 
   def for_user(nil), do: nil
+
+  @doc """
+  Returns whether the scope has permission to perform the given action.
+  """
+  def can?(%__MODULE__{} = scope, action) when is_atom(action) do
+    Swati.Tenancy.Memberships.authorized?(scope, action)
+  end
+
+  def can?(nil, _action), do: false
 end

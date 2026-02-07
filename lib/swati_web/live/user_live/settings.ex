@@ -4,6 +4,7 @@ defmodule SwatiWeb.UserLive.Settings do
   on_mount {SwatiWeb.UserAuth, :require_sudo_mode}
 
   alias Swati.Accounts
+  alias Swati.Tenancy.Membership
 
   @impl true
   def render(assigns) do
@@ -12,9 +13,23 @@ defmodule SwatiWeb.UserLive.Settings do
       <div class="text-center">
         <.header>
           Account Settings
-          <:subtitle>Manage your account email address and password settings</:subtitle>
+          <:subtitle>Manage your profile and account settings</:subtitle>
         </.header>
       </div>
+
+      <.form
+        for={@profile_form}
+        id="profile_form"
+        phx-submit="update_profile"
+        phx-change="validate_profile"
+      >
+        <.input field={@profile_form[:display_name]} type="text" label="Display name" />
+        <.input field={@profile_form[:title]} type="text" label="Title / Designation" placeholder="e.g. Receptionist, Dr. Rao, Mechanic" />
+        <.input field={@profile_form[:phone]} type="tel" label="Phone number" />
+        <.button variant="solid" phx-disable-with="Saving...">Save Profile</.button>
+      </.form>
+
+      <div class="divider" />
 
       <.form for={@email_form} id="email_form" phx-submit="update_email" phx-change="validate_email">
         <.input
@@ -82,17 +97,57 @@ defmodule SwatiWeb.UserLive.Settings do
 
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
+    tenant = socket.assigns.current_scope.tenant
     email_changeset = Accounts.change_user_email(user, %{}, validate_unique: false)
     password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
+
+    membership = Swati.Tenancy.Memberships.get_membership!(tenant.id, user.id)
+    profile_changeset = Membership.profile_changeset(membership, %{})
 
     socket =
       socket
       |> assign(:current_email, user.email)
+      |> assign(:membership, membership)
+      |> assign(:profile_form, to_form(profile_changeset, as: :profile))
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_event("validate_profile", %{"profile" => profile_params}, socket) do
+    profile_form =
+      socket.assigns.membership
+      |> Membership.profile_changeset(profile_params)
+      |> Map.put(:action, :validate)
+      |> to_form(as: :profile)
+
+    {:noreply, assign(socket, profile_form: profile_form)}
+  end
+
+  def handle_event("update_profile", %{"profile" => profile_params}, socket) do
+    case Accounts.update_member_profile(
+           socket.assigns.current_scope,
+           socket.assigns.membership.id,
+           profile_params
+         ) do
+      {:ok, membership} ->
+        profile_changeset = Membership.profile_changeset(membership, %{})
+
+        {:noreply,
+         socket
+         |> assign(:membership, membership)
+         |> assign(:profile_form, to_form(profile_changeset, as: :profile))
+         |> put_flash(:info, "Profile updated.")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, profile_form: to_form(changeset, as: :profile, action: :insert))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to update profile.")}
+    end
   end
 
   @impl true

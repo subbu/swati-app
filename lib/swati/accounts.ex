@@ -112,6 +112,34 @@ defmodule Swati.Accounts do
   end
 
   @doc """
+  Updates a member's role within the current tenant.
+  """
+  def update_member_role(%Scope{} = current_scope, membership_id, new_role) do
+    Memberships.update_member_role(current_scope, membership_id, new_role)
+  end
+
+  @doc """
+  Removes a member from the current tenant.
+  """
+  def remove_member(%Scope{} = current_scope, membership_id) do
+    Memberships.remove_member(current_scope, membership_id)
+  end
+
+  @doc """
+  Updates a member's profile (display_name, title, phone).
+  """
+  def update_member_profile(%Scope{} = current_scope, membership_id, attrs) do
+    Memberships.update_member_profile(current_scope, membership_id, attrs)
+  end
+
+  @doc """
+  Lists members who can be assigned to cases.
+  """
+  def list_assignable_members(tenant_id) do
+    Memberships.list_assignable_members(tenant_id)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for registering a user with a tenant.
   """
   def change_user_registration(user, attrs \\ %{}, opts \\ []) do
