@@ -91,7 +91,7 @@ defmodule SwatiWeb.Router do
       on_mount: [{SwatiWeb.UserAuth, :require_authenticated}] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
-      live "/settings/members", TenantLive.Members, :index
+      live "/settings/team", TeamLive.Index, :index
       live "/settings/billing", BillingLive.Index, :index
 
       live "/onboarding", OnboardingLive, :index

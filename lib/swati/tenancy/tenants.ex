@@ -4,7 +4,7 @@ defmodule Swati.Tenancy.Tenants do
   alias Swati.Accounts.User
   alias Swati.Audit
   alias Swati.Repo
-  alias Swati.Tenancy.{Membership, Tenant}
+  alias Swati.Tenancy.{Membership, Roles, Tenant}
 
   @doc """
   Returns a slug that is unique for the tenants table.
@@ -27,11 +27,14 @@ defmodule Swati.Tenancy.Tenants do
     multi =
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:tenant, Tenant.changeset(%Tenant{}, attrs))
-      |> Ecto.Multi.insert(:membership, fn %{tenant: tenant} ->
+      |> Ecto.Multi.run(:roles, fn _repo, %{tenant: tenant} ->
+        Roles.seed_default_roles(tenant.id)
+      end)
+      |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, roles: owner_role} ->
         Membership.changeset(%Membership{}, %{
           tenant_id: tenant.id,
           user_id: owner_user.id,
-          role: :owner
+          role_id: owner_role.id
         })
       end)
       |> Ecto.Multi.run(:audit, fn _repo, %{tenant: tenant} ->

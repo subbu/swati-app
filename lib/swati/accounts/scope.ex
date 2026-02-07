@@ -17,8 +17,9 @@ defmodule Swati.Accounts.Scope do
   """
 
   alias Swati.Accounts.User
+  alias Swati.Tenancy.{Permissions, Role}
 
-  defstruct user: nil, tenant: nil, role: nil
+  defstruct user: nil, tenant: nil, role: nil, permissions: MapSet.new()
 
   @doc """
   Creates a scope for the given user.
@@ -32,23 +33,35 @@ defmodule Swati.Accounts.Scope do
         tenant -> tenant
       end
 
-    role =
+    {role, permissions} =
       case user.membership do
-        %Ecto.Association.NotLoaded{} -> nil
-        nil -> nil
-        membership -> membership.role
+        %Ecto.Association.NotLoaded{} ->
+          {nil, MapSet.new()}
+
+        nil ->
+          {nil, MapSet.new()}
+
+        %{role: %Role{} = role} ->
+          {role, Permissions.to_mapset(role.permissions)}
+
+        %{role: %Ecto.Association.NotLoaded{}} ->
+          {nil, MapSet.new()}
+
+        _membership ->
+          {nil, MapSet.new()}
       end
 
-    %__MODULE__{user: user, tenant: tenant, role: role}
+    %__MODULE__{user: user, tenant: tenant, role: role, permissions: permissions}
   end
 
   def for_user(nil), do: nil
 
   @doc """
   Returns whether the scope has permission to perform the given action.
+  O(1) lookup against a preloaded MapSet.
   """
-  def can?(%__MODULE__{} = scope, action) when is_atom(action) do
-    Swati.Tenancy.Memberships.authorized?(scope, action)
+  def can?(%__MODULE__{permissions: permissions}, action) when is_atom(action) do
+    MapSet.member?(permissions, action)
   end
 
   def can?(nil, _action), do: false

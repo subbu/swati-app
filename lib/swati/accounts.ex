@@ -10,7 +10,7 @@ defmodule Swati.Accounts do
   alias Swati.Accounts.Auth.MagicLink
   alias Swati.Accounts.Auth.Session
   alias Swati.Accounts.Registration
-  alias Swati.Tenancy.Memberships
+  alias Swati.Tenancy.{Memberships, Roles}
 
   ## Database getters
 
@@ -311,4 +311,34 @@ defmodule Swati.Accounts do
   def delete_user_session_token(token) do
     Session.delete_user_session_token(token)
   end
+
+  ## Roles
+
+  @doc "Lists all roles for a tenant."
+  def list_roles(tenant_id), do: Roles.list_roles(tenant_id)
+
+  @doc "Lists all roles for a tenant with memberships and users preloaded."
+  def list_roles_with_members(tenant_id), do: Roles.list_roles_with_members(tenant_id)
+
+  @doc "Gets a single role by ID within a tenant."
+  def get_role!(tenant_id, role_id), do: Roles.get_role!(tenant_id, role_id)
+
+  @doc "Creates a new role for the given tenant."
+  def create_role(tenant_id, attrs), do: Roles.create_role(tenant_id, attrs)
+
+  @doc "Creates a role from a template key."
+  def create_role_from_template(tenant_id, template_key),
+    do: Roles.create_from_template(tenant_id, template_key)
+
+  @doc "Updates a role's name and/or permissions."
+  def update_role(role, attrs), do: Roles.update_role(role, attrs)
+
+  @doc "Deletes a role (if no members assigned and not a system role)."
+  def delete_role(role), do: Roles.delete_role(role)
+
+  @doc "Returns a changeset for a role form."
+  def change_role(role, attrs \\ %{}), do: Roles.change_role(role, attrs)
+
+  @doc "Returns role options as `[{name, id}]` tuples for select inputs."
+  def role_options(tenant_id), do: Roles.role_options(tenant_id)
 end

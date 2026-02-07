@@ -112,11 +112,11 @@ defmodule SwatiWeb.Layouts do
         </.navlist>
 
         <.navlist heading="Organization">
-          <.navlink :if={Scope.can?(@current_scope, :manage_members)} navigate={~p"/settings/members"}>
+          <.navlink :if={Scope.can?(@current_scope, :manage_members) or Scope.can?(@current_scope, :manage_roles)} navigate={~p"/settings/team"}>
             <.icon
               name="hero-user-group"
               class="size-5 text-foreground-softer group-hover:text-foreground"
-            /> Members
+            /> Team
           </.navlink>
           <.navlink :if={Scope.can?(@current_scope, :view_billing)} navigate={~p"/settings/billing"}>
             <.icon
@@ -184,8 +184,8 @@ defmodule SwatiWeb.Layouts do
               </.navlist>
 
               <.navlist heading="Organization">
-                <.navlink :if={Scope.can?(@current_scope, :manage_members)} navigate={~p"/settings/members"}>
-                  <.icon name="hero-user-group" class="size-5" /> Members
+                <.navlink :if={Scope.can?(@current_scope, :manage_members) or Scope.can?(@current_scope, :manage_roles)} navigate={~p"/settings/team"}>
+                  <.icon name="hero-user-group" class="size-5" /> Team
                 </.navlink>
                 <.navlink :if={Scope.can?(@current_scope, :view_billing)} navigate={~p"/settings/billing"}>
                   <.icon name="hero-credit-card" class="size-5" /> Billing
@@ -229,7 +229,7 @@ defmodule SwatiWeb.Layouts do
                 </:toggle>
 
                 <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
-                <.dropdown_link navigate={~p"/settings/members"}>Members</.dropdown_link>
+                <.dropdown_link navigate={~p"/settings/team"}>Team</.dropdown_link>
                 <.dropdown_link navigate={~p"/settings/billing"}>Billing</.dropdown_link>
                 <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
               </.dropdown>
@@ -259,7 +259,7 @@ defmodule SwatiWeb.Layouts do
                   </:toggle>
 
                   <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
-                  <.dropdown_link navigate={~p"/settings/members"}>Members</.dropdown_link>
+                  <.dropdown_link navigate={~p"/settings/team"}>Team</.dropdown_link>
                   <.dropdown_link navigate={~p"/settings/billing"}>Billing</.dropdown_link>
                   <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
                 </.dropdown>

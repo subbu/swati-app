@@ -2,7 +2,7 @@ defmodule Swati.Accounts.Registration do
   alias Swati.Accounts.User
   alias Swati.Audit
   alias Swati.Repo
-  alias Swati.Tenancy.{Membership, Tenant, Tenants}
+  alias Swati.Tenancy.{Membership, Roles, Tenant, Tenants}
 
   def register_user(attrs) do
     tenant_name = Map.get(attrs, "tenant_name") || Map.get(attrs, :tenant_name)
@@ -12,11 +12,14 @@ defmodule Swati.Accounts.Registration do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:user, user_changeset)
     |> Ecto.Multi.insert(:tenant, Tenant.changeset(%Tenant{}, %{name: tenant_name, slug: tenant_slug}))
-    |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, user: user} ->
+    |> Ecto.Multi.run(:roles, fn _repo, %{tenant: tenant} ->
+      Roles.seed_default_roles(tenant.id)
+    end)
+    |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, user: user, roles: owner_role} ->
       Membership.changeset(%Membership{}, %{
         tenant_id: tenant.id,
         user_id: user.id,
-        role: :owner
+        role_id: owner_role.id
       })
     end)
     |> Ecto.Multi.run(:audit, fn _repo, %{tenant: tenant, user: user} ->
@@ -29,6 +32,7 @@ defmodule Swati.Accounts.Registration do
       {:error, :tenant, changeset, _} -> {:error, changeset}
       {:error, :user, changeset, _} -> {:error, changeset}
       {:error, :membership, changeset, _} -> {:error, changeset}
+      {:error, :roles, changeset, _} -> {:error, changeset}
     end
   end
 

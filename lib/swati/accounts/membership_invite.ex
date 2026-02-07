@@ -1,17 +1,15 @@
 defmodule Swati.Accounts.MembershipInvite do
   use Swati.DbSchema
 
-  @roles [:owner, :admin, :staff, :member, :viewer]
-
   embedded_schema do
     field :email, :string
-    field :role, Ecto.Enum, values: @roles, default: :member
+    field :role_id, :binary_id
   end
 
   def changeset(invite, attrs) do
     invite
-    |> cast(attrs, [:email, :role])
-    |> validate_required([:email, :role])
+    |> cast(attrs, [:email, :role_id])
+    |> validate_required([:email, :role_id])
     |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
       message: "must have the @ sign and no spaces"
     )

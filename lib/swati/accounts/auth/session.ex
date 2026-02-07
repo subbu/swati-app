@@ -15,7 +15,7 @@ defmodule Swati.Accounts.Auth.Session do
 
     case Repo.one(query) do
       {user, token_inserted_at} ->
-        {Repo.preload(user, [:membership, :tenant]), token_inserted_at}
+        {Repo.preload(user, [:tenant, membership: :role]), token_inserted_at}
 
       nil ->
         nil

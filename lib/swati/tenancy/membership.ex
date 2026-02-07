@@ -1,31 +1,31 @@
 defmodule Swati.Tenancy.Membership do
   use Swati.DbSchema
 
-  @roles [:owner, :admin, :staff, :member, :viewer]
+  alias Swati.Tenancy.{Role, Tenant}
+  alias Swati.Accounts.User
 
   schema "memberships" do
-    field :role, Ecto.Enum, values: @roles, default: :member
     field :display_name, :string
     field :title, :string
     field :phone, :string
 
-    belongs_to :tenant, Swati.Tenancy.Tenant
-    belongs_to :user, Swati.Accounts.User
+    belongs_to :tenant, Tenant
+    belongs_to :user, User
+    belongs_to :role, Role
 
     timestamps()
   end
 
-  def roles, do: @roles
-
   def changeset(membership, attrs) do
     membership
-    |> cast(attrs, [:role, :tenant_id, :user_id, :display_name, :title, :phone])
-    |> validate_required([:role, :tenant_id, :user_id])
+    |> cast(attrs, [:role_id, :tenant_id, :user_id, :display_name, :title, :phone])
+    |> validate_required([:role_id, :tenant_id, :user_id])
     |> validate_length(:display_name, max: 120)
     |> validate_length(:title, max: 120)
     |> validate_length(:phone, max: 30)
     |> unique_constraint(:user_id)
     |> unique_constraint([:tenant_id, :user_id])
+    |> foreign_key_constraint(:role_id)
   end
 
   def profile_changeset(membership, attrs) do
