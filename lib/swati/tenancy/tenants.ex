@@ -115,7 +115,9 @@ defmodule Swati.Tenancy.Tenants do
     |> Repo.all()
     |> Enum.reduce([], fn slug, acc ->
       cond do
-        slug == base -> [0 | acc]
+        slug == base ->
+          [0 | acc]
+
         String.starts_with?(slug, base <> "-") ->
           suffix = String.replace_prefix(slug, base <> "-", "")
 

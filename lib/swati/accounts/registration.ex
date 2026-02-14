@@ -11,11 +11,11 @@ defmodule Swati.Accounts.Registration do
 
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:user, user_changeset)
-    |> Ecto.Multi.insert(:tenant, Tenant.changeset(%Tenant{}, %{name: tenant_name, slug: tenant_slug}))
-    |> Ecto.Multi.run(:roles, fn _repo, %{tenant: tenant} ->
-      Roles.seed_default_roles(tenant.id)
-    end)
-    |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, user: user, roles: owner_role} ->
+    |> Ecto.Multi.insert(
+      :tenant,
+      Tenant.changeset(%Tenant{}, %{name: tenant_name, slug: tenant_slug})
+    )
+    |> Ecto.Multi.insert(:membership, fn %{tenant: tenant, user: user} ->
       Membership.changeset(%Membership{}, %{
         tenant_id: tenant.id,
         user_id: user.id,

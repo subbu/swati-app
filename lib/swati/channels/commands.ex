@@ -51,6 +51,16 @@ defmodule Swati.Channels.Commands do
     })
   end
 
+  def ensure_whatsapp_channel(tenant_id) do
+    ensure_channel(tenant_id, %{
+      "name" => "WhatsApp",
+      "key" => "whatsapp",
+      "type" => :whatsapp,
+      "status" => :active,
+      "capabilities" => default_whatsapp_capabilities()
+    })
+  end
+
   def ensure_endpoint_for_phone_number(phone_number) do
     with {:ok, channel} <- ensure_voice_channel(phone_number.tenant_id) do
       attrs = %{
@@ -164,6 +174,25 @@ defmodule Swati.Channels.Commands do
         "sync" => true,
         "attachments" => true,
         "multi_party" => true,
+        "message_edits" => false,
+        "typing" => false
+      },
+      "tools" => [
+        "channel.message.send",
+        "channel.thread.fetch",
+        "channel.thread.close",
+        "channel.handoff.request",
+        "channel.handoff.transfer"
+      ]
+    }
+  end
+
+  defp default_whatsapp_capabilities do
+    %{
+      "supports" => %{
+        "sync" => false,
+        "attachments" => false,
+        "multi_party" => false,
         "message_edits" => false,
         "typing" => false
       },

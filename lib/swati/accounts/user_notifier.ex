@@ -9,7 +9,7 @@ defmodule Swati.Accounts.UserNotifier do
     email =
       new()
       |> to(recipient)
-      |> from({"SimplyGuest", "noreply@simplyguest.com"})
+      |> from({"Swati AI", "onboarding@swati.ai"})
       |> subject(subject)
       |> text_body(body)
 

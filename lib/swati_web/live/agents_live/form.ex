@@ -532,7 +532,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                 </h4>
                 <span class="text-xs text-base-content/40">
                   {length(tools)} unique
-                  <span :if={grants != length(tools)}> ·                  {grants} grants</span>
+                  <span :if={grants != length(tools)}> ·                      {grants} grants</span>
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">

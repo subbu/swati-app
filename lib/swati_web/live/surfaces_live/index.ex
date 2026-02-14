@@ -4,16 +4,28 @@ defmodule SwatiWeb.SurfacesLive.Index do
   alias Swati.Agents
   alias Swati.Channels
   alias Swati.Channels.Imap
+  alias Swati.Channels.WhatsApp
   alias Swati.Repo
 
   @impl true
   def mount(_params, _session, socket) do
+<<<<<<< HEAD
     if Swati.Accounts.authorized?(socket.assigns.current_scope, :manage_channels) do
       tenant = socket.assigns.current_scope.tenant
       surfaces = Channels.unified_surfaces_view(tenant.id)
       connections = Channels.list_connections(tenant.id) |> Repo.preload([:channel, :endpoint])
       connections_by_provider = Enum.group_by(connections, & &1.provider)
       imap_defaults = Imap.default_params()
+=======
+    tenant = socket.assigns.current_scope.tenant
+    surfaces = Channels.unified_surfaces_view(tenant.id)
+    connections = Channels.list_connections(tenant.id) |> Repo.preload([:channel, :endpoint])
+    connections_by_provider = Enum.group_by(connections, & &1.provider)
+    imap_defaults = Imap.default_params()
+    whatsapp_config = WhatsApp.config()
+    whatsapp_ready = WhatsApp.configured?(whatsapp_config)
+    whatsapp_missing = WhatsApp.missing_config(whatsapp_config)
+>>>>>>> 9440a92 (Whatsapp redesign. assumes swati is now a tech provider.)
 
       # Compute aggregate stats
       stats = compute_aggregate_stats(surfaces)
@@ -45,6 +57,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
       # Load all agents for assignment modal
       all_agents = Agents.list_agents(tenant.id)
 
+<<<<<<< HEAD
       {:ok,
        socket
        |> assign(:surfaces, surfaces)
@@ -70,6 +83,32 @@ defmodule SwatiWeb.SurfacesLive.Index do
        |> put_flash(:error, "You don't have permission to access this page.")
        |> redirect(to: ~p"/dashboard")}
     end
+=======
+    {:ok,
+     socket
+     |> assign(:surfaces, surfaces)
+     |> assign(:stats, stats)
+     |> assign(:connections, connections)
+     |> assign(:connections_by_provider, connections_by_provider)
+     |> assign(:providers, providers)
+     |> assign(:sync_providers, Channels.sync_providers())
+     |> assign(:expanded_surface, nil)
+     |> assign(:selected_endpoint, nil)
+     |> assign(:endpoint_sheet_open, false)
+     |> assign(:agent_modal_open, false)
+     |> assign(:agent_modal_surface, nil)
+     |> assign(:agent_modal_channel_id, nil)
+     |> assign(:all_agents, all_agents)
+     |> assign(:imap_sheet_open, false)
+     |> assign(:imap_preset, :custom)
+     |> assign(:imap_provider_label, Map.get(imap_defaults, "provider_label"))
+     |> assign(:imap_form, to_form(Imap.changeset(imap_defaults), as: :imap))
+     |> assign(:whatsapp_config, whatsapp_config)
+     |> assign(:whatsapp_ready, whatsapp_ready)
+     |> assign(:whatsapp_missing, whatsapp_missing)
+     |> assign(:whatsapp_sheet_open, false)
+     |> assign(:whatsapp_connecting, false)}
+>>>>>>> 9440a92 (Whatsapp redesign. assumes swati is now a tech provider.)
   end
 
   @impl true
@@ -140,6 +179,76 @@ defmodule SwatiWeb.SurfacesLive.Index do
          socket
          |> put_flash(:error, "Unable to connect IMAP: #{inspect(reason)}")
          |> assign(:imap_sheet_open, true)}
+    end
+  end
+
+  def handle_event("open-whatsapp-sheet", _params, socket) do
+    {:noreply, assign(socket, :whatsapp_sheet_open, true)}
+  end
+
+  def handle_event("close-whatsapp-sheet", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:whatsapp_sheet_open, false)
+     |> assign(:whatsapp_connecting, false)}
+  end
+
+  def handle_event("init-whatsapp-connect", _params, socket) do
+    if socket.assigns.whatsapp_ready do
+      {:noreply,
+       socket
+       |> assign(:whatsapp_connecting, true)
+       |> push_event("whatsapp_start_signup", %{})}
+    else
+      {:noreply, put_flash(socket, :error, "WhatsApp config is missing.")}
+    end
+  end
+
+  def handle_event("whatsapp_auth_success", %{"code" => code}, socket) do
+    tenant_id = socket.assigns.current_scope.tenant.id
+
+    case Channels.connect_whatsapp(tenant_id, code) do
+      {:ok, _connections} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "WhatsApp connected successfully.")
+         |> assign(:whatsapp_connecting, false)
+         |> assign(:whatsapp_sheet_open, false)
+         |> reload_data()}
+
+      {:error, :no_phone_numbers} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "No phone numbers found for this WhatsApp account.")
+         |> assign(:whatsapp_connecting, false)}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to connect WhatsApp: #{inspect(reason)}")
+         |> assign(:whatsapp_connecting, false)}
+    end
+  end
+
+  def handle_event("whatsapp_auth_cancelled", _params, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:error, "WhatsApp connection cancelled.")
+     |> assign(:whatsapp_connecting, false)}
+  end
+
+  def handle_event("refresh-whatsapp-numbers", %{"id" => connection_id}, socket) do
+    tenant_id = socket.assigns.current_scope.tenant.id
+
+    case Channels.refresh_whatsapp_numbers(tenant_id, connection_id) do
+      {:ok, _connections} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "WhatsApp numbers refreshed.")
+         |> reload_data()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Unable to refresh numbers: #{inspect(reason)}")}
     end
   end
 
@@ -302,6 +411,10 @@ defmodule SwatiWeb.SurfacesLive.Index do
               expanded={@expanded_surface == surface.type}
               connections_by_provider={@connections_by_provider}
               sync_providers={@sync_providers}
+              whatsapp_ready={@whatsapp_ready}
+              whatsapp_missing={@whatsapp_missing}
+              whatsapp_connecting={@whatsapp_connecting}
+              whatsapp_callback_url={@whatsapp_config.webhook_callback_url}
             />
           <% end %>
         </div>
@@ -365,6 +478,69 @@ defmodule SwatiWeb.SurfacesLive.Index do
               <.button type="submit" variant="solid">Save connection</.button>
             </div>
           </.form>
+        </div>
+      </.sheet>
+
+      <%!-- WhatsApp Connection Sheet --%>
+      <.sheet
+        id="whatsapp-connect-sheet"
+        placement="right"
+        class="w-full max-w-xl"
+        open={@whatsapp_sheet_open}
+        on_close={JS.push("close-whatsapp-sheet")}
+      >
+        <div class="space-y-6">
+          <header class="space-y-1">
+            <h3 class="text-lg font-semibold text-foreground">Connect WhatsApp</h3>
+            <p class="text-sm text-foreground-soft">
+              Launch Meta embedded signup to connect one or more WhatsApp numbers.
+            </p>
+          </header>
+
+          <div class="rounded-lg border border-base-300 bg-base-200/30 p-4 space-y-3">
+            <div class="flex items-center justify-between gap-3 text-xs text-foreground-soft">
+              <span class="uppercase tracking-wide">Webhook callback URL</span>
+              <.badge
+                size="xs"
+                variant="soft"
+                color={if @whatsapp_config.webhook_callback_url, do: "success", else: "warning"}
+              >
+                {if @whatsapp_config.webhook_callback_url, do: "Configured", else: "Missing"}
+              </.badge>
+            </div>
+            <div class="text-xs font-mono text-foreground break-all">
+              {@whatsapp_config.webhook_callback_url || "Set WHATSAPP_WEBHOOK_CALLBACK_URL"}
+            </div>
+          </div>
+
+          <%= if @whatsapp_missing != [] do %>
+            <div class="rounded-lg border border-dashed border-base-300 bg-base-200/30 p-4 text-sm text-foreground-soft">
+              Missing environment variables:
+              <span class="font-mono text-foreground">{Enum.join(@whatsapp_missing, ", ")}</span>
+            </div>
+          <% end %>
+
+          <div class="flex items-center justify-between rounded-lg border border-base-300 bg-base-100 p-4">
+            <div>
+              <div class="text-sm font-medium text-foreground">Embedded signup</div>
+              <div class="text-xs text-foreground-soft">
+                Uses system-user tokens (60 day expiry) and auto-subscribes webhooks.
+              </div>
+            </div>
+            <.button
+              id="whatsapp-connect-button"
+              size="sm"
+              variant="solid"
+              phx-click="init-whatsapp-connect"
+              phx-hook="WhatsAppEmbeddedSignup"
+              data-app-id={@whatsapp_config.app_id}
+              data-config-id={@whatsapp_config.config_id}
+              data-api-version={@whatsapp_config.graph_api_version}
+              disabled={!@whatsapp_ready || @whatsapp_connecting}
+            >
+              {if @whatsapp_connecting, do: "Connecting...", else: "Start signup"}
+            </.button>
+          </div>
         </div>
       </.sheet>
 
@@ -601,7 +777,7 @@ defmodule SwatiWeb.SurfacesLive.Index do
 
   # Surface Card Component
   defp surface_card(assigns) do
-    is_coming_soon = assigns.surface.type in [:chat, :whatsapp]
+    is_coming_soon = assigns.surface.type in [:chat]
     has_data = length(assigns.surface.channels) > 0
 
     assigns =
@@ -628,10 +804,15 @@ defmodule SwatiWeb.SurfacesLive.Index do
             <p class="text-xs text-base-content/50">{surface_description(@surface.type)}</p>
           </div>
         </div>
-        <%= if @is_coming_soon do %>
-          <.badge size="xs" variant="soft" color="warning">Coming Soon</.badge>
-        <% else %>
-          <.autonomy_indicator level={highest_autonomy_level(@surface.agents)} />
+        <%= cond do %>
+          <% @is_coming_soon -> %>
+            <.badge size="xs" variant="soft" color="warning">Coming Soon</.badge>
+          <% @surface.type == :whatsapp -> %>
+            <.badge size="xs" variant="soft" color={whatsapp_status_color(@surface.connections)}>
+              {whatsapp_status_label(@surface.connections)}
+            </.badge>
+          <% true -> %>
+            <.autonomy_indicator level={highest_autonomy_level(@surface.agents)} />
         <% end %>
       </div>
 
@@ -693,6 +874,22 @@ defmodule SwatiWeb.SurfacesLive.Index do
         <div class="mt-4 flex items-center justify-between">
           <.health_indicator health={@surface.health} />
           <div class="flex items-center gap-2">
+            <%= if @surface.type == :whatsapp do %>
+              <.button size="xs" variant="ghost" phx-click="open-whatsapp-sheet">
+                {if @has_data, do: "Manage", else: "Connect"}
+              </.button>
+              <% connection_id = whatsapp_primary_connection_id(@surface.connections) %>
+              <%= if @has_data and connection_id do %>
+                <.button
+                  size="xs"
+                  variant="ghost"
+                  phx-click="refresh-whatsapp-numbers"
+                  phx-value-id={connection_id}
+                >
+                  Refresh numbers
+                </.button>
+              <% end %>
+            <% end %>
             <%= if @has_data do %>
               <.button
                 size="xs"
@@ -1014,8 +1211,40 @@ defmodule SwatiWeb.SurfacesLive.Index do
       {:outlook, _} -> "Outlook"
       {:imap, value} when is_binary(value) and value != "" -> value
       {:imap, _} -> "IMAP"
+      {:whatsapp, _} -> "WhatsApp"
       {provider, _} -> provider |> to_string() |> String.capitalize()
     end
+  end
+
+  defp whatsapp_primary_connection_id(connections) do
+    connections
+    |> Enum.find(&(&1.provider == :whatsapp))
+    |> case do
+      nil -> nil
+      connection -> connection.id
+    end
+  end
+
+  defp whatsapp_status_label(connections) do
+    cond do
+      Enum.empty?(connections) -> "Not connected"
+      Enum.any?(connections, &whatsapp_reauth_required?/1) -> "Needs reauth"
+      true -> "Connected"
+    end
+  end
+
+  defp whatsapp_status_color(connections) do
+    cond do
+      Enum.empty?(connections) -> "warning"
+      Enum.any?(connections, &whatsapp_reauth_required?/1) -> "error"
+      true -> "success"
+    end
+  end
+
+  defp whatsapp_reauth_required?(connection) do
+    metadata = connection.metadata || %{}
+    reauth = Map.get(metadata, "reauth_required")
+    connection.status in [:error, :revoked] or reauth in [true, "true"]
   end
 
   defp reload_data(socket) do

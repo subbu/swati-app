@@ -113,10 +113,14 @@ defmodule Swati.AccountsTest do
       tenant_name = "Acme"
 
       {:ok, first_user} =
-        Accounts.register_user(valid_user_attributes(email: unique_user_email(), tenant_name: tenant_name))
+        Accounts.register_user(
+          valid_user_attributes(email: unique_user_email(), tenant_name: tenant_name)
+        )
 
       {:ok, second_user} =
-        Accounts.register_user(valid_user_attributes(email: unique_user_email(), tenant_name: tenant_name))
+        Accounts.register_user(
+          valid_user_attributes(email: unique_user_email(), tenant_name: tenant_name)
+        )
 
       first_tenant = Repo.preload(first_user, :tenant).tenant
       second_tenant = Repo.preload(second_user, :tenant).tenant

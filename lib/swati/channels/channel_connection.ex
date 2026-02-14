@@ -1,7 +1,7 @@
 defmodule Swati.Channels.ChannelConnection do
   use Swati.DbSchema
 
-  @providers [:gmail, :outlook, :imap, :custom]
+  @providers [:gmail, :outlook, :imap, :whatsapp, :custom]
   @statuses [:active, :error, :revoked, :disabled]
 
   schema "channel_connections" do

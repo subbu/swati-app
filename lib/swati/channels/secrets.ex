@@ -35,6 +35,21 @@ defmodule Swati.Channels.Secrets do
     end
   end
 
+  def upsert_named(repo, tenant_id, name, secret_value) when is_binary(name) do
+    secret_attrs = %{
+      tenant_id: tenant_id,
+      name: name,
+      value: secret_value
+    }
+
+    changeset = Secret.changeset(%Secret{}, secret_attrs)
+
+    repo.insert(changeset,
+      on_conflict: [set: [value: secret_value, updated_at: DateTime.utc_now()]],
+      conflict_target: [:tenant_id, :name]
+    )
+  end
+
   def put_secret_id(attrs, nil), do: attrs
   def put_secret_id(attrs, %Secret{id: id}), do: Map.put(attrs, "auth_secret_id", id)
 

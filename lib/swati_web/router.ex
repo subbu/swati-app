@@ -34,6 +34,8 @@ defmodule SwatiWeb.Router do
     pipe_through :api
 
     post "/billing/razorpay/webhook", BillingWebhookController, :razorpay
+    get "/webhooks/whatsapp", WhatsAppWebhookController, :verify
+    post "/webhooks/whatsapp", WhatsAppWebhookController, :webhook
   end
 
   scope "/internal/v1", SwatiWeb.Internal do

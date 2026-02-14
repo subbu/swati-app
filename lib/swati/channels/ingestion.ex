@@ -84,9 +84,9 @@ defmodule Swati.Channels.Ingestion do
   end
 
   defp maybe_send(session, payload, params) do
-    if session && session.channel && session.channel.type == :email do
+    if session && session.channel && session.channel.type in [:email, :whatsapp] do
       with {:ok, connection} <- fetch_connection(session),
-           {:ok, message} <- build_email_message(session, payload, params),
+           {:ok, message} <- build_channel_message(session, payload, params),
            {:ok, response} <- Channels.send_message(connection, message) do
         updated_payload = Map.put(payload, "provider_response", response)
         {:ok, updated_payload}
@@ -127,6 +127,29 @@ defmodule Swati.Channels.Ingestion do
          "text" => text,
          "thread_id" => session.external_id
        }}
+    end
+  end
+
+  defp build_channel_message(%Session{} = session, payload, params) do
+    case session.channel.type do
+      :email -> build_email_message(session, payload, params)
+      :whatsapp -> build_whatsapp_message(session, payload, params)
+      _ -> {:error, :channel_not_supported}
+    end
+  end
+
+  defp build_whatsapp_message(session, payload, params) do
+    to =
+      Map.get(payload, "to") || Map.get(payload, :to) || Map.get(payload, "to_address") ||
+        Map.get(payload, :to_address) || Map.get(params, "to") || Map.get(params, :to) ||
+        default_recipient(session)
+
+    text = Map.get(payload, "text") || Map.get(payload, :text)
+
+    if is_nil(to) or is_nil(text) or text == "" do
+      {:error, :message_payload_invalid}
+    else
+      {:ok, %{"to" => to, "text" => text}}
     end
   end
 

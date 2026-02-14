@@ -6,6 +6,7 @@ defmodule Swati.Channels do
   alias Swati.Channels.Gmail
   alias Swati.Channels.Imap
   alias Swati.Channels.Outlook
+  alias Swati.Channels.WhatsApp
   alias Swati.Channels.Queries
   alias Oban
   alias Swati.Repo
@@ -48,6 +49,10 @@ defmodule Swati.Channels do
 
   def ensure_email_channel(tenant_id) do
     Commands.ensure_email_channel(tenant_id)
+  end
+
+  def ensure_whatsapp_channel(tenant_id) do
+    Commands.ensure_whatsapp_channel(tenant_id)
   end
 
   def list_endpoints(tenant_id, filters \\ %{}) do
@@ -149,12 +154,21 @@ defmodule Swati.Channels do
       :gmail -> Gmail.send_message(connection, attrs)
       :outlook -> Outlook.send_message(connection, attrs)
       :imap -> Imap.send_message(connection, attrs)
+      :whatsapp -> WhatsApp.send_message(connection, attrs)
       _ -> {:error, :provider_not_supported}
     end
   end
 
   def connect_imap(tenant_id, attrs, opts \\ []) do
     Imap.connect(tenant_id, attrs, opts)
+  end
+
+  def connect_whatsapp(tenant_id, auth_code) when is_binary(auth_code) do
+    WhatsApp.connect_embedded_signup(tenant_id, auth_code)
+  end
+
+  def refresh_whatsapp_numbers(tenant_id, connection_id) do
+    WhatsApp.refresh_phone_numbers(tenant_id, connection_id)
   end
 
   def enqueue_sync_connection(tenant_id, connection_id) do

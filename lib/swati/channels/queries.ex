@@ -228,6 +228,30 @@ defmodule Swati.Channels.Queries do
     |> Enum.group_by(& &1.endpoint_id)
   end
 
+  def list_whatsapp_connections do
+    ChannelConnection
+    |> where([c], c.provider == :whatsapp)
+    |> preload([:channel, :endpoint])
+    |> Repo.all()
+  end
+
+  def list_whatsapp_connections_by_waba_id(waba_id) when is_binary(waba_id) do
+    ChannelConnection
+    |> where([c], c.provider == :whatsapp)
+    |> where([c], fragment("?->>? = ?", c.metadata, "waba_id", ^waba_id))
+    |> preload([:channel, :endpoint])
+    |> Repo.all()
+  end
+
+  def get_whatsapp_connection_by_phone_number_id(phone_number_id)
+      when is_binary(phone_number_id) do
+    ChannelConnection
+    |> where([c], c.provider == :whatsapp)
+    |> where([c], fragment("?->>? = ?", c.metadata, "phone_number_id", ^phone_number_id))
+    |> preload([:channel, :endpoint])
+    |> Repo.one()
+  end
+
   @doc """
   Returns a unified view of all surfaces (channels grouped by type) for the Surfaces UI.
 

@@ -32,6 +32,18 @@ config :swati,
     tenant: System.get_env("SWATI_OUTLOOK_TENANT", "common")
   }
 
+config :swati, :whatsapp,
+  app_id: "681035248332727",
+  app_secret: "d300009592e83e923ed0f1a5f8bf74ed",
+  config_id: "1439825844537405",
+  graph_api_version: System.get_env("META_GRAPH_API_VERSION", "v21.0"),
+  webhook_verify_token: System.get_env("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "dev-whatsapp-verify"),
+  webhook_callback_url:
+    System.get_env(
+      "WHATSAPP_WEBHOOK_CALLBACK_URL",
+      "https://c81339ba142c.ngrok-free.app/api/v1/webhooks/whatsapp"
+    )
+
 config :swati,
        :media_gateway_base_url,
        System.get_env("MEDIA_GATEWAY_BASE_URL", "http://localhost:6000")
@@ -134,7 +146,7 @@ config :phoenix_live_view,
 # Configure Resend for development
 config :swati, Swati.Mailer,
   adapter: Resend.Swoosh.Adapter,
-  api_key: System.get_env("RESEND_API_KEY") || "re_QAiQTDc5_A2ipwGPhSTjc5x2gfZWZzAF2"
+  api_key: System.get_env("RESEND_API_KEY") || "re_ShMpnVEn_BsTo75ymS2Scss4dm8DduzfN"
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

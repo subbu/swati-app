@@ -405,3 +405,5 @@ email: subbu@simplyguest.com
 pwd: CSwGFhvgB2KqqR3R2dk-oR7I
 
 email: subramani.athikunte@gmail.com pwd: CSwGFhvgB2KqqR3R2dk-oR7I
+
+Email is configured on resend.com. email id used for registration is subramani.athikunte@gmail.com. swati.ai domain is configured with required DNS entries.

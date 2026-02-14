@@ -22,6 +22,7 @@ end
 
 channel_sync_cron = Application.get_env(:swati, :channel_sync_cron, "*/5 * * * *")
 billing_reconcile_cron = Application.get_env(:swati, :billing_reconcile_cron, "0 3 * * *")
+whatsapp_refresh_cron = Application.get_env(:swati, :whatsapp_refresh_cron, "0 3 * * *")
 
 oban_plugins =
   if config_env() == :test do
@@ -32,7 +33,8 @@ oban_plugins =
       {Oban.Plugins.Cron,
        crontab: [
          {channel_sync_cron, Swati.Workers.SyncChannelConnections},
-         {billing_reconcile_cron, Swati.Workers.ReconcileSubscriptions}
+         {billing_reconcile_cron, Swati.Workers.ReconcileSubscriptions},
+         {whatsapp_refresh_cron, Swati.Workers.RefreshWhatsAppTokens}
        ]}
     ]
   end
@@ -52,12 +54,27 @@ config :swati, Oban,
   ]
 
 razorpay_config = Application.get_env(:swati, :razorpay, [])
+whatsapp_config = Application.get_env(:swati, :whatsapp, [])
 
 config :swati, :razorpay,
   key_id: System.get_env("RAZORPAY_KEY_ID") || Keyword.get(razorpay_config, :key_id),
   key_secret: System.get_env("RAZORPAY_KEY_SECRET") || Keyword.get(razorpay_config, :key_secret),
   webhook_secret:
     System.get_env("RAZORPAY_WEBHOOK_SECRET") || Keyword.get(razorpay_config, :webhook_secret)
+
+config :swati, :whatsapp,
+  app_id: System.get_env("META_APP_ID") || Keyword.get(whatsapp_config, :app_id),
+  app_secret: System.get_env("META_APP_SECRET") || Keyword.get(whatsapp_config, :app_secret),
+  config_id: System.get_env("META_CONFIG_ID") || Keyword.get(whatsapp_config, :config_id),
+  graph_api_version:
+    System.get_env("META_GRAPH_API_VERSION") || Keyword.get(whatsapp_config, :graph_api_version) ||
+      "v21.0",
+  webhook_verify_token:
+    System.get_env("WHATSAPP_WEBHOOK_VERIFY_TOKEN") ||
+      Keyword.get(whatsapp_config, :webhook_verify_token),
+  webhook_callback_url:
+    System.get_env("WHATSAPP_WEBHOOK_CALLBACK_URL") ||
+      Keyword.get(whatsapp_config, :webhook_callback_url)
 
 config :replicate,
   replicate_api_token: System.get_env("REPLICATE_API_TOKEN")

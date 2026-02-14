@@ -10,6 +10,14 @@ Read when: building non-voice channel adapters or wiring inbound/outbound channe
 - Outlook OAuth flow: `/channels/outlook/connect` → `/channels/outlook/callback` (authenticated scope).
 - IMAP/SMTP connections are saved via the Channels UI and stored in `secrets` as JSON.
 - Zoho Mail uses the IMAP/SMTP preset with `imap.zoho.com`/`smtp.zoho.com`.
+- WhatsApp uses embedded signup in `/surfaces`, stores tokens in `secrets` (name `channel:whatsapp:waba:<id>`), and writes one connection per phone number.
+
+### WhatsApp webhooks
+
+- Verification + events live at `/api/v1/webhooks/whatsapp`.
+- Configure `WHATSAPP_WEBHOOK_VERIFY_TOKEN` and (optionally) `WHATSAPP_WEBHOOK_CALLBACK_URL`.
+- Inbound messages are normalized into `channel.message.received` events.
+- Outbound sends use the WhatsApp Cloud API via `channel-actions/send`.
 
 ### Sync schedule
 

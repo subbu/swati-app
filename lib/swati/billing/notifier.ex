@@ -11,7 +11,7 @@ defmodule Swati.Billing.Notifier do
     email =
       new()
       |> to(recipients)
-      |> from({"SimplyGuest", "noreply@simplyguest.com"})
+      |> from({"Swati AI", "renewals@swati.ai"})
       |> subject(subject)
       |> text_body(body)
 
