@@ -69,6 +69,71 @@ defmodule SwatiWeb.SessionsLiveTest do
     assert html =~ (Formatting.phone("+918884938830", scope.tenant) || "+918884938830")
   end
 
+  test "toggling columns keeps header and rows aligned", %{conn: conn, scope: scope} do
+    {:ok, channel} = Channels.ensure_voice_channel(scope.tenant.id)
+
+    {:ok, endpoint} =
+      %Endpoint{}
+      |> Endpoint.changeset(%{
+        tenant_id: scope.tenant.id,
+        channel_id: channel.id,
+        address: "+918884938830"
+      })
+      |> Repo.insert()
+
+    {:ok, customer} =
+      %Customer{}
+      |> Customer.changeset(%{
+        tenant_id: scope.tenant.id,
+        name: "Toggle Test Customer"
+      })
+      |> Repo.insert()
+
+    {:ok, _session} =
+      Sessions.create_session(scope.tenant.id, %{
+        channel_id: channel.id,
+        endpoint_id: endpoint.id,
+        customer_id: customer.id,
+        external_id: "call-toggle-123",
+        metadata: %{"from_address" => "+918884938830"}
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/sessions")
+
+    refute has_element?(view, "th[data-column='session']")
+    refute has_element?(view, "a", "call-toggle-123")
+
+    _ =
+      render_change(view, "update_columns", %{
+        "session" => "true",
+        "customer" => "true",
+        "channel" => "true",
+        "direction" => "true",
+        "status" => "true",
+        "duration" => "true",
+        "last_event_at" => "true",
+        "agent" => "true"
+      })
+
+    assert has_element?(view, "th[data-column='session']")
+    assert has_element?(view, "a", "call-toggle-123")
+
+    _ =
+      render_change(view, "update_columns", %{
+        "customer" => "true",
+        "channel" => "true",
+        "direction" => "true",
+        "status" => "true",
+        "duration" => "true",
+        "last_event_at" => "true",
+        "agent" => "true"
+      })
+
+    refute has_element?(view, "th[data-column='session']")
+    refute has_element?(view, "a", "call-toggle-123")
+    assert has_element?(view, "td", "Toggle Test Customer")
+  end
+
   test "session show renders detail", %{conn: conn, scope: scope} do
     {:ok, channel} = Channels.ensure_voice_channel(scope.tenant.id)
 

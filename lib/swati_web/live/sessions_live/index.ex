@@ -215,7 +215,9 @@ defmodule SwatiWeb.SessionsLive.Index do
 
     hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
 
-    if visible_columns != socket.assigns.visible_columns do
+    columns_changed? = visible_columns != socket.assigns.visible_columns
+
+    if columns_changed? do
       _ =
         Preferences.update_sessions_index_state(socket.assigns.current_scope, %{
           "columns" => visible_columns
@@ -228,11 +230,15 @@ defmodule SwatiWeb.SessionsLive.Index do
       |> to_form()
 
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        columns_form: columns_form,
        visible_columns: visible_columns,
        hidden_columns_count: hidden_columns_count
-     )}
+     )
+     |> then(fn socket ->
+       if columns_changed?, do: load_sessions(socket, reset: true), else: socket
+     end)}
   end
 
   @impl true
@@ -252,11 +258,13 @@ defmodule SwatiWeb.SessionsLive.Index do
       |> to_form()
 
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        columns_form: columns_form,
        visible_columns: default_columns,
        hidden_columns_count: hidden_columns_count
-     )}
+     )
+     |> load_sessions(reset: true)}
   end
 
   @impl true
