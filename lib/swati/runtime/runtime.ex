@@ -39,6 +39,7 @@ defmodule Swati.Runtime do
              endpoint,
              customer,
              case_record,
+             agent.id,
              case_linking,
              params
            ) do
@@ -280,7 +281,16 @@ defmodule Swati.Runtime do
     end
   end
 
-  defp resolve_session(tenant_id, channel, endpoint, customer, case_record, case_linking, params) do
+  defp resolve_session(
+         tenant_id,
+         channel,
+         endpoint,
+         customer,
+         case_record,
+         agent_id,
+         case_linking,
+         params
+       ) do
     external_id =
       param(params, [:session_external_id, :external_id]) ||
         nested_param(params, ["session", "external_id"])
@@ -294,7 +304,14 @@ defmodule Swati.Runtime do
 
     case session do
       %Swati.Sessions.Session{} = session ->
-        {:ok, session}
+        if is_nil(session.agent_id) do
+          case Sessions.update_session(session, %{agent_id: agent_id}) do
+            {:ok, updated_session} -> {:ok, updated_session}
+            {:error, _reason} -> {:ok, session}
+          end
+        else
+          {:ok, session}
+        end
 
       nil ->
         started_at =
@@ -321,6 +338,7 @@ defmodule Swati.Runtime do
         }
 
         Sessions.create_session(tenant_id, %{
+          agent_id: agent_id,
           channel_id: channel.id,
           endpoint_id: endpoint.id,
           customer_id: customer.id,

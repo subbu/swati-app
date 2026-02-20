@@ -7,6 +7,7 @@ defmodule Swati.RuntimeTest do
   alias Swati.Channels
   alias Swati.Repo
   alias Swati.Runtime
+  alias Swati.Sessions
   alias Swati.Telephony.PhoneNumber
 
   defp unique_phone do
@@ -72,6 +73,11 @@ defmodule Swati.RuntimeTest do
     assert payload.agent.system_prompt =~ "## Channel Tooling"
     assert payload.agent.system_prompt =~ "## Customer"
     assert payload.agent.system_prompt =~ "+15550001111"
+
+    session =
+      Sessions.get_session_by_external_id(scope.tenant.id, payload.endpoint.id, "call-123")
+
+    assert session.agent_id == agent.id
   end
 
   test "resolve_runtime rejects channels not assigned to the agent" do
