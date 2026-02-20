@@ -491,188 +491,220 @@ defmodule SwatiWeb.SessionsLive.Index do
             <% end %>
           </div>
 
-          <div class="overflow-x-auto">
-            <.table id="sessions-table">
-              <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
-                <:col :if={"session" in @visible_columns} class="py-2" data-column="session">
-                  Session
-                </:col>
-                <:col
-                  :if={"customer" in @visible_columns}
-                  class="py-2"
-                  phx-click="sort"
-                  phx-value-column="customer"
-                  data-column="customer"
-                >
-                  <button type="button" class={SessionsHelpers.sort_button_class("customer", @sort)}>
-                    Customer <SessionsHelpers.sort_icon column="customer" sort={@sort} />
-                  </button>
-                </:col>
-                <:col
-                  :if={"channel" in @visible_columns}
-                  class="py-2"
-                  phx-click="sort"
-                  phx-value-column="channel"
-                  data-column="channel"
-                >
-                  <button type="button" class={SessionsHelpers.sort_button_class("channel", @sort)}>
-                    Channel <SessionsHelpers.sort_icon column="channel" sort={@sort} />
-                  </button>
-                </:col>
-                <:col
-                  :if={"direction" in @visible_columns}
-                  class="py-2"
-                  phx-click="sort"
-                  phx-value-column="direction"
-                  data-column="direction"
-                >
-                  <button type="button" class={SessionsHelpers.sort_button_class("direction", @sort)}>
-                    Direction <SessionsHelpers.sort_icon column="direction" sort={@sort} />
-                  </button>
-                </:col>
-                <:col
-                  :if={"status" in @visible_columns}
-                  class="py-2"
-                  phx-click="sort"
-                  phx-value-column="status"
-                  data-column="status"
-                >
-                  <button type="button" class={SessionsHelpers.sort_button_class("status", @sort)}>
-                    Status <SessionsHelpers.sort_icon column="status" sort={@sort} />
-                  </button>
-                </:col>
-                <:col
-                  :if={"duration" in @visible_columns}
-                  class="py-2"
-                  data-column="duration"
-                >
-                  Duration
-                </:col>
-                <:col
-                  :if={"last_event_at" in @visible_columns}
-                  class="py-2"
-                  phx-click="sort"
-                  phx-value-column="last_event_at"
-                  data-column="last_event_at"
-                >
-                  <button
-                    type="button"
-                    class={SessionsHelpers.sort_button_class("last_event_at", @sort)}
+          <div id="sessions-selection" phx-hook="TableRowSelection">
+            <div class="overflow-x-auto">
+              <.table id="sessions-table">
+                <.table_head class="text-foreground-soft [&_th:first-child]:pl-4!">
+                  <:col class="w-12 py-2">
+                    <.checkbox name="select-all" />
+                  </:col>
+                  <:col :if={"session" in @visible_columns} class="py-2" data-column="session">
+                    Session
+                  </:col>
+                  <:col
+                    :if={"customer" in @visible_columns}
+                    class="py-2"
+                    phx-click="sort"
+                    phx-value-column="customer"
+                    data-column="customer"
                   >
-                    Last activity <SessionsHelpers.sort_icon column="last_event_at" sort={@sort} />
-                  </button>
-                </:col>
-                <:col :if={"agent" in @visible_columns} class="py-2 w-full" data-column="agent">
-                  Agent
-                </:col>
-                <:col class="py-2 text-right"></:col>
-              </.table_head>
-              <.table_body id="sessions" phx-update="stream" class="text-foreground-soft">
-                <.table_row
-                  :for={{id, session} <- @streams.sessions}
-                  id={id}
-                  class="[&_td:first-child]:pl-4! [&_td:last-child]:pr-4! hover:bg-accent/50 transition-colors group"
-                >
-                  <:cell :if={"session" in @visible_columns} class="py-2 align-middle">
-                    <.link patch={~p"/sessions/#{session.id}"} class="text-foreground font-medium">
-                      {SessionsHelpers.session_label(session)}
-                    </.link>
-                    <div class="text-xs text-foreground-softest">
-                      {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
-                    </div>
-                  </:cell>
-                  <:cell :if={"customer" in @visible_columns} class="py-2 align-middle">
-                    <span class="text-foreground font-medium">
-                      {SessionsHelpers.customer_name(session, @current_scope.tenant)}
-                    </span>
-                    <div class="text-xs text-foreground-softest">
-                      {SessionsHelpers.customer_address(session, @current_scope.tenant)}
-                    </div>
-                  </:cell>
-                  <:cell :if={"channel" in @visible_columns} class="py-2 align-middle">
-                    <% channel_badge = SessionsHelpers.channel_badge(session.channel) %>
-                    <.badge size="sm" variant="soft" color={channel_badge.color}>
-                      <SessionsHelpers.channel_icon channel={channel_badge.key} class="size-3" />
-                      {channel_badge.label}
-                    </.badge>
-                  </:cell>
-                  <:cell :if={"direction" in @visible_columns} class="py-2 align-middle">
-                    <% direction = SessionsHelpers.direction_display(session) %>
-                    <div class="flex items-center gap-x-2">
-                      <.icon name={direction.icon_name} class={"size-5 #{direction.icon_class}"} />
-                      <span>{direction.label}</span>
-                    </div>
-                  </:cell>
-                  <:cell :if={"status" in @visible_columns} class="py-2 align-middle">
-                    <% badge = SessionsHelpers.status_badge(session.status) %>
-                    <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
-                  </:cell>
-                  <:cell :if={"duration" in @visible_columns} class="py-2 align-middle">
-                    <span class="text-foreground font-medium">
-                      {SessionsHelpers.format_duration(session)}
-                    </span>
-                  </:cell>
-                  <:cell :if={"last_event_at" in @visible_columns} class="py-2 align-middle">
-                    <% activity_at = session.last_event_at || session.started_at %>
-                    <div class="flex flex-col">
+                    <button type="button" class={SessionsHelpers.sort_button_class("customer", @sort)}>
+                      Customer <SessionsHelpers.sort_icon column="customer" sort={@sort} />
+                    </button>
+                  </:col>
+                  <:col
+                    :if={"channel" in @visible_columns}
+                    class="py-2"
+                    phx-click="sort"
+                    phx-value-column="channel"
+                    data-column="channel"
+                  >
+                    <button type="button" class={SessionsHelpers.sort_button_class("channel", @sort)}>
+                      Channel <SessionsHelpers.sort_icon column="channel" sort={@sort} />
+                    </button>
+                  </:col>
+                  <:col
+                    :if={"direction" in @visible_columns}
+                    class="py-2"
+                    phx-click="sort"
+                    phx-value-column="direction"
+                    data-column="direction"
+                  >
+                    <button
+                      type="button"
+                      class={SessionsHelpers.sort_button_class("direction", @sort)}
+                    >
+                      Direction <SessionsHelpers.sort_icon column="direction" sort={@sort} />
+                    </button>
+                  </:col>
+                  <:col
+                    :if={"status" in @visible_columns}
+                    class="py-2"
+                    phx-click="sort"
+                    phx-value-column="status"
+                    data-column="status"
+                  >
+                    <button type="button" class={SessionsHelpers.sort_button_class("status", @sort)}>
+                      Status <SessionsHelpers.sort_icon column="status" sort={@sort} />
+                    </button>
+                  </:col>
+                  <:col
+                    :if={"duration" in @visible_columns}
+                    class="py-2"
+                    data-column="duration"
+                  >
+                    Duration
+                  </:col>
+                  <:col
+                    :if={"last_event_at" in @visible_columns}
+                    class="py-2"
+                    phx-click="sort"
+                    phx-value-column="last_event_at"
+                    data-column="last_event_at"
+                  >
+                    <button
+                      type="button"
+                      class={SessionsHelpers.sort_button_class("last_event_at", @sort)}
+                    >
+                      Last activity <SessionsHelpers.sort_icon column="last_event_at" sort={@sort} />
+                    </button>
+                  </:col>
+                  <:col :if={"agent" in @visible_columns} class="py-2 w-full" data-column="agent">
+                    Agent
+                  </:col>
+                  <:col class="py-2 text-right"></:col>
+                </.table_head>
+                <.table_body id="sessions" phx-update="stream" class="text-foreground-soft">
+                  <.table_row
+                    :for={{id, session} <- @streams.sessions}
+                    id={id}
+                    class="[&_td:first-child]:pl-4! [&_td:last-child]:pr-4! hover:bg-accent/50 has-checked:bg-accent/50 transition-colors group"
+                  >
+                    <:cell class="py-2 align-middle relative">
+                      <.checkbox name={"select-session-#{session.id}"} />
+                      <span class="hidden h-full absolute inset-y-0 left-0 w-[2px] bg-primary group-has-checked:block">
+                      </span>
+                    </:cell>
+                    <:cell :if={"session" in @visible_columns} class="py-2 align-middle">
+                      <.link patch={~p"/sessions/#{session.id}"} class="text-foreground font-medium">
+                        {SessionsHelpers.session_label(session)}
+                      </.link>
+                      <div class="text-xs text-foreground-softest">
+                        {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
+                      </div>
+                    </:cell>
+                    <:cell :if={"customer" in @visible_columns} class="py-2 align-middle">
                       <span class="text-foreground font-medium">
-                        {SessionsHelpers.format_relative(activity_at, @current_scope.tenant)}
+                        {SessionsHelpers.customer_name(session, @current_scope.tenant)}
                       </span>
-                      <span class="text-xs text-foreground-softest">
-                        {SessionsHelpers.format_datetime(activity_at, @current_scope.tenant)}
+                      <div class="text-xs text-foreground-softest">
+                        {SessionsHelpers.customer_address(session, @current_scope.tenant)}
+                      </div>
+                    </:cell>
+                    <:cell :if={"channel" in @visible_columns} class="py-2 align-middle">
+                      <% channel_badge = SessionsHelpers.channel_badge(session.channel) %>
+                      <.badge size="sm" variant="soft" color={channel_badge.color}>
+                        <SessionsHelpers.channel_icon channel={channel_badge.key} class="size-3" />
+                        {channel_badge.label}
+                      </.badge>
+                    </:cell>
+                    <:cell :if={"direction" in @visible_columns} class="py-2 align-middle">
+                      <% direction = SessionsHelpers.direction_display(session) %>
+                      <div class="flex items-center gap-x-2">
+                        <.icon name={direction.icon_name} class={"size-5 #{direction.icon_class}"} />
+                        <span>{direction.label}</span>
+                      </div>
+                    </:cell>
+                    <:cell :if={"status" in @visible_columns} class="py-2 align-middle">
+                      <% badge = SessionsHelpers.status_badge(session.status) %>
+                      <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
+                    </:cell>
+                    <:cell :if={"duration" in @visible_columns} class="py-2 align-middle">
+                      <span class="text-foreground font-medium">
+                        {SessionsHelpers.format_duration(session)}
                       </span>
-                    </div>
-                  </:cell>
-                  <:cell :if={"agent" in @visible_columns} class="py-2 align-middle">
-                    <% agent = SessionsHelpers.agent_display(session) %>
-                    <% avatar_url = SessionsHelpers.agent_avatar_url(@avatars_by_agent, session) %>
-                    <div class="flex items-center gap-3">
-                      <img src={avatar_url} class="size-9 rounded-full" alt="" loading="lazy" />
-                      <div class="flex flex-col gap-0.5">
-                        <span class="font-semibold text-foreground">{agent.name}</span>
+                    </:cell>
+                    <:cell :if={"last_event_at" in @visible_columns} class="py-2 align-middle">
+                      <% activity_at = session.last_event_at || session.started_at %>
+                      <div class="flex flex-col">
+                        <span class="text-foreground font-medium">
+                          {SessionsHelpers.format_relative(activity_at, @current_scope.tenant)}
+                        </span>
                         <span class="text-xs text-foreground-softest">
-                          {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
+                          {SessionsHelpers.format_datetime(activity_at, @current_scope.tenant)}
                         </span>
                       </div>
-                    </div>
-                  </:cell>
-                  <:cell class="py-2 align-middle text-right">
-                    <% transcript_url = SessionsHelpers.transcript_download_url(session) %>
-                    <% recording_url = SessionsHelpers.recording_download_url(session) %>
-                    <.dropdown placement="bottom-end">
-                      <:toggle>
-                        <.button size="sm" variant="ghost">
-                          <.icon name="hero-ellipsis-vertical" class="size-4" />
-                        </.button>
-                      </:toggle>
-                      <.dropdown_button phx-click={
-                        JS.push("open-session-sheet", value: %{id: session.id})
-                      }>
-                        <.icon name="hero-eye" class="icon" /> Show session details
-                      </.dropdown_button>
-                      <.dropdown_link
-                        :if={transcript_url}
-                        href={~p"/sessions/#{session.id}/transcript"}
-                      >
-                        <.icon name="hero-document-text" class="icon" /> Download transcript
-                      </.dropdown_link>
-                      <.dropdown_button :if={!transcript_url} disabled>
-                        <.icon name="hero-document-text" class="icon" /> Download transcript
-                      </.dropdown_button>
-                      <.dropdown_link
-                        :if={recording_url}
-                        href={~p"/sessions/#{session.id}/recording"}
-                      >
-                        <.icon name="hero-play-circle" class="icon" /> Download recording
-                      </.dropdown_link>
-                      <.dropdown_button :if={!recording_url} disabled>
-                        <.icon name="hero-play-circle" class="icon" /> Download recording
-                      </.dropdown_button>
-                    </.dropdown>
-                  </:cell>
-                </.table_row>
-              </.table_body>
-            </.table>
+                    </:cell>
+                    <:cell :if={"agent" in @visible_columns} class="py-2 align-middle">
+                      <% agent = SessionsHelpers.agent_display(session) %>
+                      <% avatar_url = SessionsHelpers.agent_avatar_url(@avatars_by_agent, session) %>
+                      <div class="flex items-center gap-3">
+                        <img src={avatar_url} class="size-9 rounded-full" alt="" loading="lazy" />
+                        <div class="flex flex-col gap-0.5">
+                          <span class="font-semibold text-foreground">{agent.name}</span>
+                          <span class="text-xs text-foreground-softest">
+                            {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
+                          </span>
+                        </div>
+                      </div>
+                    </:cell>
+                    <:cell class="py-2 align-middle text-right">
+                      <% transcript_url = SessionsHelpers.transcript_download_url(session) %>
+                      <% recording_url = SessionsHelpers.recording_download_url(session) %>
+                      <.dropdown placement="bottom-end">
+                        <:toggle>
+                          <.button size="sm" variant="ghost">
+                            <.icon name="hero-ellipsis-vertical" class="size-4" />
+                          </.button>
+                        </:toggle>
+                        <.dropdown_button phx-click={
+                          JS.push("open-session-sheet", value: %{id: session.id})
+                        }>
+                          <.icon name="hero-eye" class="icon" /> Show session details
+                        </.dropdown_button>
+                        <.dropdown_link
+                          :if={transcript_url}
+                          href={~p"/sessions/#{session.id}/transcript"}
+                        >
+                          <.icon name="hero-document-text" class="icon" /> Download transcript
+                        </.dropdown_link>
+                        <.dropdown_button :if={!transcript_url} disabled>
+                          <.icon name="hero-document-text" class="icon" /> Download transcript
+                        </.dropdown_button>
+                        <.dropdown_link
+                          :if={recording_url}
+                          href={~p"/sessions/#{session.id}/recording"}
+                        >
+                          <.icon name="hero-play-circle" class="icon" /> Download recording
+                        </.dropdown_link>
+                        <.dropdown_button :if={!recording_url} disabled>
+                          <.icon name="hero-play-circle" class="icon" /> Download recording
+                        </.dropdown_button>
+                      </.dropdown>
+                    </:cell>
+                  </.table_row>
+                </.table_body>
+              </.table>
+            </div>
+
+            <div
+              data-selected-actions
+              class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 items-center rounded-base border border-zinc-700 bg-zinc-900 shadow-xl"
+            >
+              <div class="px-3 py-2 text-sm tabular-nums text-zinc-300 whitespace-nowrap">
+                <span data-selected-count-number class="font-semibold text-zinc-100">0</span> selected
+              </div>
+              <div class="h-4 border-l border-zinc-700"></div>
+              <.button
+                type="button"
+                size="sm"
+                variant="ghost"
+                class="m-1 text-zinc-100 hover:bg-zinc-800"
+                data-clear-selection
+              >
+                Clear
+              </.button>
+            </div>
           </div>
 
           <div

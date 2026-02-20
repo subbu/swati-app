@@ -31,6 +31,8 @@ defmodule SwatiWeb.SessionsLiveTest do
 
     assert has_element?(view, "#sessions-table")
     assert has_element?(view, "#sessions-filter")
+    assert has_element?(view, "#sessions-table thead input[name='select-all']")
+    assert has_element?(view, "#sessions-table tbody input[name^='select-session-']")
     refute has_element?(view, "th[data-column='session']")
     assert has_element?(view, "th[data-column='duration']")
   end
