@@ -129,32 +129,49 @@ defmodule SwatiWeb.SessionsLive.Helpers do
     if is_binary(external) and external != "", do: external, else: short_id(session.id)
   end
 
-  def endpoint_address(session) do
+  def endpoint_address(session, tenant \\ nil) do
     cond do
       session.endpoint && session.endpoint.address ->
-        session.endpoint.address
+        format_contact(session.endpoint.address, tenant)
 
       is_map(session.metadata) ->
-        Map.get(session.metadata, "to_address") || Map.get(session.metadata, :to_address) || "—"
+        session.metadata
+        |> endpoint_metadata_address()
+        |> format_contact(tenant)
 
       true ->
         "—"
     end
   end
 
-  def customer_address(session) do
+  def customer_address(session, tenant \\ nil) do
     address =
       if is_map(session.metadata) do
         Map.get(session.metadata, "from_address") || Map.get(session.metadata, :from_address)
       end
 
-    address || "—"
+    format_contact(address, tenant)
   end
 
-  def customer_name(session) do
+  def customer_name(session, tenant \\ nil) do
     case session.customer do
+      nil ->
+        "—"
+
+      customer ->
+        customer.name ||
+          customer.primary_email ||
+          format_contact(customer.primary_phone, tenant) ||
+          "Customer"
+    end
+  end
+
+  def format_duration(session) do
+    case duration_seconds(session) do
       nil -> "—"
-      customer -> customer.name || customer.primary_email || customer.primary_phone || "Customer"
+      seconds when seconds < 60 -> "#{seconds}s"
+      seconds when seconds < 3600 -> "#{div(seconds, 60)}m #{rem(seconds, 60)}s"
+      seconds -> "#{div(seconds, 3600)}h #{div(rem(seconds, 3600), 60)}m #{rem(seconds, 60)}s"
     end
   end
 
@@ -209,6 +226,50 @@ defmodule SwatiWeb.SessionsLive.Helpers do
     id
     |> to_string()
     |> String.slice(0, 8)
+  end
+
+  defp endpoint_metadata_address(metadata) do
+    Map.get(metadata, "to_address") || Map.get(metadata, :to_address) || "—"
+  end
+
+  defp duration_seconds(%{started_at: %DateTime{} = started_at, ended_at: %DateTime{} = ended_at}) do
+    max(DateTime.diff(ended_at, started_at, :second), 0)
+  end
+
+  defp duration_seconds(%{started_at: %DateTime{} = started_at, status: status})
+       when status in [
+              :open,
+              :active,
+              :waiting_on_customer,
+              "open",
+              "active",
+              "waiting_on_customer"
+            ] do
+    max(DateTime.diff(DateTime.utc_now(), started_at, :second), 0)
+  end
+
+  defp duration_seconds(_session), do: nil
+
+  defp format_contact(nil, _tenant), do: "—"
+  defp format_contact("", _tenant), do: "—"
+
+  defp format_contact(value, tenant) do
+    trimmed = String.trim(to_string(value))
+
+    cond do
+      trimmed == "" ->
+        "—"
+
+      phone_like?(trimmed) ->
+        Formatting.phone(trimmed, tenant) || trimmed
+
+      true ->
+        trimmed
+    end
+  end
+
+  defp phone_like?(value) do
+    Regex.match?(~r/^\+?[\d\s().-]{7,}$/, value)
   end
 
   defp plural_suffix(value) when value == 1, do: ""

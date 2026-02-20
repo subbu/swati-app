@@ -25,6 +25,7 @@ defmodule SwatiWeb.SessionsLive.Index do
 
       view_state = Preferences.sessions_index_state(socket.assigns.current_scope)
       allowed_columns = Preferences.sessions_index_columns()
+      default_columns = Map.get(Preferences.sessions_index_defaults(), "columns", allowed_columns)
       default_sort = Map.get(Preferences.sessions_index_defaults(), "sort", %{})
 
       filters =
@@ -36,7 +37,7 @@ defmodule SwatiWeb.SessionsLive.Index do
         |> Map.get("sort", default_sort)
         |> sort_assign()
 
-      visible_columns = Map.get(view_state, "columns", allowed_columns)
+      visible_columns = Map.get(view_state, "columns", default_columns)
       hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
       page_size = 20
 
@@ -236,8 +237,9 @@ defmodule SwatiWeb.SessionsLive.Index do
 
   @impl true
   def handle_event("reset_columns", _params, socket) do
-    default_columns = Preferences.sessions_index_columns()
-    hidden_columns_count = 0
+    allowed_columns = Preferences.sessions_index_columns()
+    default_columns = Map.get(Preferences.sessions_index_defaults(), "columns", allowed_columns)
+    hidden_columns_count = max(length(allowed_columns) - length(default_columns), 0)
 
     _ =
       Preferences.update_sessions_index_state(socket.assigns.current_scope, %{
@@ -246,7 +248,7 @@ defmodule SwatiWeb.SessionsLive.Index do
 
     columns_form =
       default_columns
-      |> columns_form_map(default_columns)
+      |> columns_form_map(allowed_columns)
       |> to_form()
 
     {:noreply,
@@ -440,6 +442,14 @@ defmodule SwatiWeb.SessionsLive.Index do
                     />
                   </div>
                   <div class="flex items-center justify-between mt-3">
+                    <.label for="duration" class="text-foreground">Duration</.label>
+                    <.switch
+                      id="duration"
+                      field={@columns_form[:duration]}
+                      value={@visible_columns |> Enum.member?("duration")}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between mt-3">
                     <.label for="last_event_at" class="text-foreground">Last activity</.label>
                     <.switch
                       id="last_event_at"
@@ -524,6 +534,13 @@ defmodule SwatiWeb.SessionsLive.Index do
                   </button>
                 </:col>
                 <:col
+                  :if={"duration" in @visible_columns}
+                  class="py-2"
+                  data-column="duration"
+                >
+                  Duration
+                </:col>
+                <:col
                   :if={"last_event_at" in @visible_columns}
                   class="py-2"
                   phx-click="sort"
@@ -553,15 +570,15 @@ defmodule SwatiWeb.SessionsLive.Index do
                       {SessionsHelpers.session_label(session)}
                     </.link>
                     <div class="text-xs text-foreground-softest">
-                      {SessionsHelpers.endpoint_address(session)}
+                      {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
                     </div>
                   </:cell>
                   <:cell :if={"customer" in @visible_columns} class="py-2 align-middle">
                     <span class="text-foreground font-medium">
-                      {SessionsHelpers.customer_name(session)}
+                      {SessionsHelpers.customer_name(session, @current_scope.tenant)}
                     </span>
                     <div class="text-xs text-foreground-softest">
-                      {SessionsHelpers.customer_address(session)}
+                      {SessionsHelpers.customer_address(session, @current_scope.tenant)}
                     </div>
                   </:cell>
                   <:cell :if={"channel" in @visible_columns} class="py-2 align-middle">
@@ -582,6 +599,11 @@ defmodule SwatiWeb.SessionsLive.Index do
                     <% badge = SessionsHelpers.status_badge(session.status) %>
                     <.badge size="sm" variant="soft" color={badge.color}>{badge.label}</.badge>
                   </:cell>
+                  <:cell :if={"duration" in @visible_columns} class="py-2 align-middle">
+                    <span class="text-foreground font-medium">
+                      {SessionsHelpers.format_duration(session)}
+                    </span>
+                  </:cell>
                   <:cell :if={"last_event_at" in @visible_columns} class="py-2 align-middle">
                     <% activity_at = session.last_event_at || session.started_at %>
                     <div class="flex flex-col">
@@ -601,7 +623,7 @@ defmodule SwatiWeb.SessionsLive.Index do
                       <div class="flex flex-col gap-0.5">
                         <span class="font-semibold text-foreground">{agent.name}</span>
                         <span class="text-xs text-foreground-softest">
-                          {SessionsHelpers.endpoint_address(session)}
+                          {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
                         </span>
                       </div>
                     </div>

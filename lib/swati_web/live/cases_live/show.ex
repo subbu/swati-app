@@ -28,7 +28,9 @@ defmodule SwatiWeb.CasesLive.Show do
       handoffs = Handoffs.list_handoffs(tenant_id, %{case_id: case_record.id})
 
       can_assign = Accounts.authorized?(socket.assigns.current_scope, :assign_cases)
-      assignable_members = if can_assign, do: Accounts.list_assignable_members(tenant_id), else: []
+
+      assignable_members =
+        if can_assign, do: Accounts.list_assignable_members(tenant_id), else: []
 
       {:ok,
        socket
@@ -109,7 +111,7 @@ defmodule SwatiWeb.CasesLive.Show do
                           {SessionsHelpers.session_label(session)}
                         </.link>
                         <div class="text-xs text-foreground-softest">
-                          {SessionsHelpers.endpoint_address(session)}
+                          {SessionsHelpers.endpoint_address(session, @current_scope.tenant)}
                         </div>
                       </:cell>
                       <:cell class="py-2 align-middle">
@@ -148,7 +150,9 @@ defmodule SwatiWeb.CasesLive.Show do
                         value={member.user_id}
                         selected={@case_record.assigned_user_id == member.user_id}
                       >
-                        {Membership.display_name(member)}{if member.title, do: " — #{member.title}", else: ""}
+                        {Membership.display_name(member)}{if member.title,
+                          do: " — #{member.title}",
+                          else: ""}
                       </option>
                     <% end %>
                   </select>

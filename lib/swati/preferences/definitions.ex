@@ -6,7 +6,12 @@ defmodule Swati.Preferences.Definitions do
   @calls_index_statuses ~w(started in_progress ended failed cancelled error)
   @calls_index_sort_columns ~w(started_at from_number duration_seconds status agent_id)
   @sessions_index_key "sessions.index.view_state"
-  @sessions_index_columns ~w(session customer channel direction status last_event_at agent)
+  @legacy_sessions_index_columns ~w(session customer channel direction status last_event_at agent)
+  @legacy_sessions_index_default_columns Enum.reject(
+                                           @legacy_sessions_index_columns,
+                                           &(&1 == "session")
+                                         )
+  @sessions_index_columns ~w(session customer channel direction status duration last_event_at agent)
   @sessions_index_default_columns Enum.reject(@sessions_index_columns, &(&1 == "session"))
   @sessions_index_statuses ~w(open active waiting_on_customer closed)
   @sessions_index_sort_columns ~w(started_at last_event_at status direction channel customer)
@@ -26,7 +31,7 @@ defmodule Swati.Preferences.Definitions do
   def cases_index_defaults, do: default(@cases_index_key)
 
   def schema_version(@calls_index_key), do: 1
-  def schema_version(@sessions_index_key), do: 2
+  def schema_version(@sessions_index_key), do: 3
   def schema_version(@cases_index_key), do: 1
 
   def schema_version(key) do
@@ -123,12 +128,12 @@ defmodule Swati.Preferences.Definitions do
     raise ArgumentError, "unknown preference key: #{inspect(key)}"
   end
 
-  def migrate(@sessions_index_key, value, from_version) when from_version < 2 do
+  def migrate(@sessions_index_key, value, from_version) when from_version < 3 do
     value = normalize(@sessions_index_key, value)
-    columns = Map.get(value, "columns", @sessions_index_default_columns)
+    columns = Map.get(value, "columns", @legacy_sessions_index_default_columns)
 
     columns =
-      if columns == @sessions_index_columns do
+      if columns in [@legacy_sessions_index_columns, @legacy_sessions_index_default_columns] do
         @sessions_index_default_columns
       else
         columns
