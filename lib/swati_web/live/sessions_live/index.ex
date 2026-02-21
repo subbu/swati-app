@@ -11,6 +11,7 @@ defmodule SwatiWeb.SessionsLive.Index do
   alias Swati.Sessions
   alias Swati.Sessions.SessionEvent
   alias Swati.Handoffs
+  alias Swati.Features.SessionsAiRecommendations
   alias Swati.Sessions.BulkRecommendations
   alias SwatiWeb.CallsLive.Show, as: CallsShow
   alias SwatiWeb.SessionsLive.Helpers, as: SessionsHelpers
@@ -41,6 +42,8 @@ defmodule SwatiWeb.SessionsLive.Index do
       visible_columns = Map.get(view_state, "columns", default_columns)
       hidden_columns_count = max(length(allowed_columns) - length(visible_columns), 0)
       page_size = 20
+      ai_recommendations_enabled = SessionsAiRecommendations.enabled?(tenant)
+      ai_prompt = default_ai_prompt()
 
       {filters, filters_changed?} = normalize_agent_filter(filters, agents)
       filters_active = filters_active?(filters)
@@ -76,9 +79,10 @@ defmodule SwatiWeb.SessionsLive.Index do
         |> assign(:handoffs, [])
         |> assign(:selected_session_ids, [])
         |> assign(:selection_summary, nil)
-        |> assign(:ai_prompt_input, default_ai_prompt())
-        |> assign(:ai_prompt_suggested, default_ai_prompt())
-        |> assign(:ai_prompt_form, to_form(%{"prompt" => default_ai_prompt()}, as: :ai_prompt))
+        |> assign(:ai_recommendations_enabled, ai_recommendations_enabled)
+        |> assign(:ai_prompt_input, ai_prompt)
+        |> assign(:ai_prompt_suggested, ai_prompt)
+        |> assign(:ai_prompt_form, to_form(%{"prompt" => ai_prompt}, as: :ai_prompt))
         |> assign(:ai_recommendations, [])
         |> assign(:ai_recommendations_loading, false)
         |> assign(:ai_recommendations_error, nil)
@@ -317,38 +321,45 @@ defmodule SwatiWeb.SessionsLive.Index do
         |> assign(:selection_summary, nil)
 
       if selected_session_ids == [] do
-        {:noreply,
-         socket
-         |> assign(:ai_recommendations, [])
-         |> assign(:ai_recommendations_loading, false)
-         |> assign(:ai_recommendations_error, nil)
-         |> assign(:ai_request_ref, nil)
-         |> assign(:ai_prompt_open, false)}
+        {:noreply, clear_ai_recommendation_state(socket)}
       else
-        {:noreply,
-         request_ai_recommendations(
-           socket,
-           selected_session_ids,
-           socket.assigns.ai_prompt_input
-         )}
+        if socket.assigns.ai_recommendations_enabled do
+          {:noreply,
+           request_ai_recommendations(
+             socket,
+             selected_session_ids,
+             socket.assigns.ai_prompt_input
+           )}
+        else
+          {:noreply, clear_ai_recommendation_state(socket)}
+        end
       end
     end
   end
 
   @impl true
   def handle_event("refresh_ai_recommendations", %{"ai_prompt" => %{"prompt" => prompt}}, socket) do
-    prompt = normalize_ai_prompt(prompt)
-    selected_session_ids = socket.assigns.selected_session_ids
+    if socket.assigns.ai_recommendations_enabled do
+      prompt = normalize_ai_prompt(prompt)
+      selected_session_ids = socket.assigns.selected_session_ids
 
-    socket =
-      socket
-      |> assign(:ai_prompt_input, prompt)
-      |> assign(:ai_prompt_form, to_form(%{"prompt" => prompt}, as: :ai_prompt))
+      socket =
+        socket
+        |> assign(:ai_prompt_input, prompt)
+        |> assign(:ai_prompt_form, to_form(%{"prompt" => prompt}, as: :ai_prompt))
 
-    if selected_session_ids == [] do
-      {:noreply, put_flash(socket, :error, "Select sessions first to get AI recommendations.")}
+      if selected_session_ids == [] do
+        {:noreply, put_flash(socket, :error, "Select sessions first to get AI recommendations.")}
+      else
+        {:noreply,
+         request_ai_recommendations(
+           socket,
+           selected_session_ids,
+           prompt
+         )}
+      end
     else
-      {:noreply, request_ai_recommendations(socket, selected_session_ids, prompt)}
+      {:noreply, socket}
     end
   end
 
@@ -386,7 +397,11 @@ defmodule SwatiWeb.SessionsLive.Index do
 
   @impl true
   def handle_event("toggle_ai_prompt", _params, socket) do
-    {:noreply, assign(socket, :ai_prompt_open, !socket.assigns.ai_prompt_open)}
+    if socket.assigns.ai_recommendations_enabled do
+      {:noreply, assign(socket, :ai_prompt_open, !socket.assigns.ai_prompt_open)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -834,7 +849,7 @@ defmodule SwatiWeb.SessionsLive.Index do
                   selected
                 </div>
 
-                <.dropdown placement="top-start">
+                <.dropdown :if={@ai_recommendations_enabled} placement="top-start">
                   <:toggle>
                     <.button
                       type="button"
@@ -868,8 +883,46 @@ defmodule SwatiWeb.SessionsLive.Index do
                   </.dropdown_button>
                 </.dropdown>
 
+                <div
+                  :if={!@ai_recommendations_enabled}
+                  class="flex items-center gap-2 text-[11px] text-zinc-200"
+                >
+                  <.button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    phx-click="bulk_action"
+                    phx-value-action="send_follow_up"
+                    class="text-zinc-100 hover:bg-zinc-800 border border-zinc-700"
+                  >
+                    Send follow-up message
+                  </.button>
+                  <span class="text-zinc-500">|</span>
+                  <.button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    phx-click="bulk_action"
+                    phx-value-action="tag_label"
+                    class="text-zinc-100 hover:bg-zinc-800 border border-zinc-700"
+                  >
+                    Tag/label
+                  </.button>
+                  <span class="text-zinc-500">|</span>
+                  <.button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    phx-click="bulk_action"
+                    phx-value-action="summarize_selected"
+                    class="text-zinc-100 hover:bg-zinc-800 border border-zinc-700"
+                  >
+                    Summarize selected
+                  </.button>
+                </div>
+
                 <.button
-                  :if={@ai_recommendations != []}
+                  :if={@ai_recommendations_enabled and @ai_recommendations != []}
                   type="button"
                   size="xs"
                   variant="ghost"
@@ -881,7 +934,10 @@ defmodule SwatiWeb.SessionsLive.Index do
                 </.button>
 
                 <div class="ml-auto flex items-center gap-2">
-                  <span :if={@ai_recommendations_loading} class="text-[11px] text-zinc-400">
+                  <span
+                    :if={@ai_recommendations_enabled and @ai_recommendations_loading}
+                    class="text-[11px] text-zinc-400"
+                  >
                     Generating AI recommendations...
                   </span>
                   <.button
@@ -897,10 +953,17 @@ defmodule SwatiWeb.SessionsLive.Index do
               </div>
 
               <div
-                :if={(@ai_recommendations != [] or @selection_summary) || @ai_prompt_open}
+                :if={
+                  @selection_summary ||
+                    (@ai_recommendations_enabled &&
+                       (@ai_recommendations != [] || @ai_prompt_open || @ai_recommendations_error))
+                }
                 class="w-full px-3 pb-2"
               >
-                <div :if={@ai_recommendations != []} class="flex flex-wrap items-center gap-1.5">
+                <div
+                  :if={@ai_recommendations_enabled and @ai_recommendations != []}
+                  class="flex flex-wrap items-center gap-1.5"
+                >
                   <span
                     :for={recommendation <- @ai_recommendations}
                     data-ai-chip
@@ -912,7 +975,7 @@ defmodule SwatiWeb.SessionsLive.Index do
                 </div>
 
                 <.form
-                  :if={@ai_prompt_open}
+                  :if={@ai_recommendations_enabled and @ai_prompt_open}
                   for={@ai_prompt_form}
                   id="bulk-ai-prompt-form"
                   phx-submit="refresh_ai_recommendations"
@@ -933,7 +996,10 @@ defmodule SwatiWeb.SessionsLive.Index do
                   {@selection_summary}
                 </p>
 
-                <div :if={@ai_recommendations_error} class="mt-2 text-[11px] text-rose-300">
+                <div
+                  :if={@ai_recommendations_enabled and @ai_recommendations_error}
+                  class="mt-2 text-[11px] text-rose-300"
+                >
                   {@ai_recommendations_error}
                 </div>
               </div>
@@ -1262,7 +1328,7 @@ defmodule SwatiWeb.SessionsLive.Index do
   end
 
   defp default_ai_prompt do
-    "Recommend 2 concrete next actions for these selected conversations."
+    SessionsAiRecommendations.default_prompt()
   end
 
   defp normalize_ai_prompt(prompt) do
@@ -1287,16 +1353,32 @@ defmodule SwatiWeb.SessionsLive.Index do
 
   defp request_ai_recommendations(socket, selected_session_ids, prompt) do
     request_ref = System.unique_integer([:positive])
-    tenant_id = socket.assigns.current_scope.tenant.id
+    tenant = socket.assigns.current_scope.tenant
+    tenant_id = tenant.id
     normalized_prompt = normalize_ai_prompt(prompt)
+    recommendation_opts = SessionsAiRecommendations.recommendation_opts(tenant)
+    timeout_ms = SessionsAiRecommendations.timeout_ms(tenant)
     liveview_pid = self()
 
-    Task.start(fn ->
-      result = BulkRecommendations.recommend(tenant_id, selected_session_ids, normalized_prompt)
-      send(liveview_pid, {:bulk_ai_recommendations_ready, request_ref, result})
-    end)
+    {:ok, task_pid} =
+      Task.start(fn ->
+        await_task_start_signal()
 
-    Process.send_after(self(), {:bulk_ai_recommendations_timeout, request_ref}, 20_000)
+        result =
+          BulkRecommendations.recommend(
+            tenant_id,
+            selected_session_ids,
+            normalized_prompt,
+            recommendation_opts
+          )
+
+        send(liveview_pid, {:bulk_ai_recommendations_ready, request_ref, result})
+      end)
+
+    maybe_allow_task_repo_access(task_pid)
+    send(task_pid, :start_recommendations)
+
+    Process.send_after(self(), {:bulk_ai_recommendations_timeout, request_ref}, timeout_ms)
 
     socket
     |> assign(:ai_request_ref, request_ref)
@@ -1305,6 +1387,34 @@ defmodule SwatiWeb.SessionsLive.Index do
     |> assign(:ai_recommendations, [])
     |> assign(:ai_prompt_input, normalized_prompt)
     |> assign(:ai_prompt_form, to_form(%{"prompt" => normalized_prompt}, as: :ai_prompt))
+  end
+
+  defp await_task_start_signal do
+    receive do
+      :start_recommendations -> :ok
+    after
+      10 -> :ok
+    end
+  end
+
+  defp maybe_allow_task_repo_access(task_pid) do
+    repo_config = Application.get_env(:swati, Swati.Repo, [])
+
+    if repo_config[:pool] == Ecto.Adapters.SQL.Sandbox do
+      _ = Ecto.Adapters.SQL.Sandbox.allow(Swati.Repo, self(), task_pid)
+      :ok
+    else
+      :ok
+    end
+  end
+
+  defp clear_ai_recommendation_state(socket) do
+    socket
+    |> assign(:ai_recommendations, [])
+    |> assign(:ai_recommendations_loading, false)
+    |> assign(:ai_recommendations_error, nil)
+    |> assign(:ai_request_ref, nil)
+    |> assign(:ai_prompt_open, false)
   end
 
   defp mark_follow_up_requested(tenant_id, session_ids) do

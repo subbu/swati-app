@@ -21,7 +21,8 @@ defmodule Swati.Sessions.BulkRecommendations do
     }
   ]
 
-  def recommend(tenant_id, session_ids, prompt \\ @default_prompt) when is_list(session_ids) do
+  def recommend(tenant_id, session_ids, prompt \\ @default_prompt, opts \\ [])
+      when is_list(session_ids) do
     ids =
       session_ids
       |> Enum.uniq()
@@ -43,7 +44,7 @@ defmodule Swati.Sessions.BulkRecommendations do
         events_by_session = fetch_events_by_session(Enum.map(sessions, & &1.id))
         context_payload = build_context_payload(sessions, events_by_session)
 
-        case request_recommendations(context_payload, normalize_prompt(prompt)) do
+        case request_recommendations(context_payload, normalize_prompt(prompt), opts) do
           {:ok, recommendations} ->
             {:ok, recommendations}
 
@@ -107,9 +108,9 @@ defmodule Swati.Sessions.BulkRecommendations do
     |> Enum.take(16)
   end
 
-  defp request_recommendations(context_payload, prompt) do
+  defp request_recommendations(context_payload, prompt, opts) do
     with {:ok, api_key} <- openai_api_key(),
-         {:ok, response} <- call_openai(api_key, context_payload, prompt),
+         {:ok, response} <- call_openai(api_key, context_payload, prompt, opts),
          {:ok, recommendations} <- parse_openai_response(response) do
       {:ok, recommendations}
     end
@@ -123,7 +124,7 @@ defmodule Swati.Sessions.BulkRecommendations do
     end
   end
 
-  defp call_openai(api_key, context_payload, prompt) do
+  defp call_openai(api_key, context_payload, prompt, opts) do
     system_message =
       """
       You are a support operations assistant. Return strict JSON with:
@@ -142,9 +143,9 @@ defmodule Swati.Sessions.BulkRecommendations do
       """
 
     body = %{
-      model: System.get_env("OPENAI_REASONING_MODEL") || @default_model,
+      model: recommendation_model(opts),
       response_format: %{type: "json_object"},
-      temperature: 0.2,
+      temperature: recommendation_temperature(opts),
       messages: [
         %{role: "system", content: system_message},
         %{role: "user", content: user_message}
@@ -235,6 +236,25 @@ defmodule Swati.Sessions.BulkRecommendations do
     |> case do
       "" -> @default_prompt
       value -> truncate(value, 240)
+    end
+  end
+
+  defp recommendation_model(opts) do
+    case opts[:model] do
+      value when is_binary(value) and value != "" -> value
+      _ -> System.get_env("OPENAI_REASONING_MODEL") || @default_model
+    end
+  end
+
+  defp recommendation_temperature(opts) do
+    case opts[:temperature] do
+      value when is_number(value) ->
+        value
+        |> max(0.0)
+        |> min(1.0)
+
+      _ ->
+        0.2
     end
   end
 

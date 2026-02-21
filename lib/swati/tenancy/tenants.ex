@@ -79,6 +79,29 @@ defmodule Swati.Tenancy.Tenants do
     |> Repo.update()
   end
 
+  def feature_config(%Tenant{} = tenant, feature_key, default \\ %{}) do
+    key = normalize_feature_key(feature_key)
+    policy = normalize_map(tenant.policy)
+    feature_configs = policy |> Map.get("feature_configs", %{}) |> normalize_map()
+    value = Map.get(feature_configs, key, default)
+
+    if is_map(value), do: value, else: default
+  end
+
+  def update_feature_config(%Tenant{} = tenant, feature_key, updates) when is_map(updates) do
+    key = normalize_feature_key(feature_key)
+    policy = normalize_map(tenant.policy)
+    feature_configs = policy |> Map.get("feature_configs", %{}) |> normalize_map()
+    existing = Map.get(feature_configs, key, %{}) |> normalize_map()
+    merged = Swati.Policies.merge([existing, updates])
+    updated_feature_configs = Map.put(feature_configs, key, merged)
+    updated_policy = Map.put(policy, "feature_configs", updated_feature_configs)
+
+    tenant
+    |> Tenant.changeset(%{policy: updated_policy})
+    |> Repo.update()
+  end
+
   defp normalize_tenant_attrs(attrs) do
     name = Map.get(attrs, "name") || Map.get(attrs, :name)
     slug = Map.get(attrs, "slug") || Map.get(attrs, :slug)
@@ -94,6 +117,14 @@ defmodule Swati.Tenancy.Tenants do
     |> Map.new()
     |> Map.put(:slug, slug)
   end
+
+  defp normalize_feature_key(feature_key) when is_atom(feature_key),
+    do: Atom.to_string(feature_key)
+
+  defp normalize_feature_key(feature_key), do: feature_key |> to_string() |> String.trim()
+
+  defp normalize_map(value) when is_map(value), do: value
+  defp normalize_map(_), do: %{}
 
   defp slugify(name) do
     name

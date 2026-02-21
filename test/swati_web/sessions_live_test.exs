@@ -33,7 +33,7 @@ defmodule SwatiWeb.SessionsLiveTest do
     assert has_element?(view, "#sessions-filter")
     assert has_element?(view, "#sessions-table thead input[name='select-all']")
     assert has_element?(view, "#sessions-table tbody input[name^='select-session-']")
-    assert has_element?(view, "[data-selected-actions]", "Actions")
+    assert has_element?(view, "[data-selected-actions]", "Send follow-up message")
     refute has_element?(view, "th[data-column='session']")
     assert has_element?(view, "th[data-column='duration']")
   end
@@ -181,6 +181,9 @@ defmodule SwatiWeb.SessionsLiveTest do
   end
 
   test "ai recommendations start loading after selection event", %{conn: conn, scope: scope} do
+    assert {:ok, true} =
+             FunWithFlags.enable(:sessions_ai_recommendations, for_actor: scope.tenant)
+
     {:ok, channel} = Channels.ensure_voice_channel(scope.tenant.id)
 
     {:ok, endpoint} =
@@ -200,5 +203,31 @@ defmodule SwatiWeb.SessionsLiveTest do
     _ = render_hook(view, "selected_sessions_changed", %{"session_ids" => [session.id]})
 
     assert has_element?(view, "[data-selected-actions]", "Generating AI recommendations")
+  end
+
+  test "ai recommendations stay hidden when feature flag is disabled", %{conn: conn, scope: scope} do
+    assert {:ok, false} =
+             FunWithFlags.disable(:sessions_ai_recommendations, for_actor: scope.tenant)
+
+    {:ok, channel} = Channels.ensure_voice_channel(scope.tenant.id)
+
+    {:ok, endpoint} =
+      %Endpoint{}
+      |> Endpoint.changeset(%{
+        tenant_id: scope.tenant.id,
+        channel_id: channel.id,
+        address: "endpoint-#{System.unique_integer([:positive])}"
+      })
+      |> Repo.insert()
+
+    {:ok, session} =
+      Sessions.create_session(scope.tenant.id, %{channel_id: channel.id, endpoint_id: endpoint.id})
+
+    {:ok, view, _html} = live(conn, ~p"/sessions")
+
+    _ = render_hook(view, "selected_sessions_changed", %{"session_ids" => [session.id]})
+
+    refute has_element?(view, "[data-selected-actions]", "Generating AI recommendations")
+    refute has_element?(view, "#bulk-ai-prompt-form")
   end
 end
