@@ -1,6 +1,13 @@
 export const TableRowSelection = {
   mounted() {
     this.selectedIds = new Set();
+    this.lastSelectionKey = "";
+    this.pushSelectionDebounced = () => {
+      clearTimeout(this.pushSelectionTimer);
+      this.pushSelectionTimer = setTimeout(() => {
+        this.pushSelectionChanged();
+      }, 250);
+    };
 
     this.handleChange = (event) => {
       const table = this.getTable();
@@ -16,6 +23,7 @@ export const TableRowSelection = {
       }
 
       this.updateSelectionUI();
+      this.pushSelectionDebounced();
     };
 
     this.handleClick = (event) => {
@@ -37,12 +45,14 @@ export const TableRowSelection = {
       }
 
       this.updateSelectionUI();
+      this.pushSelectionDebounced();
     };
 
     this.el.addEventListener("change", this.handleChange);
     this.el.addEventListener("click", this.handleClick);
     this.syncVisibleRowsFromSelection();
     this.updateSelectionUI();
+    this.pushSelectionChanged();
   },
 
   updated() {
@@ -53,6 +63,7 @@ export const TableRowSelection = {
   destroyed() {
     this.el.removeEventListener("change", this.handleChange);
     this.el.removeEventListener("click", this.handleClick);
+    clearTimeout(this.pushSelectionTimer);
   },
 
   getTable() {
@@ -131,5 +142,15 @@ export const TableRowSelection = {
       selectedActions.classList.toggle("hidden", selectedCount === 0);
       selectedActions.classList.toggle("flex", selectedCount > 0);
     }
+  },
+
+  pushSelectionChanged() {
+    const sessionIds = Array.from(this.selectedIds);
+    const selectionKey = sessionIds.slice().sort().join(",");
+
+    if (selectionKey === this.lastSelectionKey) return;
+
+    this.lastSelectionKey = selectionKey;
+    this.pushEvent("selected_sessions_changed", { session_ids: sessionIds });
   },
 };

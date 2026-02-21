@@ -11,6 +11,7 @@ defmodule SwatiWeb.SessionsLive.Index do
   alias Swati.Sessions
   alias Swati.Sessions.SessionEvent
   alias Swati.Handoffs
+  alias Swati.Sessions.BulkRecommendations
   alias SwatiWeb.CallsLive.Show, as: CallsShow
   alias SwatiWeb.SessionsLive.Helpers, as: SessionsHelpers
 
@@ -73,6 +74,16 @@ defmodule SwatiWeb.SessionsLive.Index do
         |> assign(:call, nil)
         |> assign(:approvals, [])
         |> assign(:handoffs, [])
+        |> assign(:selected_session_ids, [])
+        |> assign(:selection_summary, nil)
+        |> assign(:ai_prompt_input, default_ai_prompt())
+        |> assign(:ai_prompt_suggested, default_ai_prompt())
+        |> assign(:ai_prompt_form, to_form(%{"prompt" => default_ai_prompt()}, as: :ai_prompt))
+        |> assign(:ai_recommendations, [])
+        |> assign(:ai_recommendations_loading, false)
+        |> assign(:ai_recommendations_error, nil)
+        |> assign(:ai_request_ref, nil)
+        |> assign(:ai_prompt_open, false)
 
       _ =
         if filters_changed? do
@@ -291,6 +302,132 @@ defmodule SwatiWeb.SessionsLive.Index do
      socket
      |> assign(:page, page)
      |> load_sessions(reset: true)}
+  end
+
+  @impl true
+  def handle_event("selected_sessions_changed", %{"session_ids" => session_ids}, socket) do
+    selected_session_ids = normalize_session_ids(session_ids)
+
+    if selected_session_ids == socket.assigns.selected_session_ids do
+      {:noreply, socket}
+    else
+      socket =
+        socket
+        |> assign(:selected_session_ids, selected_session_ids)
+        |> assign(:selection_summary, nil)
+
+      if selected_session_ids == [] do
+        {:noreply,
+         socket
+         |> assign(:ai_recommendations, [])
+         |> assign(:ai_recommendations_loading, false)
+         |> assign(:ai_recommendations_error, nil)
+         |> assign(:ai_request_ref, nil)
+         |> assign(:ai_prompt_open, false)}
+      else
+        {:noreply,
+         request_ai_recommendations(
+           socket,
+           selected_session_ids,
+           socket.assigns.ai_prompt_input
+         )}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("refresh_ai_recommendations", %{"ai_prompt" => %{"prompt" => prompt}}, socket) do
+    prompt = normalize_ai_prompt(prompt)
+    selected_session_ids = socket.assigns.selected_session_ids
+
+    socket =
+      socket
+      |> assign(:ai_prompt_input, prompt)
+      |> assign(:ai_prompt_form, to_form(%{"prompt" => prompt}, as: :ai_prompt))
+
+    if selected_session_ids == [] do
+      {:noreply, put_flash(socket, :error, "Select sessions first to get AI recommendations.")}
+    else
+      {:noreply, request_ai_recommendations(socket, selected_session_ids, prompt)}
+    end
+  end
+
+  @impl true
+  def handle_event("bulk_action", %{"action" => action}, socket) do
+    selected_session_ids = socket.assigns.selected_session_ids
+
+    if selected_session_ids == [] do
+      {:noreply, put_flash(socket, :error, "Select at least one session first.")}
+    else
+      tenant_id = socket.assigns.current_scope.tenant.id
+
+      case action do
+        "send_follow_up" ->
+          count = mark_follow_up_requested(tenant_id, selected_session_ids)
+          {:noreply, put_flash(socket, :info, "Follow-up queued for #{count} sessions.")}
+
+        "tag_label" ->
+          count = add_bulk_label(tenant_id, selected_session_ids, "needs-follow-up")
+          {:noreply, put_flash(socket, :info, "Added label to #{count} sessions.")}
+
+        "summarize_selected" ->
+          summary = summarize_selected_sessions(tenant_id, selected_session_ids)
+
+          {:noreply,
+           socket
+           |> assign(:selection_summary, summary)
+           |> put_flash(:info, "Summary generated for selected sessions.")}
+
+        _ ->
+          {:noreply, socket}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_ai_prompt", _params, socket) do
+    {:noreply, assign(socket, :ai_prompt_open, !socket.assigns.ai_prompt_open)}
+  end
+
+  @impl true
+  def handle_info({:bulk_ai_recommendations_ready, request_ref, result}, socket) do
+    if request_ref != socket.assigns.ai_request_ref do
+      {:noreply, socket}
+    else
+      case result do
+        {:ok, %{"recommendations" => recommendations, "suggested_prompt" => suggested_prompt}} ->
+          prompt = normalize_ai_prompt(suggested_prompt)
+
+          {:noreply,
+           socket
+           |> assign(:ai_recommendations, recommendations)
+           |> assign(:ai_recommendations_loading, false)
+           |> assign(:ai_recommendations_error, nil)
+           |> assign(:ai_prompt_suggested, prompt)
+           |> assign(
+             :ai_prompt_form,
+             to_form(%{"prompt" => socket.assigns.ai_prompt_input}, as: :ai_prompt)
+           )}
+
+        _ ->
+          {:noreply,
+           socket
+           |> assign(:ai_recommendations_loading, false)
+           |> assign(:ai_recommendations_error, "Couldn't load AI recommendations right now.")}
+      end
+    end
+  end
+
+  @impl true
+  def handle_info({:bulk_ai_recommendations_timeout, request_ref}, socket) do
+    if request_ref != socket.assigns.ai_request_ref or !socket.assigns.ai_recommendations_loading do
+      {:noreply, socket}
+    else
+      {:noreply,
+       socket
+       |> assign(:ai_recommendations_loading, false)
+       |> assign(:ai_recommendations_error, "Timed out while generating AI recommendations.")}
+    end
   end
 
   @impl true
@@ -689,21 +826,117 @@ defmodule SwatiWeb.SessionsLive.Index do
 
             <div
               data-selected-actions
-              class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 items-center rounded-base border border-zinc-700 bg-zinc-900 shadow-xl"
+              class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(95vw,780px)] flex-col rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
             >
-              <div class="px-3 py-2 text-sm tabular-nums text-zinc-300 whitespace-nowrap">
-                <span data-selected-count-number class="font-semibold text-zinc-100">0</span> selected
+              <div class="w-full flex flex-wrap items-center gap-2 px-3 py-2">
+                <div class="text-xs tabular-nums text-zinc-300 whitespace-nowrap">
+                  <span data-selected-count-number class="font-semibold text-zinc-100">0</span>
+                  selected
+                </div>
+
+                <.dropdown placement="top-start">
+                  <:toggle>
+                    <.button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      class="text-zinc-100 hover:bg-zinc-800 border border-zinc-700"
+                    >
+                      <.icon name="hero-bolt" class="icon" /> Actions
+                    </.button>
+                  </:toggle>
+                  <.dropdown_button
+                    phx-click="bulk_action"
+                    phx-value-action="send_follow_up"
+                    class="min-w-52"
+                  >
+                    Send follow-up message
+                  </.dropdown_button>
+                  <.dropdown_button
+                    phx-click="bulk_action"
+                    phx-value-action="tag_label"
+                    class="min-w-52"
+                  >
+                    Tag/label
+                  </.dropdown_button>
+                  <.dropdown_button
+                    phx-click="bulk_action"
+                    phx-value-action="summarize_selected"
+                    class="min-w-52"
+                  >
+                    Summarize selected
+                  </.dropdown_button>
+                </.dropdown>
+
+                <.button
+                  :if={@ai_recommendations != []}
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  class="text-zinc-100 hover:bg-zinc-800 border border-zinc-700"
+                  phx-click="toggle_ai_prompt"
+                >
+                  <.icon name="hero-sparkles" class="icon" />
+                  {if @ai_prompt_open, do: "Hide prompt", else: "Refine"}
+                </.button>
+
+                <div class="ml-auto flex items-center gap-2">
+                  <span :if={@ai_recommendations_loading} class="text-[11px] text-zinc-400">
+                    Generating AI recommendations...
+                  </span>
+                  <.button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    class="text-zinc-100 hover:bg-zinc-800 border border-zinc-700"
+                    data-clear-selection
+                  >
+                    Clear
+                  </.button>
+                </div>
               </div>
-              <div class="h-4 border-l border-zinc-700"></div>
-              <.button
-                type="button"
-                size="sm"
-                variant="ghost"
-                class="m-1 text-zinc-100 hover:bg-zinc-800"
-                data-clear-selection
+
+              <div
+                :if={(@ai_recommendations != [] or @selection_summary) || @ai_prompt_open}
+                class="w-full px-3 pb-2"
               >
-                Clear
-              </.button>
+                <div :if={@ai_recommendations != []} class="flex flex-wrap items-center gap-1.5">
+                  <span
+                    :for={recommendation <- @ai_recommendations}
+                    data-ai-chip
+                    title={"#{recommendation["reason"]} #{recommendation["action"]}"}
+                    class="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-950 px-2 py-1 text-[11px] text-zinc-200"
+                  >
+                    {recommendation["title"]}
+                  </span>
+                </div>
+
+                <.form
+                  :if={@ai_prompt_open}
+                  for={@ai_prompt_form}
+                  id="bulk-ai-prompt-form"
+                  phx-submit="refresh_ai_recommendations"
+                  class="mt-2"
+                >
+                  <div class="flex flex-col gap-2 md:flex-row">
+                    <.input
+                      field={@ai_prompt_form[:prompt]}
+                      type="text"
+                      placeholder={@ai_prompt_suggested}
+                      class="w-full bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                    />
+                    <.button type="submit" size="xs" class="md:shrink-0">Run</.button>
+                  </div>
+                </.form>
+
+                <p :if={@selection_summary} class="mt-2 text-[11px] text-zinc-300 leading-relaxed">
+                  {@selection_summary}
+                </p>
+
+                <div :if={@ai_recommendations_error} class="mt-2 text-[11px] text-rose-300">
+                  {@ai_recommendations_error}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1026,5 +1259,122 @@ defmodule SwatiWeb.SessionsLive.Index do
       nil -> socket.assigns.filters
       customer_id -> Map.put(socket.assigns.filters, "customer_id", customer_id)
     end
+  end
+
+  defp default_ai_prompt do
+    "Recommend 2 concrete next actions for these selected conversations."
+  end
+
+  defp normalize_ai_prompt(prompt) do
+    prompt
+    |> to_string()
+    |> String.trim()
+    |> case do
+      "" -> default_ai_prompt()
+      value -> value
+    end
+  end
+
+  defp normalize_session_ids(session_ids) when is_list(session_ids) do
+    session_ids
+    |> Enum.map(&SessionsHelpers.parse_id/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.take(100)
+  end
+
+  defp normalize_session_ids(_), do: []
+
+  defp request_ai_recommendations(socket, selected_session_ids, prompt) do
+    request_ref = System.unique_integer([:positive])
+    tenant_id = socket.assigns.current_scope.tenant.id
+    normalized_prompt = normalize_ai_prompt(prompt)
+    liveview_pid = self()
+
+    Task.start(fn ->
+      result = BulkRecommendations.recommend(tenant_id, selected_session_ids, normalized_prompt)
+      send(liveview_pid, {:bulk_ai_recommendations_ready, request_ref, result})
+    end)
+
+    Process.send_after(self(), {:bulk_ai_recommendations_timeout, request_ref}, 20_000)
+
+    socket
+    |> assign(:ai_request_ref, request_ref)
+    |> assign(:ai_recommendations_loading, true)
+    |> assign(:ai_recommendations_error, nil)
+    |> assign(:ai_recommendations, [])
+    |> assign(:ai_prompt_input, normalized_prompt)
+    |> assign(:ai_prompt_form, to_form(%{"prompt" => normalized_prompt}, as: :ai_prompt))
+  end
+
+  defp mark_follow_up_requested(tenant_id, session_ids) do
+    timestamp = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+    update_selected_session_metadata(tenant_id, session_ids, fn metadata ->
+      metadata
+      |> Map.put("follow_up_requested_at", timestamp)
+      |> Map.put("follow_up_message", "Quick follow-up sent from bulk actions.")
+    end)
+  end
+
+  defp add_bulk_label(tenant_id, session_ids, label) do
+    clean_label = label |> to_string() |> String.trim()
+
+    update_selected_session_metadata(tenant_id, session_ids, fn metadata ->
+      labels =
+        metadata
+        |> Map.get("labels", [])
+        |> List.wrap()
+        |> Enum.map(&to_string/1)
+        |> Enum.reject(&(&1 == ""))
+        |> Kernel.++([clean_label])
+        |> Enum.uniq()
+
+      Map.put(metadata, "labels", labels)
+    end)
+  end
+
+  defp update_selected_session_metadata(tenant_id, session_ids, updater) do
+    Enum.reduce(session_ids, 0, fn session_id, count ->
+      case fetch_session_for_bulk_action(tenant_id, session_id) do
+        nil ->
+          count
+
+        session ->
+          metadata = Map.merge(%{}, session.metadata || %{})
+          attrs = %{metadata: updater.(metadata)}
+
+          case Sessions.update_session(session, attrs) do
+            {:ok, _updated} -> count + 1
+            _ -> count
+          end
+      end
+    end)
+  end
+
+  defp fetch_session_for_bulk_action(tenant_id, session_id) do
+    Sessions.get_session!(tenant_id, session_id)
+  rescue
+    Ecto.NoResultsError -> nil
+  end
+
+  defp summarize_selected_sessions(tenant_id, session_ids) do
+    sessions = Enum.map(session_ids, &Sessions.get_session!(tenant_id, &1))
+
+    status_counts =
+      sessions
+      |> Enum.group_by(&to_string(&1.status || "unknown"))
+      |> Enum.map(fn {status, items} -> "#{status}: #{length(items)}" end)
+      |> Enum.sort()
+      |> Enum.join(", ")
+
+    channels =
+      sessions
+      |> Enum.map(fn session -> session.channel_id end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> length()
+
+    "#{length(sessions)} sessions selected (#{status_counts}). #{channels} unique channels represented."
   end
 end

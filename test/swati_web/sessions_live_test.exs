@@ -33,6 +33,7 @@ defmodule SwatiWeb.SessionsLiveTest do
     assert has_element?(view, "#sessions-filter")
     assert has_element?(view, "#sessions-table thead input[name='select-all']")
     assert has_element?(view, "#sessions-table tbody input[name^='select-session-']")
+    assert has_element?(view, "[data-selected-actions]", "Actions")
     refute has_element?(view, "th[data-column='session']")
     assert has_element?(view, "th[data-column='duration']")
   end
@@ -154,5 +155,50 @@ defmodule SwatiWeb.SessionsLiveTest do
     {:ok, view, _html} = live(conn, ~p"/sessions/#{session.id}")
 
     assert has_element?(view, "#call-detail")
+  end
+
+  test "bulk summarize uses selected sessions", %{conn: conn, scope: scope} do
+    {:ok, channel} = Channels.ensure_voice_channel(scope.tenant.id)
+
+    {:ok, endpoint} =
+      %Endpoint{}
+      |> Endpoint.changeset(%{
+        tenant_id: scope.tenant.id,
+        channel_id: channel.id,
+        address: "endpoint-#{System.unique_integer([:positive])}"
+      })
+      |> Repo.insert()
+
+    {:ok, session} =
+      Sessions.create_session(scope.tenant.id, %{channel_id: channel.id, endpoint_id: endpoint.id})
+
+    {:ok, view, _html} = live(conn, ~p"/sessions")
+
+    _ = render_hook(view, "selected_sessions_changed", %{"session_ids" => [session.id]})
+    _ = render_click(view, "bulk_action", %{"action" => "summarize_selected"})
+
+    assert has_element?(view, "[data-selected-actions]", "sessions selected")
+  end
+
+  test "ai recommendations start loading after selection event", %{conn: conn, scope: scope} do
+    {:ok, channel} = Channels.ensure_voice_channel(scope.tenant.id)
+
+    {:ok, endpoint} =
+      %Endpoint{}
+      |> Endpoint.changeset(%{
+        tenant_id: scope.tenant.id,
+        channel_id: channel.id,
+        address: "endpoint-#{System.unique_integer([:positive])}"
+      })
+      |> Repo.insert()
+
+    {:ok, session} =
+      Sessions.create_session(scope.tenant.id, %{channel_id: channel.id, endpoint_id: endpoint.id})
+
+    {:ok, view, _html} = live(conn, ~p"/sessions")
+
+    _ = render_hook(view, "selected_sessions_changed", %{"session_ids" => [session.id]})
+
+    assert has_element?(view, "[data-selected-actions]", "Generating AI recommendations")
   end
 end
