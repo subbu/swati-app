@@ -16,6 +16,15 @@ defmodule SwatiWeb.SessionsLive.Index do
   alias SwatiWeb.CallsLive.Show, as: CallsShow
   alias SwatiWeb.SessionsLive.Helpers, as: SessionsHelpers
 
+  @repeated_customer_badge_palette [
+    "primary",
+    "info",
+    "success",
+    "warning",
+    "danger",
+    "neutral"
+  ]
+
   @impl true
   def mount(_params, _session, socket) do
     if Swati.Accounts.authorized?(socket.assigns.current_scope, :view_sessions) do
@@ -62,6 +71,8 @@ defmodule SwatiWeb.SessionsLive.Index do
         |> assign(:hidden_columns_count, hidden_columns_count)
         |> assign(:page, 1)
         |> assign(:page_size, page_size)
+        |> assign(:repeated_customer_ids, MapSet.new())
+        |> assign(:repeated_customer_badge_colors, %{})
         |> assign(
           :pagination,
           %{page: 1, page_size: page_size, total_pages: 1, total_count: 0}
@@ -746,9 +757,24 @@ defmodule SwatiWeb.SessionsLive.Index do
                       </div>
                     </:cell>
                     <:cell :if={"customer" in @visible_columns} class="py-2 align-middle">
-                      <span class="text-foreground font-medium">
-                        {SessionsHelpers.customer_name(session, @current_scope.tenant)}
-                      </span>
+                      <% customer_label = SessionsHelpers.customer_name(session, @current_scope.tenant) %>
+                      <% repeated_customer? = MapSet.member?(@repeated_customer_ids, session.customer_id) %>
+                      <div class="flex items-center gap-2">
+                        <span :if={!repeated_customer?} class="text-foreground font-medium">
+                          {customer_label}
+                        </span>
+                        <.badge
+                          :if={repeated_customer?}
+                          size="sm"
+                          variant="soft"
+                          color={
+                            Map.get(@repeated_customer_badge_colors, session.customer_id, "primary")
+                          }
+                          title="Same customer appears multiple times on this page"
+                        >
+                          {customer_label}
+                        </.badge>
+                      </div>
                       <div class="text-xs text-foreground-softest">
                         {SessionsHelpers.customer_address(session, @current_scope.tenant)}
                       </div>
@@ -1207,11 +1233,14 @@ defmodule SwatiWeb.SessionsLive.Index do
       ensure_pagination_defaults(pagination, socket.assigns.page, socket.assigns.page_size)
 
     sessions = Repo.preload(sessions, [:channel, :endpoint, :agent, :customer, :artifacts])
+    {repeated_customer_ids, repeated_customer_badge_colors} = repeated_customer_markers(sessions)
 
     socket =
       socket
       |> assign(:session_count, pagination.total_count)
       |> assign(:pagination, pagination)
+      |> assign(:repeated_customer_ids, repeated_customer_ids)
+      |> assign(:repeated_customer_badge_colors, repeated_customer_badge_colors)
 
     if Keyword.get(opts, :reset, false) do
       stream(socket, :sessions, sessions, reset: true)
@@ -1309,6 +1338,31 @@ defmodule SwatiWeb.SessionsLive.Index do
       {:ok, _preference} -> :ok
       {:error, _reason} -> :ok
     end
+  end
+
+  defp repeated_customer_markers(sessions) do
+    repeated_customer_ids =
+      sessions
+      |> Enum.map(& &1.customer_id)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.frequencies()
+      |> Enum.reduce(MapSet.new(), fn {customer_id, count}, acc ->
+        if count > 1, do: MapSet.put(acc, customer_id), else: acc
+      end)
+
+    repeated_customer_badge_colors =
+      Map.new(repeated_customer_ids, fn customer_id ->
+        {customer_id, repeated_customer_badge_color(customer_id)}
+      end)
+
+    {repeated_customer_ids, repeated_customer_badge_colors}
+  end
+
+  defp repeated_customer_badge_color(customer_id) do
+    palette_size = length(@repeated_customer_badge_palette)
+    index = :erlang.phash2(customer_id, palette_size)
+
+    Enum.at(@repeated_customer_badge_palette, index)
   end
 
   defp filters_active?(filters) do
