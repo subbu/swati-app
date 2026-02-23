@@ -871,17 +871,19 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   defp prompt_builder(assigns) do
     sections = get_in(assigns.prompt_sections, ["sections"]) || []
-    assigns = assign(assigns, :sections, sections)
+    has_tenant_sections = Enum.any?(sections, & &1["locked"])
+    preview_html = PromptSections.render_preview_html(assigns.prompt_sections, assigns.tenant)
+
+    assigns =
+      assigns
+      |> assign(:sections, sections)
+      |> assign(:has_tenant_sections, has_tenant_sections)
+      |> assign(:preview_html, preview_html)
 
     ~H"""
     <div class="grid gap-6 lg:grid-cols-2">
       <!-- Left: Draggable Sections -->
       <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-base-content">Prompt Sections</h3>
-          <span class="text-xs text-base-content/50">{length(@sections)} sections</span>
-        </div>
-
         <div id="prompt-sections-list" phx-hook="SortableSections" class="space-y-2">
           <div
             :for={section <- @sections}
@@ -923,7 +925,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                 <%= if section["locked"] do %>
                   <% tenant_content = tenant_section_content(@tenant, section["type"]) %>
                   <p class={[
-                    "text-xs mt-1 line-clamp-2",
+                    "text-xs line-clamp-2",
                     if(tenant_content && tenant_content != "",
                       do: "text-base-content/60",
                       else: "text-base-content/40 italic"
@@ -931,14 +933,8 @@ defmodule SwatiWeb.AgentsLive.Form do
                   ]}>
                     {if tenant_content && tenant_content != "",
                       do: tenant_content,
-                      else: "Not configured yet"}
+                      else: "Not configured"}
                   </p>
-                  <.link
-                    navigate={~p"/settings/about-business"}
-                    class="text-xs text-primary hover:underline mt-1 inline-block"
-                  >
-                    Edit in About Business
-                  </.link>
                 <% else %>
                   <!-- Editable textarea for custom sections -->
                   <textarea
@@ -946,7 +942,7 @@ defmodule SwatiWeb.AgentsLive.Form do
                     phx-debounce="500"
                     phx-value-section_id={section["id"]}
                     placeholder="Enter section content..."
-                    rows={3}
+                    rows={estimate_rows(section["content"])}
                     class="mt-1 w-full text-xs font-mono rounded-lg border-base-300 bg-base-200/50 focus:border-primary focus:ring-1 focus:ring-primary/20 resize-y"
                   >{section["content"]}</textarea>
                 <% end %>
@@ -974,26 +970,40 @@ defmodule SwatiWeb.AgentsLive.Form do
           </div>
         </div>
 
-        <button
-          type="button"
-          phx-click="add_prompt_section"
-          class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-base-300 text-sm text-base-content/50 hover:text-primary hover:border-primary/50 transition-colors"
-        >
-          <.icon name="hero-plus" class="size-4" /> Add section
-        </button>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            phx-click="add_prompt_section"
+            class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-base-300 text-sm text-base-content/50 hover:text-primary hover:border-primary/50 transition-colors"
+          >
+            <.icon name="hero-plus" class="size-4" /> Add section
+          </button>
+          <.link
+            :if={@has_tenant_sections}
+            navigate={~p"/settings/about-business"}
+            class="text-xs text-base-content/50 hover:text-primary transition-colors whitespace-nowrap"
+          >
+            Edit business info
+          </.link>
+        </div>
       </div>
 
-      <!-- Right: Live Preview -->
-      <div class="space-y-3">
+      <!-- Right: Live Preview (sticky) -->
+      <div class="lg:self-start lg:sticky lg:top-4 space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-semibold text-base-content">Preview</h3>
+          <span class="text-xs text-base-content/40">
+            Runtime sections (customer, case, session) added at call time
+          </span>
         </div>
-        <div class="rounded-xl border border-base-300 bg-base-200/30 p-4 min-h-[280px] max-h-[500px] overflow-y-auto">
-          <pre class="text-xs font-mono text-base-content/80 whitespace-pre-wrap break-words">{if @preview_text == "", do: "No content yet. Enable sections and add content to see the preview.", else: @preview_text}</pre>
+        <div class="rounded-xl border border-base-300 bg-base-200/30 p-4 min-h-[280px] max-h-[70vh] overflow-y-auto">
+          <div :if={@preview_text == ""} class="text-xs text-base-content/40 italic">
+            No content yet. Enable sections and add content to see the preview.
+          </div>
+          <div :if={@preview_text != ""} class="preview-content space-y-0.5">
+            {@preview_html}
+          </div>
         </div>
-        <p class="text-xs text-base-content/40">
-          Runtime sections (customer, case, session) are added at call time.
-        </p>
       </div>
     </div>
     """
@@ -1883,6 +1893,14 @@ defmodule SwatiWeb.AgentsLive.Form do
       %{field: field} -> Map.get(tenant, field)
       nil -> nil
     end
+  end
+
+  defp estimate_rows(nil), do: 3
+  defp estimate_rows(""), do: 3
+
+  defp estimate_rows(content) when is_binary(content) do
+    lines = content |> String.split("\n") |> length()
+    min(max(lines + 1, 4), 16)
   end
 
   defp effective_tools_count(effective_tools) do

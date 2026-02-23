@@ -110,6 +110,43 @@ defmodule Swati.Agents.PromptSections do
 
   def render_flat(_sections, _tenant), do: ""
 
+  @doc """
+  Renders sections as safe HTML for the live preview panel.
+  Converts ### headers, **bold**, and - list items to HTML.
+  """
+  def render_preview_html(sections, tenant) do
+    render_flat(sections, tenant)
+    |> Phoenix.HTML.html_escape()
+    |> Phoenix.HTML.safe_to_string()
+    |> String.split("\n")
+    |> Enum.map(fn line ->
+      cond do
+        String.starts_with?(line, "### ") ->
+          title = String.trim_leading(line, "### ")
+          ~s(<h3 class="text-xs font-semibold text-base-content uppercase tracking-wider mt-4 first:mt-0 mb-1.5">#{title}</h3>)
+
+        String.starts_with?(line, "- ") || String.starts_with?(line, "– ") ->
+          item = String.replace(line, ~r/^[-–]\s*/, "")
+          item = render_inline_markdown(item)
+          ~s(<div class="flex gap-1.5 text-xs text-base-content/70 leading-relaxed"><span class="text-base-content/30 shrink-0">•</span><span>#{item}</span></div>)
+
+        String.trim(line) == "" ->
+          ~s(<div class="h-2"></div>)
+
+        true ->
+          line = render_inline_markdown(line)
+          ~s(<p class="text-xs text-base-content/70 leading-relaxed">#{line}</p>)
+      end
+    end)
+    |> Enum.join("\n")
+    |> Phoenix.HTML.raw()
+  end
+
+  defp render_inline_markdown(text) do
+    text
+    |> String.replace(~r/\*\*(.+?)\*\*/, "<strong class=\"text-base-content font-medium\">\\1</strong>")
+  end
+
   def new_custom_section(title \\ "New Section", content \\ "") do
     %{
       "id" => generate_id(),
