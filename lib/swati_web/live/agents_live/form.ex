@@ -1525,45 +1525,38 @@ defmodule SwatiWeb.AgentsLive.Form do
   @impl true
   def handle_event("add_prompt_section", _params, socket) do
     section = PromptSections.new_custom_section()
-    sections = socket.assigns.prompt_sections
-    updated = Map.update!(sections, "sections", &(&1 ++ [section]))
-    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
-    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+    updated = Map.update!(socket.assigns.prompt_sections, "sections", &(&1 ++ [section]))
+    {:noreply, apply_prompt_sections(socket, updated)}
   end
 
   @impl true
   def handle_event("toggle_prompt_section", %{"section_id" => id}, socket) do
     updated = PromptSections.toggle_section(socket.assigns.prompt_sections, id)
-    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
-    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+    {:noreply, apply_prompt_sections(socket, updated)}
   end
 
   @impl true
   def handle_event("remove_prompt_section", %{"section_id" => id}, socket) do
     updated = PromptSections.remove_section(socket.assigns.prompt_sections, id)
-    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
-    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+    {:noreply, apply_prompt_sections(socket, updated)}
   end
 
   @impl true
   def handle_event("update_section_content", %{"section_id" => id, "value" => content}, socket) do
     updated = PromptSections.update_section_content(socket.assigns.prompt_sections, id, content)
-    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
-    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+    {:noreply, apply_prompt_sections(socket, updated)}
   end
 
   @impl true
   def handle_event("update_section_title", %{"section_id" => id, "value" => title}, socket) do
     updated = PromptSections.update_section_title(socket.assigns.prompt_sections, id, title)
-    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
-    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+    {:noreply, apply_prompt_sections(socket, updated)}
   end
 
   @impl true
   def handle_event("reorder_prompt_sections", %{"order" => order}, socket) do
     updated = PromptSections.reorder(socket.assigns.prompt_sections, order)
-    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
-    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+    {:noreply, apply_prompt_sections(socket, updated)}
   end
 
   # Private helpers
@@ -1598,6 +1591,27 @@ defmodule SwatiWeb.AgentsLive.Form do
   defp assign_avatar(socket, %Agent{} = agent) do
     avatar = Avatars.get_latest_avatar(socket.assigns.current_scope, agent.id)
     assign(socket, :avatar, avatar)
+  end
+
+  defp apply_prompt_sections(socket, updated) do
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+
+    socket =
+      socket
+      |> assign(:prompt_sections, updated)
+      |> assign(:preview_text, preview)
+
+    if socket.assigns.live_action == :edit do
+      instructions = preview
+      attrs = %{prompt_sections: updated, instructions: instructions}
+
+      case Agents.update_agent(socket.assigns.agent, attrs, socket.assigns.current_scope.user) do
+        {:ok, agent} -> assign(socket, :agent, agent)
+        {:error, _} -> socket
+      end
+    else
+      socket
+    end
   end
 
   defp assign_prompt_sections(socket, agent, tenant) do
