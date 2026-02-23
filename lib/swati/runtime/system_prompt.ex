@@ -1,10 +1,20 @@
 defmodule Swati.Runtime.SystemPrompt do
+  alias Swati.Agents.PromptSections
   alias Swati.Cases.Memory
 
   @spec build(map()) :: String.t()
   def build(opts) when is_map(opts) do
     agent_name = Map.get(opts, :agent_name) || "Swati"
-    instructions = Map.get(opts, :agent_instructions) || ""
+    prompt_sections = Map.get(opts, :prompt_sections)
+    tenant = Map.get(opts, :tenant)
+
+    instructions =
+      if prompt_sections && tenant do
+        PromptSections.render_flat(prompt_sections, tenant)
+      else
+        Map.get(opts, :agent_instructions) || ""
+      end
+
     customer = Map.get(opts, :customer)
     identity = Map.get(opts, :identity)
     case_record = Map.get(opts, :case_record)

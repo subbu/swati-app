@@ -27,6 +27,7 @@ import { hooks as colocatedHooks } from "phoenix-colocated/swati";
 import { DashboardHooks } from "./dashboard_hooks";
 import { TableRowSelection } from "./hooks/table_row_selection";
 import { WhatsAppEmbeddedSignup } from "./hooks/whatsapp_embedded_signup";
+import SortableSections from "./hooks/sortable_sections";
 import topbar from "../vendor/topbar";
 
 const csrfToken = document
@@ -41,6 +42,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     ...DashboardHooks,
     WhatsAppEmbeddedSignup,
     TableRowSelection,
+    SortableSections,
   },
   dom: {
     onBeforeElUpdated(from, to) {

@@ -20,6 +20,7 @@ defmodule Swati.Agents.Compiler do
         "model" => agent.llm_model
       },
       "system_prompt" => instructions,
+      "prompt_sections" => agent.prompt_sections,
       "tool_policy" => ToolPolicy.normalize(agent.tool_policy),
       "escalation_policy" => EscalationPolicy.normalize(agent.escalation_policy)
     }

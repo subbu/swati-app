@@ -3,9 +3,11 @@ defmodule SwatiWeb.AgentsLive.Form do
 
   alias Swati.Agents
   alias Swati.Agents.Agent
+  alias Swati.Agents.PromptSections
   alias Swati.Avatars
   alias Swati.Channels
   alias Swati.Integrations
+  alias Swati.Tenancy
   alias Swati.Webhooks
   @impl true
   def render(assigns) do
@@ -173,20 +175,19 @@ defmodule SwatiWeb.AgentsLive.Form do
             
     <!-- RIGHT PANEL: Configuration Sections -->
             <main class="character-config-panel space-y-4">
-              <!-- Instructions Section -->
+              <!-- System Prompt Builder -->
               <.collapsible_section
                 id="instructions"
-                title="Instructions"
-                subtitle="Define the agent's behavior and knowledge"
+                title="System Prompt"
+                subtitle="Compose the prompt from reorderable sections"
                 icon="hero-document-text"
                 open={@expanded_sections["instructions"]}
-                badge_text={instructions_word_count(@form[:instructions].value)}
+                badge_text={prompt_word_count(@preview_text)}
               >
-                <.textarea
-                  field={@form[:instructions]}
-                  placeholder="You are a helpful assistant..."
-                  rows={12}
-                  class="font-mono text-sm"
+                <.prompt_builder
+                  prompt_sections={@prompt_sections}
+                  preview_text={@preview_text}
+                  tenant={@tenant}
                 />
               </.collapsible_section>
               
@@ -532,7 +533,9 @@ defmodule SwatiWeb.AgentsLive.Form do
                 </h4>
                 <span class="text-xs text-base-content/40">
                   {length(tools)} unique
-                  <span :if={grants != length(tools)}> ·                      {grants} grants</span>
+                  <span :if={grants != length(tools)}>
+                    · {grants} grants
+                  </span>
                 </span>
               </div>
               <div class="flex flex-wrap gap-1.5">
@@ -867,6 +870,151 @@ defmodule SwatiWeb.AgentsLive.Form do
     """
   end
 
+  # Prompt Builder Component
+  attr :prompt_sections, :map, required: true
+  attr :preview_text, :string, required: true
+  attr :tenant, :any, required: true
+
+  defp prompt_builder(assigns) do
+    sections = get_in(assigns.prompt_sections, ["sections"]) || []
+    assigns = assign(assigns, :sections, sections)
+
+    ~H"""
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Left: Draggable Sections -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-base-content">Prompt Sections</h3>
+          <span class="text-xs text-base-content/50">{length(@sections)} sections</span>
+        </div>
+
+        <div id="prompt-sections-list" phx-hook="SortableSections" class="space-y-2">
+          <div
+            :for={section <- @sections}
+            data-section-id={section["id"]}
+            class={[
+              "prompt-section-card rounded-xl border p-3 transition-all",
+              section["enabled"] && "border-base-300 bg-base-100",
+              !section["enabled"] && "border-base-300/50 bg-base-200/30 opacity-60"
+            ]}
+          >
+            <div class="flex items-start gap-2">
+              <!-- Drag Handle -->
+              <div
+                data-drag-handle
+                class="mt-1 cursor-grab active:cursor-grabbing text-base-content/30 hover:text-base-content/60"
+              >
+                <.icon name="hero-bars-3" class="size-4" />
+              </div>
+
+              <!-- Section Content -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <.badge
+                    size="xs"
+                    variant="soft"
+                    color={if section["locked"], do: "primary", else: "info"}
+                  >
+                    {if section["locked"], do: "Tenant", else: "Custom"}
+                  </.badge>
+                  <%= if section["locked"] do %>
+                    <span class="text-sm font-medium text-base-content truncate">
+                      {section["title"]}
+                    </span>
+                  <% else %>
+                    <input
+                      type="text"
+                      value={section["title"]}
+                      phx-blur="update_section_title"
+                      phx-value-section_id={section["id"]}
+                      class="text-sm font-medium text-base-content bg-transparent border-0 border-b border-transparent hover:border-base-300 focus:border-primary focus:ring-0 p-0 min-w-0 flex-1"
+                    />
+                  <% end %>
+                </div>
+
+                <!-- Content preview for tenant sections -->
+                <%= if section["locked"] do %>
+                  <% tenant_content = tenant_section_content(@tenant, section["type"]) %>
+                  <p class={[
+                    "text-xs mt-1 line-clamp-2",
+                    if(tenant_content && tenant_content != "",
+                      do: "text-base-content/60",
+                      else: "text-base-content/40 italic"
+                    )
+                  ]}>
+                    {if tenant_content && tenant_content != "",
+                      do: tenant_content,
+                      else: "Not configured yet"}
+                  </p>
+                  <.link
+                    navigate={~p"/settings/about-business"}
+                    class="text-xs text-primary hover:underline mt-1 inline-block"
+                  >
+                    Edit in About Business
+                  </.link>
+                <% else %>
+                  <!-- Editable textarea for custom sections -->
+                  <textarea
+                    phx-blur="update_section_content"
+                    phx-debounce="500"
+                    phx-value-section_id={section["id"]}
+                    placeholder="Enter section content..."
+                    rows={3}
+                    class="mt-1 w-full text-xs font-mono rounded-lg border-base-300 bg-base-200/50 focus:border-primary focus:ring-1 focus:ring-primary/20 resize-y"
+                  >{section["content"]}</textarea>
+                <% end %>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex items-center gap-1 shrink-0">
+                <.switch
+                  name={"section_toggle_#{section["id"]}"}
+                  checked={section["enabled"]}
+                  phx-click="toggle_prompt_section"
+                  phx-value-section_id={section["id"]}
+                />
+                <button
+                  :if={!section["locked"]}
+                  type="button"
+                  phx-click="remove_prompt_section"
+                  phx-value-section_id={section["id"]}
+                  class="text-base-content/30 hover:text-error transition-colors p-1"
+                >
+                  <.icon name="hero-trash" class="size-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          phx-click="add_prompt_section"
+          class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-base-300 text-sm text-base-content/50 hover:text-primary hover:border-primary/50 transition-colors"
+        >
+          <.icon name="hero-plus" class="size-4" /> Add section
+        </button>
+      </div>
+
+      <!-- Right: Live Preview -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-base-content">Preview</h3>
+          <.badge variant="soft" color="info" size="xs">
+            {prompt_word_count(@preview_text)}
+          </.badge>
+        </div>
+        <div class="rounded-xl border border-base-300 bg-base-200/30 p-4 min-h-[280px] max-h-[500px] overflow-y-auto">
+          <pre class="text-xs font-mono text-base-content/80 whitespace-pre-wrap break-words">{if @preview_text == "", do: "No content yet. Enable sections and add content to see the preview.", else: @preview_text}</pre>
+        </div>
+        <p class="text-xs text-base-content/40">
+          Runtime sections (customer, case, session) are added at call time.
+        </p>
+      </div>
+    </div>
+    """
+  end
+
   # Hero Stat Component - prominent stat display for portrait card
   attr :label, :string, required: true
   attr :value, :string, required: true
@@ -1009,6 +1157,9 @@ defmodule SwatiWeb.AgentsLive.Form do
        |> assign(:scope_connections, %{})
        |> assign(:scope_mode, "all")
        |> assign(:scope_selected_ids, [])
+       |> assign(:prompt_sections, PromptSections.default_sections())
+       |> assign(:preview_text, "")
+       |> assign(:tenant, nil)
        |> assign(:expanded_sections, %{
          "attributes" => false,
          "voice" => false,
@@ -1031,6 +1182,9 @@ defmodule SwatiWeb.AgentsLive.Form do
   def handle_params(params, _url, socket) do
     case socket.assigns.live_action do
       :new ->
+        tenant_id = socket.assigns.current_scope.tenant.id
+        tenant = Tenancy.get_tenant!(tenant_id)
+
         agent = %Agent{
           status: "draft",
           llm_model: Agent.default_llm_model(),
@@ -1038,13 +1192,20 @@ defmodule SwatiWeb.AgentsLive.Form do
           tool_policy: Agent.default_tool_policy()
         }
 
+        prompt_sections = PromptSections.default_sections()
+        preview_text = PromptSections.render_flat(prompt_sections, tenant)
+
         {:noreply,
          socket
          |> assign(:page_title, "New agent")
+         |> assign(:tenant, tenant)
+         |> assign(:prompt_sections, prompt_sections)
+         |> assign(:preview_text, preview_text)
          |> assign_agent(agent)}
 
       :edit ->
         tenant_id = socket.assigns.current_scope.tenant.id
+        tenant = Tenancy.get_tenant!(tenant_id)
         agent = Agents.get_agent!(tenant_id, params["id"])
         channels = Channels.list_channels(tenant_id)
         integrations = Integrations.list_integrations(tenant_id)
@@ -1076,6 +1237,8 @@ defmodule SwatiWeb.AgentsLive.Form do
          |> assign(:webhooks, webhooks)
          |> assign(:webhook_states, webhook_states)
          |> assign(:effective_tools, effective_tools)
+         |> assign(:tenant, tenant)
+         |> assign_prompt_sections(agent, tenant)
          |> assign_agent(agent)}
     end
   end
@@ -1091,6 +1254,15 @@ defmodule SwatiWeb.AgentsLive.Form do
   @impl true
   def handle_event("save", %{"agent" => params}, socket) do
     attrs = build_agent_attrs(params, socket.assigns.agent)
+
+    # Merge prompt_sections and write-through instructions
+    prompt_sections = socket.assigns.prompt_sections
+    flat_instructions = PromptSections.render_flat(prompt_sections, socket.assigns.tenant)
+
+    attrs =
+      attrs
+      |> Map.put(:prompt_sections, prompt_sections)
+      |> Map.put(:instructions, flat_instructions)
 
     case socket.assigns.live_action do
       :new ->
@@ -1361,6 +1533,52 @@ defmodule SwatiWeb.AgentsLive.Form do
     end
   end
 
+  # -- Prompt Builder Events --
+
+  @impl true
+  def handle_event("add_prompt_section", _params, socket) do
+    section = PromptSections.new_custom_section()
+    sections = socket.assigns.prompt_sections
+    updated = Map.update!(sections, "sections", &(&1 ++ [section]))
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+  end
+
+  @impl true
+  def handle_event("toggle_prompt_section", %{"section_id" => id}, socket) do
+    updated = PromptSections.toggle_section(socket.assigns.prompt_sections, id)
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+  end
+
+  @impl true
+  def handle_event("remove_prompt_section", %{"section_id" => id}, socket) do
+    updated = PromptSections.remove_section(socket.assigns.prompt_sections, id)
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+  end
+
+  @impl true
+  def handle_event("update_section_content", %{"section_id" => id, "value" => content}, socket) do
+    updated = PromptSections.update_section_content(socket.assigns.prompt_sections, id, content)
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+  end
+
+  @impl true
+  def handle_event("update_section_title", %{"section_id" => id, "value" => title}, socket) do
+    updated = PromptSections.update_section_title(socket.assigns.prompt_sections, id, title)
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+  end
+
+  @impl true
+  def handle_event("reorder_prompt_sections", %{"order" => order}, socket) do
+    updated = PromptSections.reorder(socket.assigns.prompt_sections, order)
+    preview = PromptSections.render_flat(updated, socket.assigns.tenant)
+    {:noreply, socket |> assign(:prompt_sections, updated) |> assign(:preview_text, preview)}
+  end
+
   # Private helpers
 
   defp assign_agent(socket, agent) do
@@ -1393,6 +1611,26 @@ defmodule SwatiWeb.AgentsLive.Form do
   defp assign_avatar(socket, %Agent{} = agent) do
     avatar = Avatars.get_latest_avatar(socket.assigns.current_scope, agent.id)
     assign(socket, :avatar, avatar)
+  end
+
+  defp assign_prompt_sections(socket, agent, tenant) do
+    prompt_sections =
+      cond do
+        agent.prompt_sections ->
+          agent.prompt_sections
+
+        agent.instructions && agent.instructions != "" ->
+          PromptSections.migrate_from_instructions(agent.instructions)
+
+        true ->
+          PromptSections.default_sections()
+      end
+
+    preview_text = PromptSections.render_flat(prompt_sections, tenant)
+
+    socket
+    |> assign(:prompt_sections, prompt_sections)
+    |> assign(:preview_text, preview_text)
   end
 
   defp recompute_effective_tools(socket) do
@@ -1646,11 +1884,21 @@ defmodule SwatiWeb.AgentsLive.Form do
     |> then(fn s -> if String.length(s) > 10, do: String.slice(s, 0..9) <> "…", else: s end)
   end
 
-  defp instructions_word_count(nil), do: "0 words"
+  defp prompt_word_count(nil), do: "0 words"
+  defp prompt_word_count(""), do: "0 words"
 
-  defp instructions_word_count(text) when is_binary(text) do
+  defp prompt_word_count(text) when is_binary(text) do
     count = text |> String.split(~r/\s+/, trim: true) |> length()
     "#{count} words"
+  end
+
+  defp tenant_section_content(nil, _type), do: nil
+
+  defp tenant_section_content(tenant, type) do
+    case Map.get(PromptSections.tenant_section_types(), type) do
+      %{field: field} -> Map.get(tenant, field)
+      nil -> nil
+    end
   end
 
   defp effective_tools_count(effective_tools) do

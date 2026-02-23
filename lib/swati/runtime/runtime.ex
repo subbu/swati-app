@@ -113,6 +113,8 @@ defmodule Swati.Runtime do
         SystemPrompt.build(%{
           agent_name: agent.name,
           agent_instructions: Map.get(version.config || %{}, "system_prompt"),
+          prompt_sections: Map.get(version.config || %{}, "prompt_sections"),
+          tenant: tenant,
           customer: customer,
           identity: identity,
           case_record: case_record,

@@ -13,6 +13,7 @@ defmodule Swati.Agents.Agent do
     field :llm_provider, :string, default: "google"
     field :llm_model, :string
     field :instructions, :string
+    field :prompt_sections, :map
     field :tool_policy, :map
     field :escalation_policy, :map
 
@@ -41,6 +42,7 @@ defmodule Swati.Agents.Agent do
       :llm_provider,
       :llm_model,
       :instructions,
+      :prompt_sections,
       :tool_policy,
       :escalation_policy,
       :published_version_id
