@@ -294,12 +294,6 @@ defmodule SwatiWeb.AgentsLive.Form do
                 />
               </.collapsible_section>
               
-    <!-- Save Button -->
-              <div class="flex justify-end pt-2">
-                <.button type="submit" variant="solid" class="px-6">
-                  <.icon name="hero-check" class="size-4 mr-1.5" /> Save changes
-                </.button>
-              </div>
             </main>
           </div>
         </.form>
@@ -910,13 +904,6 @@ defmodule SwatiWeb.AgentsLive.Form do
               <!-- Section Content -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <.badge
-                    size="xs"
-                    variant="soft"
-                    color={if section["locked"], do: "primary", else: "info"}
-                  >
-                    {if section["locked"], do: "Tenant", else: "Custom"}
-                  </.badge>
                   <%= if section["locked"] do %>
                     <span class="text-sm font-medium text-base-content truncate">
                       {section["title"]}
@@ -1000,9 +987,6 @@ defmodule SwatiWeb.AgentsLive.Form do
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-semibold text-base-content">Preview</h3>
-          <.badge variant="soft" color="info" size="xs">
-            {prompt_word_count(@preview_text)}
-          </.badge>
         </div>
         <div class="rounded-xl border border-base-300 bg-base-200/30 p-4 min-h-[280px] max-h-[500px] overflow-y-auto">
           <pre class="text-xs font-mono text-base-content/80 whitespace-pre-wrap break-words">{if @preview_text == "", do: "No content yet. Enable sections and add content to see the preview.", else: @preview_text}</pre>
