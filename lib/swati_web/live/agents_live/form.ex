@@ -924,12 +924,23 @@ defmodule SwatiWeb.AgentsLive.Form do
                 <!-- Content preview for tenant sections -->
                 <%= if section["locked"] do %>
                   <% tenant_content = tenant_section_content(@tenant, section["type"]) %>
-                  <p
-                    :if={tenant_content && tenant_content != ""}
-                    class="text-xs line-clamp-2 text-base-content/60"
-                  >
-                    {tenant_content}
-                  </p>
+                  <div :if={tenant_content && tenant_content != ""} class="group/expand mt-1">
+                    <input
+                      type="checkbox"
+                      id={"expand-#{section["id"]}"}
+                      class="peer hidden"
+                    />
+                    <p class="text-xs text-base-content/60 whitespace-pre-line line-clamp-2 peer-checked:line-clamp-none">
+                      {tenant_content}
+                    </p>
+                    <label
+                      for={"expand-#{section["id"]}"}
+                      class="text-xs text-base-content/40 hover:text-base-content/60 cursor-pointer mt-0.5 inline-block peer-checked:[&>.show-more]:hidden [&>.show-less]:hidden peer-checked:[&>.show-less]:inline"
+                    >
+                      <span class="show-more">show more</span>
+                      <span class="show-less">show less</span>
+                    </label>
+                  </div>
                 <% else %>
                   <!-- Editable textarea for custom sections -->
                   <textarea
