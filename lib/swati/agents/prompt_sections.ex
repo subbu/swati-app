@@ -121,12 +121,15 @@ defmodule Swati.Agents.PromptSections do
     |> String.split("\n")
     |> Enum.map(fn line ->
       cond do
-        String.starts_with?(line, "### ") ->
-          title = String.trim_leading(line, "### ")
+        Regex.match?(~r/^\#{2,3}\s/, line) ->
+          title = String.replace(line, ~r/^\#{2,3}\s+/, "")
           ~s(<h3 class="text-xs font-semibold text-base-content uppercase tracking-wider mt-4 first:mt-0 mb-1.5">#{title}</h3>)
 
-        String.starts_with?(line, "- ") || String.starts_with?(line, "– ") ->
-          item = String.replace(line, ~r/^[-–]\s*/, "")
+        String.trim(line) in ["---", "***", "___"] ->
+          ~s(<hr class="border-base-300/60 my-3" />)
+
+        Regex.match?(~r/^[-–•]\s/, line) ->
+          item = String.replace(line, ~r/^[-–•]\s*/, "")
           item = render_inline_markdown(item)
           ~s(<div class="flex gap-1.5 text-xs text-base-content/70 leading-relaxed"><span class="text-base-content/30 shrink-0">•</span><span>#{item}</span></div>)
 

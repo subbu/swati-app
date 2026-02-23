@@ -924,16 +924,11 @@ defmodule SwatiWeb.AgentsLive.Form do
                 <!-- Content preview for tenant sections -->
                 <%= if section["locked"] do %>
                   <% tenant_content = tenant_section_content(@tenant, section["type"]) %>
-                  <p class={[
-                    "text-xs line-clamp-2",
-                    if(tenant_content && tenant_content != "",
-                      do: "text-base-content/60",
-                      else: "text-base-content/40 italic"
-                    )
-                  ]}>
-                    {if tenant_content && tenant_content != "",
-                      do: tenant_content,
-                      else: "Not configured"}
+                  <p
+                    :if={tenant_content && tenant_content != ""}
+                    class="text-xs line-clamp-2 text-base-content/60"
+                  >
+                    {tenant_content}
                   </p>
                 <% else %>
                   <!-- Editable textarea for custom sections -->
@@ -989,13 +984,8 @@ defmodule SwatiWeb.AgentsLive.Form do
       </div>
 
       <!-- Right: Live Preview (sticky) -->
-      <div class="lg:self-start lg:sticky lg:top-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-base-content">Preview</h3>
-          <span class="text-xs text-base-content/40">
-            Runtime sections (customer, case, session) added at call time
-          </span>
-        </div>
+      <div class="lg:self-start lg:sticky lg:top-4 space-y-2">
+        <h3 class="text-sm font-semibold text-base-content">Preview</h3>
         <div class="rounded-xl border border-base-300 bg-base-200/30 p-4 min-h-[280px] max-h-[70vh] overflow-y-auto">
           <div :if={@preview_text == ""} class="text-xs text-base-content/40 italic">
             No content yet. Enable sections and add content to see the preview.
@@ -1004,6 +994,9 @@ defmodule SwatiWeb.AgentsLive.Form do
             {@preview_html}
           </div>
         </div>
+        <p class="text-xs text-base-content/40">
+          Runtime sections (customer, case, session) are added at call time.
+        </p>
       </div>
     </div>
     """
