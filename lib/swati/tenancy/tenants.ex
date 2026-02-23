@@ -4,7 +4,7 @@ defmodule Swati.Tenancy.Tenants do
   alias Swati.Accounts.User
   alias Swati.Audit
   alias Swati.Repo
-  alias Swati.Tenancy.{Membership, Roles, Tenant}
+  alias Swati.Tenancy.{AboutBusiness, Membership, Roles, Tenant}
 
   @doc """
   Returns a slug that is unique for the tenants table.
@@ -76,6 +76,16 @@ defmodule Swati.Tenancy.Tenants do
   def update_billing_status(%Tenant{} = tenant, status) when is_binary(status) do
     tenant
     |> Tenant.changeset(%{status: status})
+    |> Repo.update()
+  end
+
+  def change_about_business(%Tenant{} = tenant, attrs) when is_map(attrs) do
+    tenant
+    |> Tenant.changeset(AboutBusiness.attrs(attrs, tenant))
+  end
+
+  def update_about_business(%Tenant{} = tenant, attrs) when is_map(attrs) do
+    change_about_business(tenant, attrs)
     |> Repo.update()
   end
 

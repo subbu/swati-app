@@ -112,7 +112,12 @@ defmodule SwatiWeb.Layouts do
         </.navlist>
 
         <.navlist heading="Organization">
-          <.navlink :if={Scope.can?(@current_scope, :manage_members) or Scope.can?(@current_scope, :manage_roles)} navigate={~p"/settings/team"}>
+          <.navlink
+            :if={
+              Scope.can?(@current_scope, :manage_members) or Scope.can?(@current_scope, :manage_roles)
+            }
+            navigate={~p"/settings/team"}
+          >
             <.icon
               name="hero-user-group"
               class="size-5 text-foreground-softer group-hover:text-foreground"
@@ -123,6 +128,15 @@ defmodule SwatiWeb.Layouts do
               name="hero-credit-card"
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Billing
+          </.navlink>
+          <.navlink
+            :if={Scope.can?(@current_scope, :manage_settings)}
+            navigate={~p"/settings/about-business"}
+          >
+            <.icon
+              name="hero-building-office-2"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> About business
           </.navlink>
           <.navlink navigate={~p"/users/settings"}>
             <.icon
@@ -160,7 +174,10 @@ defmodule SwatiWeb.Layouts do
                 <.navlink :if={Scope.can?(@current_scope, :manage_agents)} navigate={~p"/agents"}>
                   <.icon name="hero-user-circle" class="size-5" /> Agents
                 </.navlink>
-                <.navlink :if={Scope.can?(@current_scope, :manage_integrations)} navigate={~p"/agent-data"}>
+                <.navlink
+                  :if={Scope.can?(@current_scope, :manage_integrations)}
+                  navigate={~p"/agent-data"}
+                >
                   <.icon name="hero-wrench-screwdriver" class="size-5" /> Agent data
                 </.navlink>
                 <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/numbers"}>
@@ -184,11 +201,26 @@ defmodule SwatiWeb.Layouts do
               </.navlist>
 
               <.navlist heading="Organization">
-                <.navlink :if={Scope.can?(@current_scope, :manage_members) or Scope.can?(@current_scope, :manage_roles)} navigate={~p"/settings/team"}>
+                <.navlink
+                  :if={
+                    Scope.can?(@current_scope, :manage_members) or
+                      Scope.can?(@current_scope, :manage_roles)
+                  }
+                  navigate={~p"/settings/team"}
+                >
                   <.icon name="hero-user-group" class="size-5" /> Team
                 </.navlink>
-                <.navlink :if={Scope.can?(@current_scope, :view_billing)} navigate={~p"/settings/billing"}>
+                <.navlink
+                  :if={Scope.can?(@current_scope, :view_billing)}
+                  navigate={~p"/settings/billing"}
+                >
                   <.icon name="hero-credit-card" class="size-5" /> Billing
+                </.navlink>
+                <.navlink
+                  :if={Scope.can?(@current_scope, :manage_settings)}
+                  navigate={~p"/settings/about-business"}
+                >
+                  <.icon name="hero-building-office-2" class="size-5" /> About business
                 </.navlink>
                 <.navlink navigate={~p"/users/settings"}>
                   <.icon name="hero-cog-6-tooth" class="size-5" /> Settings
@@ -231,6 +263,9 @@ defmodule SwatiWeb.Layouts do
                 <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
                 <.dropdown_link navigate={~p"/settings/team"}>Team</.dropdown_link>
                 <.dropdown_link navigate={~p"/settings/billing"}>Billing</.dropdown_link>
+                <.dropdown_link navigate={~p"/settings/about-business"}>
+                  About business
+                </.dropdown_link>
                 <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
               </.dropdown>
             </div>
@@ -261,6 +296,9 @@ defmodule SwatiWeb.Layouts do
                   <.dropdown_link navigate={~p"/users/settings"}>Profile</.dropdown_link>
                   <.dropdown_link navigate={~p"/settings/team"}>Team</.dropdown_link>
                   <.dropdown_link navigate={~p"/settings/billing"}>Billing</.dropdown_link>
+                  <.dropdown_link navigate={~p"/settings/about-business"}>
+                    About business
+                  </.dropdown_link>
                   <.dropdown_link href={~p"/users/log-out"} method="delete">Sign Out</.dropdown_link>
                 </.dropdown>
               </div>

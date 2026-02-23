@@ -1,5 +1,6 @@
 defmodule Swati.Tenancy.Tenant do
   use Swati.DbSchema
+  alias Swati.Tenancy.AboutBusiness
 
   @statuses ["active", "suspended", "trialing"]
 
@@ -9,6 +10,11 @@ defmodule Swati.Tenancy.Tenant do
     field :timezone, :string, default: "Asia/Kolkata"
     field :formatting, :map, default: %{"locale" => "en-IN", "phone_country" => "IN"}
     field :policy, :map, default: %{}
+    field :business_identity, :string, default: ""
+    field :business_brand_voice, :string, default: ""
+    field :business_operating_boundaries, :string, default: ""
+    field :business_escalation_map, :string, default: ""
+    field :business_top_workflows, :string, default: ""
     field :plan, :string, default: "starter"
     field :status, :string, default: "active"
 
@@ -19,11 +25,25 @@ defmodule Swati.Tenancy.Tenant do
 
   def changeset(tenant, attrs) do
     tenant
-    |> cast(attrs, [:name, :slug, :timezone, :formatting, :policy, :plan, :status])
+    |> cast(
+      attrs,
+      [
+        :name,
+        :slug,
+        :timezone,
+        :formatting,
+        :policy,
+        AboutBusiness.fields(),
+        :plan,
+        :status
+      ]
+      |> List.flatten()
+    )
     |> maybe_put_slug()
     |> validate_required([:name, :slug])
     |> validate_length(:name, min: 2, max: 120)
     |> validate_length(:slug, min: 2, max: 120)
+    |> AboutBusiness.validate_lengths()
     |> validate_format(:slug, ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     |> validate_inclusion(:status, @statuses)
     |> unique_constraint(:slug)

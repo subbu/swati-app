@@ -95,6 +95,7 @@ defmodule SwatiWeb.Router do
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
       live "/settings/team", TeamLive.Index, :index
       live "/settings/billing", BillingLive.Index, :index
+      live "/settings/about-business", AboutBusinessLive.Index, :index
 
       live "/onboarding", OnboardingLive, :index
       live "/dashboard", DashboardLive.Index, :index

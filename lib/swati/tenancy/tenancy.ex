@@ -34,6 +34,14 @@ defmodule Swati.Tenancy do
     Tenants.update_billing_status(tenant, status)
   end
 
+  def change_about_business(%Tenant{} = tenant, attrs) when is_map(attrs) do
+    Tenants.change_about_business(tenant, attrs)
+  end
+
+  def update_about_business(%Tenant{} = tenant, attrs) when is_map(attrs) do
+    Tenants.update_about_business(tenant, attrs)
+  end
+
   def get_membership!(tenant_id, user_id) do
     Memberships.get_membership!(tenant_id, user_id)
   end
