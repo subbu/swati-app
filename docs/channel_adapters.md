@@ -11,6 +11,10 @@ Read when: building non-voice channel adapters or wiring inbound/outbound channe
 - IMAP/SMTP connections are saved via the Channels UI and stored in `secrets` as JSON.
 - Zoho Mail uses the IMAP/SMTP preset with `imap.zoho.com`/`smtp.zoho.com`.
 - WhatsApp uses embedded signup in `/surfaces`, stores tokens in `secrets` (name `channel:whatsapp:waba:<id>`), and writes one connection per phone number.
+- Template lifecycle UX is available at `/surfaces/whatsapp/templates`:
+  - list/create templates (`whatsapp_business_management`)
+  - send template messages to test numbers (`whatsapp_business_messaging`)
+  - view delivery evidence timeline backed by `whatsapp_template_messages`
 
 ### WhatsApp webhooks
 
@@ -18,6 +22,7 @@ Read when: building non-voice channel adapters or wiring inbound/outbound channe
 - Configure `WHATSAPP_WEBHOOK_VERIFY_TOKEN` and (optionally) `WHATSAPP_WEBHOOK_CALLBACK_URL`.
 - Inbound messages are normalized into `channel.message.received` events.
 - Outbound sends use the WhatsApp Cloud API via `channel-actions/send`.
+- Delivery status webhooks (`messages.statuses`) update evidence rows keyed by Meta message id (`wamid`).
 
 ### Sync schedule
 

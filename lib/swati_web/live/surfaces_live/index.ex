@@ -838,6 +838,9 @@ defmodule SwatiWeb.SurfacesLive.Index do
           <.health_indicator health={@surface.health} />
           <div class="flex items-center gap-2">
             <%= if @surface.type == :whatsapp do %>
+              <.link navigate={~p"/surfaces/whatsapp/templates"}>
+                <.button size="xs" variant="ghost">Templates</.button>
+              </.link>
               <.button size="xs" variant="ghost" phx-click="open-whatsapp-sheet">
                 {if @has_data, do: "Manage", else: "Connect"}
               </.button>

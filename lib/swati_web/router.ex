@@ -112,6 +112,7 @@ defmodule SwatiWeb.Router do
       live "/webhooks/:id", WebhooksLive.Show, :show
       live "/numbers", PhoneNumbersLive.Index, :index
       live "/surfaces", SurfacesLive.Index, :index
+      live "/surfaces/whatsapp/templates", WhatsAppTemplatesLive.Index, :index
       live "/trust", TrustConsoleLive.Index, :index
       live "/trust/policy", TrustConsoleLive.Policy, :index
       live "/trust/reliability", TrustConsoleLive.Reliability, :index

@@ -3,6 +3,7 @@ defmodule Swati.Channels.WhatsApp.WebhookProcessor do
   alias Swati.Channels.ChannelConnection
   alias Swati.Channels.Ingestion
   alias Swati.Channels.Queries
+  alias Swati.Channels.WhatsApp.TemplateMessages
   alias Swati.Channels.WhatsApp
   alias Swati.Repo
 
@@ -26,7 +27,38 @@ defmodule Swati.Channels.WhatsApp.WebhookProcessor do
 
   defp process_entry(_entry), do: :ok
 
-  defp process_messages(%{"messages" => messages} = payload) when is_list(messages) do
+  defp process_messages(payload) when is_map(payload) do
+    maybe_process_inbound_messages(payload)
+    maybe_process_statuses(payload)
+    :ok
+  end
+
+  defp process_messages(_payload), do: :ok
+
+  defp build_event(message, endpoint_address) do
+    %{
+      "ts" => message_timestamp(message),
+      "type" => "channel.message.received",
+      "source" => "channel",
+      "idempotency_key" => "whatsapp:#{Map.get(message, "id")}",
+      "payload" => message_payload(message, endpoint_address)
+    }
+  end
+
+  defp message_payload(message, endpoint_address) do
+    %{
+      "provider" => "whatsapp",
+      "message_id" => Map.get(message, "id"),
+      "from" => Map.get(message, "from"),
+      "to" => endpoint_address,
+      "type" => Map.get(message, "type"),
+      "text" => get_in(message, ["text", "body"]),
+      "raw" => message
+    }
+  end
+
+  defp maybe_process_inbound_messages(%{"messages" => messages} = payload)
+       when is_list(messages) do
     if messages == [] do
       :ok
     else
@@ -54,35 +86,29 @@ defmodule Swati.Channels.WhatsApp.WebhookProcessor do
         }
 
         _ = Ingestion.ingest_events(Map.put(params, "events", events))
-
-        :ok
       end
     end
   end
 
-  defp process_messages(_payload), do: :ok
+  defp maybe_process_inbound_messages(_payload), do: :ok
 
-  defp build_event(message, endpoint_address) do
-    %{
-      "ts" => message_timestamp(message),
-      "type" => "channel.message.received",
-      "source" => "channel",
-      "idempotency_key" => "whatsapp:#{Map.get(message, "id")}",
-      "payload" => message_payload(message, endpoint_address)
-    }
+  defp maybe_process_statuses(%{"statuses" => statuses} = payload) when is_list(statuses) do
+    if statuses == [] do
+      :ok
+    else
+      metadata = Map.get(payload, "metadata") || %{}
+      phone_number_id = Map.get(metadata, "phone_number_id")
+      display_phone_number = Map.get(metadata, "display_phone_number")
+
+      with {:ok, connection} <- lookup_connection(phone_number_id, display_phone_number) do
+        Enum.each(statuses, fn status_payload ->
+          _ = TemplateMessages.apply_delivery_status(connection, status_payload)
+        end)
+      end
+    end
   end
 
-  defp message_payload(message, endpoint_address) do
-    %{
-      "provider" => "whatsapp",
-      "message_id" => Map.get(message, "id"),
-      "from" => Map.get(message, "from"),
-      "to" => endpoint_address,
-      "type" => Map.get(message, "type"),
-      "text" => get_in(message, ["text", "body"]),
-      "raw" => message
-    }
-  end
+  defp maybe_process_statuses(_payload), do: :ok
 
   defp process_template_update(payload) when is_map(payload) do
     waba_id = Map.get(payload, "waba_id")

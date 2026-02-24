@@ -4,6 +4,8 @@ defmodule Swati.Channels.WhatsApp do
   alias Swati.Channels.Queries
   alias Swati.Channels.Secrets
   alias Swati.Channels.WhatsApp.MetaClient
+  alias Swati.Channels.WhatsApp.PayloadBuilder
+  alias Swati.Channels.WhatsApp.TemplateMessages
   alias Swati.Channels.WhatsApp.WebhookProcessor
   alias Swati.Repo
 
@@ -94,12 +96,86 @@ defmodule Swati.Channels.WhatsApp do
 
     with {:ok, token} <- ensure_access_token(connection),
          {:ok, phone_number_id} <- phone_number_id_from_connection(connection),
-         {:ok, payload} <- build_send_payload(attrs),
+         {:ok, payload} <- PayloadBuilder.build_send_payload(attrs),
          {:ok, response} <-
            MetaClient.send_message(phone_number_id, token["access_token"], payload, config()) do
       :ok = update_token_secret(connection, token)
       {:ok, response}
     end
+  end
+
+  def list_templates(tenant_id, connection_id, opts \\ []) do
+    connection =
+      tenant_id
+      |> Channels.get_connection!(connection_id)
+      |> Repo.preload(:endpoint)
+
+    if connection.provider == :whatsapp do
+      with {:ok, token} <- ensure_access_token(connection),
+           {:ok, waba_id} <- waba_id_from_connection(connection),
+           {:ok, response} <-
+             MetaClient.list_message_templates(
+               waba_id,
+               token["access_token"],
+               config(),
+               list_template_params(opts)
+             ) do
+        :ok = update_token_secret(connection, token)
+        {:ok, Map.get(response, "data", [])}
+      end
+    else
+      {:error, :not_whatsapp_connection}
+    end
+  end
+
+  def create_template(tenant_id, connection_id, attrs) when is_map(attrs) do
+    connection =
+      tenant_id
+      |> Channels.get_connection!(connection_id)
+      |> Repo.preload(:endpoint)
+
+    if connection.provider == :whatsapp do
+      with {:ok, token} <- ensure_access_token(connection),
+           {:ok, waba_id} <- waba_id_from_connection(connection),
+           {:ok, payload} <- PayloadBuilder.build_template_create_payload(attrs),
+           {:ok, response} <-
+             MetaClient.create_message_template(
+               waba_id,
+               token["access_token"],
+               payload,
+               config()
+             ) do
+        :ok = update_token_secret(connection, token)
+        {:ok, response}
+      end
+    else
+      {:error, :not_whatsapp_connection}
+    end
+  end
+
+  def send_template_message(tenant_id, connection_id, attrs) when is_map(attrs) do
+    connection =
+      tenant_id
+      |> Channels.get_connection!(connection_id)
+      |> Repo.preload(:endpoint)
+
+    if connection.provider == :whatsapp do
+      with {:ok, token} <- ensure_access_token(connection),
+           {:ok, phone_number_id} <- phone_number_id_from_connection(connection),
+           {:ok, payload} <- PayloadBuilder.build_template_send_payload(attrs),
+           {:ok, response} <-
+             MetaClient.send_message(phone_number_id, token["access_token"], payload, config()),
+           {:ok, evidence} <- TemplateMessages.record_send(connection, attrs, payload, response) do
+        :ok = update_token_secret(connection, token)
+        {:ok, %{response: response, evidence: evidence}}
+      end
+    else
+      {:error, :not_whatsapp_connection}
+    end
+  end
+
+  def list_template_messages(tenant_id, connection_id, opts \\ []) do
+    TemplateMessages.list_recent(tenant_id, connection_id, opts)
   end
 
   def refresh_tokens do
@@ -336,26 +412,6 @@ defmodule Swati.Channels.WhatsApp do
     end
   end
 
-  defp build_send_payload(attrs) do
-    to = Map.get(attrs, "to") || Map.get(attrs, :to)
-    text = Map.get(attrs, "text") || Map.get(attrs, :text)
-
-    normalized = normalize_phone_number(to)
-    to_value = if is_binary(normalized), do: String.replace(normalized, "+", ""), else: nil
-
-    if is_nil(to_value) or is_nil(text) or text == "" do
-      {:error, :message_payload_invalid}
-    else
-      {:ok,
-       %{
-         "messaging_product" => "whatsapp",
-         "to" => to_value,
-         "type" => "text",
-         "text" => %{"body" => text}
-       }}
-    end
-  end
-
   defp phone_number_id_from_connection(%ChannelConnection{} = connection) do
     value =
       connection.metadata
@@ -447,6 +503,24 @@ defmodule Swati.Channels.WhatsApp do
   end
 
   defp secret_name(waba_id), do: "channel:whatsapp:waba:#{waba_id}"
+
+  defp list_template_params(opts) do
+    opts
+    |> Enum.into(%{})
+    |> Map.take([:status, :limit, "status", "limit"])
+    |> normalize_template_params()
+  end
+
+  defp normalize_template_params(params) when is_map(params) do
+    params
+    |> Enum.reduce(%{}, fn
+      {:status, value}, acc -> Map.put(acc, "status", value)
+      {"status", value}, acc -> Map.put(acc, "status", value)
+      {:limit, value}, acc -> Map.put(acc, "limit", value)
+      {"limit", value}, acc -> Map.put(acc, "limit", value)
+      _, acc -> acc
+    end)
+  end
 
   defp secret_name_from_connection(%ChannelConnection{} = connection) do
     case waba_id_from_connection(connection) do

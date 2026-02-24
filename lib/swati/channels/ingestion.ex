@@ -144,12 +144,21 @@ defmodule Swati.Channels.Ingestion do
         Map.get(payload, :to_address) || Map.get(params, "to") || Map.get(params, :to) ||
         default_recipient(session)
 
+    template = Map.get(payload, "template") || Map.get(payload, :template)
     text = Map.get(payload, "text") || Map.get(payload, :text)
 
-    if is_nil(to) or is_nil(text) or text == "" do
-      {:error, :message_payload_invalid}
-    else
-      {:ok, %{"to" => to, "text" => text}}
+    cond do
+      is_nil(to) ->
+        {:error, :message_payload_invalid}
+
+      is_map(template) ->
+        {:ok, %{"to" => to, "template" => template}}
+
+      is_binary(text) and text != "" ->
+        {:ok, %{"to" => to, "text" => text}}
+
+      true ->
+        {:error, :message_payload_invalid}
     end
   end
 

@@ -171,6 +171,22 @@ defmodule Swati.Channels do
     WhatsApp.refresh_phone_numbers(tenant_id, connection_id)
   end
 
+  def list_whatsapp_templates(tenant_id, connection_id, opts \\ []) do
+    WhatsApp.list_templates(tenant_id, connection_id, opts)
+  end
+
+  def create_whatsapp_template(tenant_id, connection_id, attrs) do
+    WhatsApp.create_template(tenant_id, connection_id, attrs)
+  end
+
+  def send_whatsapp_template(tenant_id, connection_id, attrs) do
+    WhatsApp.send_template_message(tenant_id, connection_id, attrs)
+  end
+
+  def list_whatsapp_template_messages(tenant_id, connection_id, opts \\ []) do
+    WhatsApp.list_template_messages(tenant_id, connection_id, opts)
+  end
+
   def enqueue_sync_connection(tenant_id, connection_id) do
     %{"tenant_id" => tenant_id, "connection_id" => connection_id}
     |> Swati.Workers.SyncChannelConnection.new()
