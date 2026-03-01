@@ -49,6 +49,9 @@ defmodule SwatiWeb.TrustConsoleLive.Reliability do
           <.link patch={~p"/trust/rejections"} class={nav_class(@active_tab == :rejections)}>
             Rejections
           </.link>
+          <.link patch={~p"/trust/inbound"} class={nav_class(@active_tab == :inbound)}>
+            Inbound deliveries
+          </.link>
         </nav>
 
         <section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">

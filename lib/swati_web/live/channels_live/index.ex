@@ -47,6 +47,7 @@ defmodule SwatiWeb.ChannelsLive.Index do
        |> assign(:connections_by_provider, connections_by_provider)
        |> assign(:providers, providers)
        |> assign(:sync_providers, Channels.sync_providers())
+       |> assign(:smtp_transport_mode_options, Imap.smtp_transport_mode_options())
        |> assign(:imap_sheet_open, false)
        |> assign(:imap_preset, :custom)
        |> assign(:imap_provider_label, Map.get(imap_defaults, "provider_label"))
@@ -409,6 +410,26 @@ defmodule SwatiWeb.ChannelsLive.Index do
             <div class="grid gap-4 md:grid-cols-2">
               <.checkbox field={@imap_form[:imap_ssl]} label="IMAP SSL (993)" />
               <.checkbox field={@imap_form[:smtp_ssl]} label="SMTP SSL (465)" />
+            </div>
+
+            <div class="space-y-1 pt-2">
+              <.label for="imap_smtp_transport_mode">Email delivery mode</.label>
+              <select
+                id="imap_smtp_transport_mode"
+                name="imap[smtp_transport_mode]"
+                class="select w-full"
+              >
+                <option
+                  :for={{label, value} <- @smtp_transport_mode_options}
+                  value={value}
+                  selected={to_string(@imap_form[:smtp_transport_mode].value || "automatic") == value}
+                >
+                  {label}
+                </option>
+              </select>
+              <p class="text-xs text-foreground-soft">
+                Applies to IMAP/SMTP only. Gmail/Outlook OAuth are unaffected.
+              </p>
             </div>
 
             <div class="flex items-center justify-end pt-2">

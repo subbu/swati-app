@@ -100,7 +100,8 @@ defmodule Swati.Tenancy.Memberships do
           membership.user_id == current_scope.user.id ->
             {:error, :cannot_change_own_role}
 
-          membership.role.is_system and not has_other_system_owners?(tenant_id, membership.user_id) ->
+          membership.role.is_system and
+              not has_other_system_owners?(tenant_id, membership.user_id) ->
             {:error, :last_owner}
 
           true ->
@@ -181,7 +182,8 @@ defmodule Swati.Tenancy.Memberships do
     |> Repo.exists?()
   end
 
-  def require_role!(%Membership{} = membership, allowed_role_names) when is_list(allowed_role_names) do
+  def require_role!(%Membership{} = membership, allowed_role_names)
+      when is_list(allowed_role_names) do
     membership = Repo.preload(membership, :role)
 
     if membership.role.name in allowed_role_names do
@@ -224,7 +226,11 @@ defmodule Swati.Tenancy.Memberships do
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:user, User.email_changeset(%User{}, %{email: email}))
       |> Ecto.Multi.insert(:membership, fn %{user: user} ->
-        Membership.changeset(%Membership{}, %{user_id: user.id, tenant_id: tenant_id, role_id: role_id})
+        Membership.changeset(%Membership{}, %{
+          user_id: user.id,
+          tenant_id: tenant_id,
+          role_id: role_id
+        })
       end)
 
     case Repo.transaction(multi) do

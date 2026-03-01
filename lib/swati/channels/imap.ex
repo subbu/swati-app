@@ -3,11 +3,13 @@ defmodule Swati.Channels.Imap do
   alias Swati.Channels
   alias Swati.Channels.ChannelConnection
   alias Swati.Channels.Ingestion
+  alias Swati.Channels.SMTPTransportPolicy
   alias Swati.Channels.Secrets
   alias Swati.Repo
 
   @default_imap_port 993
   @default_smtp_port 587
+  @smtp_transport_mode_values ["automatic", "strict", "compatible"]
 
   @required_fields [:email_address, :imap_host, :imap_username, :imap_password]
   def default_params(preset \\ :custom) do
@@ -15,7 +17,8 @@ defmodule Swati.Channels.Imap do
       "imap_port" => @default_imap_port,
       "imap_ssl" => true,
       "smtp_port" => @default_smtp_port,
-      "smtp_ssl" => false
+      "smtp_ssl" => false,
+      "smtp_transport_mode" => "automatic"
     }
 
     case preset do
@@ -45,7 +48,8 @@ defmodule Swati.Channels.Imap do
       smtp_port: :integer,
       smtp_ssl: :boolean,
       smtp_username: :string,
-      smtp_password: :string
+      smtp_password: :string,
+      smtp_transport_mode: :string
     }
 
     {%{}, types}
@@ -54,6 +58,15 @@ defmodule Swati.Channels.Imap do
     |> Changeset.validate_format(:email_address, ~r/@/)
     |> Changeset.validate_number(:imap_port, greater_than: 0)
     |> Changeset.validate_number(:smtp_port, greater_than: 0)
+    |> Changeset.validate_inclusion(:smtp_transport_mode, @smtp_transport_mode_values)
+  end
+
+  def smtp_transport_mode_options do
+    [
+      {"Automatic (Recommended)", "automatic"},
+      {"Strict TLS", "strict"},
+      {"Compatibility", "compatible"}
+    ]
   end
 
   def connect(tenant_id, attrs, opts \\ []) do
@@ -129,7 +142,7 @@ defmodule Swati.Channels.Imap do
     else
       with {:ok, creds} <- read_credentials(connection),
            {:ok, response} <-
-             send_smtp(connection.endpoint.address, to, subject, text, thread_id, creds) do
+             send_smtp(connection, to, subject, text, thread_id, creds) do
         {:ok, response}
       end
     end
@@ -434,25 +447,14 @@ defmodule Swati.Channels.Imap do
     end
   end
 
-  defp send_smtp(from, to, subject, text, thread_id, creds) do
+  defp send_smtp(%ChannelConnection{} = connection, to, subject, text, thread_id, creds) do
+    from = connection.endpoint.address
     smtp = creds.smtp
     raw = build_raw_message(from, to, subject, text, thread_id)
+    message = {from, [to], raw}
 
-    opts = [
-      relay: smtp.host,
-      port: smtp.port,
-      username: smtp.username,
-      password: smtp.password,
-      ssl: smtp.ssl,
-      tls: smtp_tls_mode(smtp.ssl),
-      auth: smtp_auth_mode(smtp.username, smtp.password)
-    ]
-
-    case :gen_smtp_client.send_blocking({from, [to], raw}, opts) do
-      {:ok, _} = ok -> ok
-      {:error, _} = error -> error
-      other -> {:ok, other}
-    end
+    plan = SMTPTransportPolicy.plan(connection, smtp)
+    do_send_smtp_with_policy(message, smtp, plan.attempt_modes, plan)
   end
 
   defp build_raw_message(from, to, subject, text, thread_id) do
@@ -503,13 +505,88 @@ defmodule Swati.Channels.Imap do
     end
   end
 
+  defp smtp_options(smtp, transport_tls_options) do
+    [
+      relay: smtp.host,
+      port: smtp.port,
+      username: smtp.username,
+      password: smtp.password,
+      ssl: smtp.ssl,
+      tls: smtp_tls_mode(smtp.ssl),
+      tls_options: transport_tls_options,
+      sockopts: transport_tls_options,
+      auth: smtp_auth_mode(smtp.username, smtp.password)
+    ]
+  end
+
+  defp do_send_smtp_with_policy(message, smtp, [verify_mode | rest], plan) do
+    opts = smtp_options(smtp, smtp_tls_options(verify_mode, smtp.host))
+
+    case send_smtp_once(message, opts) do
+      {:ok, _} = ok ->
+        ok
+
+      {:error, error} ->
+        if rest != [] and SMTPTransportPolicy.allow_fallback?(plan, verify_mode, error) do
+          do_send_smtp_with_policy(message, smtp, rest, plan)
+        else
+          {:error, error}
+        end
+    end
+  end
+
+  defp do_send_smtp_with_policy(_message, _smtp, [], _plan), do: {:error, :smtp_policy_exhausted}
+
+  defp send_smtp_once(message, opts) do
+    case smtp_client().send_blocking(message, opts) do
+      {:ok, _} = ok ->
+        ok
+
+      error when is_tuple(error) and tuple_size(error) > 0 and elem(error, 0) == :error ->
+        {:error, error}
+
+      other ->
+        {:ok, other}
+    end
+  end
+
+  defp smtp_tls_options(:verify_none, host) do
+    [verify: :verify_none] ++ smtp_sni_option(host)
+  end
+
+  defp smtp_tls_options(:verify_peer, host) do
+    case :public_key.cacerts_get() do
+      cacerts when is_list(cacerts) and cacerts != [] ->
+        [verify: :verify_peer, cacerts: cacerts] ++ smtp_sni_option(host)
+
+      _ ->
+        smtp_tls_options(:verify_none, host)
+    end
+  rescue
+    _ -> smtp_tls_options(:verify_none, host)
+  end
+
+  defp smtp_sni_option(host) when is_binary(host) and host != "" do
+    [server_name_indication: String.to_charlist(host)]
+  rescue
+    _ -> []
+  end
+
+  defp smtp_sni_option(_host), do: []
+
   defp read_credentials(%ChannelConnection{} = connection) do
     connection
     |> Secrets.get_secret_value()
     |> decode_json()
     |> case do
-      %{"imap" => imap, "smtp" => smtp} -> {:ok, %{imap: imap, smtp: smtp}}
-      _ -> {:error, :imap_credentials_missing}
+      %{"imap" => imap, "smtp" => smtp} ->
+        {:ok, %{imap: normalize_credential_block(imap), smtp: normalize_credential_block(smtp)}}
+
+      %{imap: imap, smtp: smtp} ->
+        {:ok, %{imap: normalize_credential_block(imap), smtp: normalize_credential_block(smtp)}}
+
+      _ ->
+        {:error, :imap_credentials_missing}
     end
   end
 
@@ -521,6 +598,28 @@ defmodule Swati.Channels.Imap do
     case Jason.decode(value) do
       {:ok, decoded} -> decoded
       _ -> %{}
+    end
+  end
+
+  defp normalize_credential_block(block) when is_map(block) do
+    %{
+      host: get_key(block, :host),
+      port: get_key(block, :port),
+      ssl: get_key(block, :ssl),
+      username: get_key(block, :username),
+      password: get_key(block, :password)
+    }
+  end
+
+  defp normalize_credential_block(_block), do: %{}
+
+  defp get_key(map, key_atom) do
+    case Map.fetch(map, key_atom) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        Map.get(map, Atom.to_string(key_atom))
     end
   end
 
@@ -542,11 +641,13 @@ defmodule Swati.Channels.Imap do
     smtp_ssl = if is_boolean(smtp_ssl), do: smtp_ssl, else: false
     smtp_username = blank_to_nil(Map.get(params, :smtp_username)) || imap_username
     smtp_password = blank_to_nil(Map.get(params, :smtp_password)) || imap_password
+    smtp_transport_mode = normalize_smtp_transport_mode(Map.get(params, :smtp_transport_mode))
 
     %{
       email_address: email,
       display_name: display_name,
       provider_label: provider_label,
+      smtp_transport_mode: smtp_transport_mode,
       imap: %{
         host: imap_host,
         port: imap_port,
@@ -578,19 +679,19 @@ defmodule Swati.Channels.Imap do
     existing = Channels.get_connection_by_endpoint(tenant_id, endpoint.id)
 
     metadata =
-      (existing && existing.metadata) ||
-        %{}
-        |> Map.put("provider_label", params.provider_label)
-        |> Map.put("imap", %{
-          "host" => params.imap.host,
-          "port" => params.imap.port,
-          "ssl" => params.imap.ssl
-        })
-        |> Map.put("smtp", %{
-          "host" => params.smtp.host,
-          "port" => params.smtp.port,
-          "ssl" => params.smtp.ssl
-        })
+      ((existing && existing.metadata) || %{})
+      |> Map.put("provider_label", params.provider_label)
+      |> Map.put("imap", %{
+        "host" => params.imap.host,
+        "port" => params.imap.port,
+        "ssl" => params.imap.ssl
+      })
+      |> Map.put("smtp", %{
+        "host" => params.smtp.host,
+        "port" => params.smtp.port,
+        "ssl" => params.smtp.ssl
+      })
+      |> put_smtp_transport_policy(params.smtp_transport_mode)
 
     attrs = %{
       "channel_id" => channel.id,
@@ -730,7 +831,41 @@ defmodule Swati.Channels.Imap do
   defp maybe_put_last_uid(metadata, nil), do: metadata
   defp maybe_put_last_uid(metadata, last_uid), do: Map.put(metadata, "last_uid", last_uid)
 
+  defp normalize_smtp_transport_mode(nil), do: "automatic"
+  defp normalize_smtp_transport_mode(""), do: "automatic"
+
+  defp normalize_smtp_transport_mode(mode) when mode in @smtp_transport_mode_values, do: mode
+
+  defp normalize_smtp_transport_mode(mode) when is_atom(mode) do
+    mode
+    |> Atom.to_string()
+    |> normalize_smtp_transport_mode()
+  end
+
+  defp normalize_smtp_transport_mode(mode) when is_binary(mode) do
+    mode
+    |> String.trim()
+    |> String.downcase()
+    |> normalize_smtp_transport_mode()
+  end
+
+  defp normalize_smtp_transport_mode(_mode), do: "automatic"
+
+  defp put_smtp_transport_policy(metadata, "automatic") do
+    Map.delete(metadata, "smtp_transport_policy")
+  end
+
+  defp put_smtp_transport_policy(metadata, mode) when mode in ["strict", "compatible"] do
+    Map.put(metadata, "smtp_transport_policy", %{"mode" => mode})
+  end
+
+  defp put_smtp_transport_policy(metadata, _mode), do: metadata
+
   defp client do
     Application.get_env(:swati, :imap_client, Swati.Channels.Imap.ClientExImap)
+  end
+
+  defp smtp_client do
+    Application.get_env(:swati, :smtp_client, :gen_smtp_client)
   end
 end

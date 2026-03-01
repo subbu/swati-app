@@ -34,6 +34,7 @@ defmodule SwatiWeb.Router do
     pipe_through :api
 
     post "/billing/razorpay/webhook", BillingWebhookController, :razorpay
+    post "/inbound/:connector_token", InboundWebhookController, :webhook
     get "/webhooks/whatsapp", WhatsAppWebhookController, :verify
     post "/webhooks/whatsapp", WhatsAppWebhookController, :webhook
   end
@@ -117,9 +118,12 @@ defmodule SwatiWeb.Router do
       live "/trust/policy", TrustConsoleLive.Policy, :index
       live "/trust/reliability", TrustConsoleLive.Reliability, :index
       live "/trust/rejections", TrustConsoleLive.Rejections, :index
+      live "/trust/inbound", TrustConsoleLive.Inbound, :index
       live "/cases", CasesLive.Index, :index
       live "/cases/:id", CasesLive.Show, :show
       live "/customers", CustomersLive.Index, :index
+      live "/inbound-email", InboundEmailLive.Index, :index
+      live "/inbound-email/inbox", InboundEmailLive.Inbox, :index
       live "/sessions", SessionsLive.Index, :index
       live "/sessions/:id", SessionsLive.Index, :show
     end

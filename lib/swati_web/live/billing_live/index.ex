@@ -320,7 +320,10 @@ defmodule SwatiWeb.BillingLive.Index do
         socket
         |> stream_configure(:invoices, dom_id: &invoice_dom_id/1)
         |> assign(:page_title, "Billing")
-        |> assign(:can_manage?, Accounts.authorized?(socket.assigns.current_scope, :manage_billing))
+        |> assign(
+          :can_manage?,
+          Accounts.authorized?(socket.assigns.current_scope, :manage_billing)
+        )
         |> assign(:plan_notice, nil)
         |> assign(:payment_link, nil)
         |> assign(:invoice_error, false)

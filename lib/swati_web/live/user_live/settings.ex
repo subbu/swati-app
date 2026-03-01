@@ -24,7 +24,12 @@ defmodule SwatiWeb.UserLive.Settings do
         phx-change="validate_profile"
       >
         <.input field={@profile_form[:display_name]} type="text" label="Display name" />
-        <.input field={@profile_form[:title]} type="text" label="Title / Designation" placeholder="e.g. Receptionist, Dr. Rao, Mechanic" />
+        <.input
+          field={@profile_form[:title]}
+          type="text"
+          label="Title / Designation"
+          placeholder="e.g. Receptionist, Dr. Rao, Mechanic"
+        />
         <.input field={@profile_form[:phone]} type="tel" label="Phone number" />
         <.button variant="solid" phx-disable-with="Saving...">Save Profile</.button>
       </.form>
@@ -143,7 +148,8 @@ defmodule SwatiWeb.UserLive.Settings do
          |> put_flash(:info, "Profile updated.")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, profile_form: to_form(changeset, as: :profile, action: :insert))}
+        {:noreply,
+         assign(socket, profile_form: to_form(changeset, as: :profile, action: :insert))}
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Failed to update profile.")}

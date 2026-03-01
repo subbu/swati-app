@@ -51,6 +51,9 @@ defmodule SwatiWeb.TrustConsoleLive.Rejections do
           <.link patch={~p"/trust/rejections"} class={nav_class(@active_tab == :rejections)}>
             Rejections
           </.link>
+          <.link patch={~p"/trust/inbound"} class={nav_class(@active_tab == :inbound)}>
+            Inbound deliveries
+          </.link>
         </nav>
 
         <section class="rounded-base border border-base bg-base p-4">

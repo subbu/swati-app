@@ -103,4 +103,64 @@ defmodule SwatiWeb.SessionsLive.ShowTest do
     assert has_element?(view, "#tool-invokes-tool-1")
     assert has_element?(view, "#tool-results-tool-1")
   end
+
+  test "renders channel message events in transcript", %{conn: conn, scope: scope} do
+    {:ok, agent} = Agents.create_agent(scope.tenant.id, %{name: "Email assistant"}, scope.user)
+    started_at = DateTime.utc_now()
+    {:ok, channel} = Channels.ensure_email_channel(scope.tenant.id)
+
+    {:ok, endpoint} =
+      Channels.ensure_endpoint_for_email(
+        scope.tenant.id,
+        "support-#{System.unique_integer([:positive])}@tenant.test",
+        %{}
+      )
+
+    {:ok, session} =
+      Sessions.create_session(scope.tenant.id, %{
+        tenant_id: scope.tenant.id,
+        agent_id: agent.id,
+        channel_id: channel.id,
+        endpoint_id: endpoint.id,
+        status: :open,
+        direction: :inbound,
+        started_at: started_at,
+        subject: "Need onboarding help",
+        metadata: %{
+          from_address: "resilient.soft1@gmail.com",
+          to_address: endpoint.address
+        }
+      })
+
+    :ok =
+      Sessions.append_events(session.id, [
+        %{
+          type: "channel.message.received",
+          ts: started_at,
+          payload: %{
+            subject: "Need onboarding help",
+            text: "(no body)",
+            from: "resilient.soft1@gmail.com",
+            to: [endpoint.address]
+          }
+        },
+        %{
+          type: "channel.message.sent",
+          ts: DateTime.add(started_at, 8, :second),
+          payload: %{
+            subject: "Re: Need onboarding help",
+            text: "Happy to help. Sharing onboarding steps now.",
+            from: endpoint.address,
+            to: ["resilient.soft1@gmail.com"],
+            direction: "outbound"
+          }
+        }
+      ])
+
+    {:ok, view, _html} = live(conn, ~p"/sessions/#{session.id}")
+
+    assert render(view) =~ "Subject: Need onboarding help"
+    assert render(view) =~ "Happy to help. Sharing onboarding steps now."
+    assert render(view) =~ "2 messages"
+  end
 end

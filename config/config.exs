@@ -24,7 +24,15 @@ config :swati,
   ecto_repos: [Swati.Repo],
   generators: [timestamp_type: :utc_datetime_usec, binary_id: true],
   channel_sync_interval_seconds: 300,
-  channel_sync_cron: "*/5 * * * *"
+  channel_sync_cron: "*/5 * * * *",
+  inbound_connectors_v1: true
+
+config :swati, :smtp_transport_policy,
+  default_mode: :strict,
+  default_fallback_error_patterns: ["max_path_length_reached"],
+  provider_profiles: [
+    %{provider: :imap, host: "smtp.resend.com", mode: :compatible}
+  ]
 
 config :swati, :billing,
   grace_period_days: 7,

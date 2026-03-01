@@ -75,6 +75,13 @@ defmodule SwatiWeb.Telemetry do
           "The time the connection spent waiting before being checked out for the query"
       ),
 
+      # Inbound webhook + delivery telemetry
+      sum("swati.inbound.webhook.ingest.count", tags: [:status]),
+      summary("swati.inbound.webhook.ingest.duration_ms", tags: [:status]),
+      sum("swati.inbound.delivery.process.count", tags: [:status]),
+      summary("swati.inbound.delivery.process.duration_ms", tags: [:status]),
+      sum("swati.inbound.delivery.replay.count", tags: [:status, :provider]),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),

@@ -2266,6 +2266,34 @@ defmodule SwatiWeb.CallsLive.Show do
               end
             end
 
+          "channel.message.received" ->
+            {items, current} = flush_current(items, current, started_at, agent_label)
+
+            case build_channel_message_item(
+                   event.payload || %{},
+                   event.ts,
+                   started_at,
+                   :caller,
+                   agent_label
+                 ) do
+              nil -> {items, current, tool_calls}
+              item -> {[item | items], current, tool_calls}
+            end
+
+          "channel.message.sent" ->
+            {items, current} = flush_current(items, current, started_at, agent_label)
+
+            case build_channel_message_item(
+                   event.payload || %{},
+                   event.ts,
+                   started_at,
+                   :agent,
+                   agent_label
+                 ) do
+              nil -> {items, current, tool_calls}
+              item -> {[item | items], current, tool_calls}
+            end
+
           "tool_call" ->
             payload = event.payload || %{}
             id = map_value(payload, "id", :id)
@@ -2427,6 +2455,90 @@ defmodule SwatiWeb.CallsLive.Show do
       existing <> " " <> next
     end
   end
+
+  defp build_channel_message_item(payload, ts, started_at, role, agent_label)
+       when is_map(payload) do
+    text = message_text_from_payload(payload)
+
+    if text == "" do
+      nil
+    else
+      start_ms = diff_ms(started_at, ts)
+
+      %{
+        id: "msg-#{System.unique_integer([:positive])}",
+        type: :message,
+        role: role,
+        label: if(role == :caller, do: "Customer", else: agent_label),
+        text: text,
+        offset: format_duration(div(start_ms, 1000)),
+        start_ms: start_ms,
+        end_ms: start_ms
+      }
+    end
+  end
+
+  defp build_channel_message_item(_payload, _ts, _started_at, _role, _agent_label), do: nil
+
+  defp message_text_from_payload(payload) when is_map(payload) do
+    subject = payload_field(payload, ["subject"])
+
+    raw_text =
+      payload_field(payload, ["text", "body", "message", "content"]) ||
+        html_to_text(payload_field(payload, ["html", "html_body"]))
+
+    text = normalize_text(raw_text)
+
+    cond do
+      text == "" and subject not in [nil, ""] ->
+        "Subject: #{subject}"
+
+      text == "(no body)" and subject not in [nil, ""] ->
+        "Subject: #{subject}"
+
+      true ->
+        text
+    end
+  end
+
+  defp payload_field(payload, keys) when is_map(payload) do
+    Enum.find_value(keys, fn key ->
+      Map.get(payload, key) || Map.get(payload, maybe_atom_key(key))
+    end)
+  end
+
+  defp maybe_atom_key("subject"), do: :subject
+  defp maybe_atom_key("text"), do: :text
+  defp maybe_atom_key("body"), do: :body
+  defp maybe_atom_key("message"), do: :message
+  defp maybe_atom_key("content"), do: :content
+  defp maybe_atom_key("html"), do: :html
+  defp maybe_atom_key("html_body"), do: :html_body
+  defp maybe_atom_key(_), do: nil
+
+  defp normalize_text(nil), do: ""
+
+  defp normalize_text(text) when is_binary(text) do
+    text
+    |> String.trim()
+  end
+
+  defp normalize_text(text), do: to_string(text) |> String.trim()
+
+  defp html_to_text(nil), do: nil
+
+  defp html_to_text(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<[^>]+>/, " ")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> case do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp html_to_text(_html), do: nil
 
   defp normalize_string(nil), do: ""
   defp normalize_string(value) when is_binary(value), do: String.downcase(value)

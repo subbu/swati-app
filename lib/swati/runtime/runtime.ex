@@ -30,7 +30,7 @@ defmodule Swati.Runtime do
          tenant <- Tenancy.get_tenant!(endpoint.tenant_id),
          {:ok, customer, identity} <- resolve_customer(tenant.id, channel, params),
          {:ok, case_record, case_linking} <- resolve_case(tenant, channel, customer, params),
-         {:ok, agent, version} <- resolve_agent(tenant.id, endpoint, case_record),
+         {:ok, agent, version} <- resolve_agent(tenant.id, endpoint, case_record, params),
          :ok <- Agents.authorize_agent_channel(agent.id, channel.id, endpoint.id),
          {:ok, session} <-
            resolve_session(
@@ -354,14 +354,17 @@ defmodule Swati.Runtime do
     end
   end
 
-  defp resolve_agent(tenant_id, endpoint, case_record) do
+  defp resolve_agent(tenant_id, endpoint, case_record, params) do
     routing_policy = endpoint.routing_policy || %{}
+
+    explicit_agent_id = param(params, [:agent_id]) || nested_param(params, ["agent", "id"])
 
     default_agent_id =
       Map.get(routing_policy, "default_agent_id") || Map.get(routing_policy, :default_agent_id)
 
     agent_id =
-      default_agent_id ||
+      explicit_agent_id ||
+        default_agent_id ||
         case_record.assigned_agent_id ||
         pick_fallback_agent_id(tenant_id)
 

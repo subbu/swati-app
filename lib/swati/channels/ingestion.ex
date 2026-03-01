@@ -88,13 +88,98 @@ defmodule Swati.Channels.Ingestion do
       with {:ok, connection} <- fetch_connection(session),
            {:ok, message} <- build_channel_message(session, payload, params),
            {:ok, response} <- Channels.send_message(connection, message) do
-        updated_payload = Map.put(payload, "provider_response", response)
+        updated_payload = normalize_sent_payload(session, payload, message, response)
         {:ok, updated_payload}
       end
     else
       :ok
     end
   end
+
+  defp normalize_sent_payload(session, payload, message, response) do
+    payload_map =
+      payload
+      |> normalize_payload_map()
+      |> Map.put("provider_response", json_safe(response))
+
+    case session.channel.type do
+      :email ->
+        payload_map
+        |> put_if_absent("from", sender_address(session))
+        |> put_if_absent(
+          "to",
+          normalize_to_field(Map.get(message, "to") || Map.get(message, :to))
+        )
+        |> put_if_absent("subject", Map.get(message, "subject") || Map.get(message, :subject))
+        |> put_if_absent("text", Map.get(message, "text") || Map.get(message, :text))
+        |> Map.put("direction", "outbound")
+
+      :whatsapp ->
+        payload_map
+        |> put_if_absent(
+          "to",
+          normalize_to_field(Map.get(message, "to") || Map.get(message, :to))
+        )
+        |> Map.put("direction", "outbound")
+
+      _ ->
+        payload_map
+    end
+  end
+
+  defp normalize_payload_map(value) when is_map(value) do
+    Map.new(value, fn {key, val} ->
+      normalized_key =
+        case key do
+          atom when is_atom(atom) -> Atom.to_string(atom)
+          other -> to_string(other)
+        end
+
+      {normalized_key, val}
+    end)
+  end
+
+  defp normalize_payload_map(_value), do: %{}
+
+  defp put_if_absent(map, _key, nil), do: map
+  defp put_if_absent(map, _key, ""), do: map
+
+  defp put_if_absent(map, key, value) do
+    if Map.get(map, key) in [nil, ""] do
+      Map.put(map, key, value)
+    else
+      map
+    end
+  end
+
+  defp sender_address(session) do
+    cond do
+      session.endpoint && is_binary(session.endpoint.address) && session.endpoint.address != "" ->
+        session.endpoint.address
+
+      is_map(session.metadata) ->
+        Map.get(session.metadata, "to_address") || Map.get(session.metadata, :to_address)
+
+      true ->
+        nil
+    end
+  end
+
+  defp normalize_to_field(value) when is_binary(value), do: [value]
+  defp normalize_to_field(value) when is_list(value), do: value
+  defp normalize_to_field(_value), do: nil
+
+  defp json_safe(value) when is_binary(value), do: value
+  defp json_safe(value) when is_number(value), do: value
+  defp json_safe(value) when is_boolean(value), do: value
+  defp json_safe(nil), do: nil
+  defp json_safe(value) when is_map(value), do: Map.new(value, fn {k, v} -> {k, json_safe(v)} end)
+  defp json_safe(value) when is_list(value), do: Enum.map(value, &json_safe/1)
+
+  defp json_safe(value) when is_tuple(value),
+    do: value |> Tuple.to_list() |> Enum.map(&json_safe/1)
+
+  defp json_safe(value), do: inspect(value)
 
   defp fetch_connection(session) do
     case Channels.get_connection_by_endpoint(session.tenant_id, session.endpoint_id) do

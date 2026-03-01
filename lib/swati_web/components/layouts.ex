@@ -85,6 +85,12 @@ defmodule SwatiWeb.Layouts do
               class="size-5 text-foreground-softer group-hover:text-foreground"
             /> Surfaces
           </.navlink>
+          <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/inbound-email"}>
+            <.icon
+              name="hero-inbox-arrow-down"
+              class="size-5 text-foreground-softer group-hover:text-foreground"
+            /> Inbound email
+          </.navlink>
           <.navlink :if={Scope.can?(@current_scope, :view_sessions)} navigate={~p"/sessions"}>
             <.icon
               name="hero-chat-bubble-left-right"
@@ -185,6 +191,12 @@ defmodule SwatiWeb.Layouts do
                 </.navlink>
                 <.navlink :if={Scope.can?(@current_scope, :manage_channels)} navigate={~p"/surfaces"}>
                   <.icon name="hero-adjustments-vertical" class="size-5" /> Surfaces
+                </.navlink>
+                <.navlink
+                  :if={Scope.can?(@current_scope, :manage_channels)}
+                  navigate={~p"/inbound-email"}
+                >
+                  <.icon name="hero-inbox-arrow-down" class="size-5" /> Inbound email
                 </.navlink>
                 <.navlink :if={Scope.can?(@current_scope, :view_sessions)} navigate={~p"/sessions"}>
                   <.icon name="hero-chat-bubble-left-right" class="size-5" /> Conversations

@@ -2,6 +2,7 @@ defmodule Swati.Handoffs do
   import Ecto.Query, warn: false
 
   alias Swati.Handoffs.Handoff
+  alias Swati.Inbound.Ownership
   alias Swati.Repo
   alias Swati.Sessions
   alias Swati.Tenancy
@@ -54,6 +55,7 @@ defmodule Swati.Handoffs do
     |> Repo.update()
     |> case do
       {:ok, handoff} ->
+        _ = maybe_apply_ownership_transfer(handoff, attrs)
         _ = maybe_emit_event(handoff, "handoff.resolved", handoff.resolved_at)
         {:ok, handoff}
 
@@ -99,5 +101,43 @@ defmodule Swati.Handoffs do
     }
 
     Sessions.append_events(handoff.session_id, [event])
+  end
+
+  defp maybe_apply_ownership_transfer(
+         %Handoff{status: :accepted, session_id: session_id} = handoff,
+         attrs
+       )
+       when is_binary(session_id) do
+    case target_agent_id(attrs, handoff.metadata || %{}) do
+      nil ->
+        :ok
+
+      target_agent_id ->
+        _ =
+          Ownership.transfer_session_owner(session_id, target_agent_id, %{
+            reason: "handoff:#{handoff.id}",
+            source: "handoff",
+            metadata: %{
+              "handoff_id" => handoff.id,
+              "requested_by_type" => handoff.requested_by_type,
+              "requested_by_id" => handoff.requested_by_id
+            }
+          })
+
+        :ok
+    end
+  end
+
+  defp maybe_apply_ownership_transfer(_handoff, _attrs), do: :ok
+
+  defp target_agent_id(attrs, handoff_metadata) when is_map(attrs) do
+    metadata = Map.get(attrs, "metadata") || Map.get(attrs, :metadata) || %{}
+
+    Map.get(attrs, "target_agent_id") ||
+      Map.get(attrs, :target_agent_id) ||
+      Map.get(metadata, "target_agent_id") ||
+      Map.get(metadata, :target_agent_id) ||
+      Map.get(handoff_metadata, "target_agent_id") ||
+      Map.get(handoff_metadata, :target_agent_id)
   end
 end

@@ -79,14 +79,20 @@ defmodule SwatiWeb.TeamLive.Index do
                   </:cell>
                   <:cell>
                     <%= if membership.user_id == @current_scope.user.id do %>
-                      <.badge color={if(membership.role.is_system, do: "primary", else: "info")} variant="soft" size="sm">
+                      <.badge
+                        color={if(membership.role.is_system, do: "primary", else: "info")}
+                        variant="soft"
+                        size="sm"
+                      >
                         {membership.role.name}
                       </.badge>
                     <% else %>
                       <form phx-change="change_role" phx-value-membership-id={membership.id}>
                         <select name="role_id" class="select select-xs select-bordered">
                           <%= for {label, value} <- @role_options do %>
-                            <option value={value} selected={membership.role_id == value}>{label}</option>
+                            <option value={value} selected={membership.role_id == value}>
+                              {label}
+                            </option>
                           <% end %>
                         </select>
                       </form>
@@ -96,7 +102,10 @@ defmodule SwatiWeb.TeamLive.Index do
                     {format_date(membership.inserted_at)}
                   </:cell>
                   <:cell>
-                    <.dropdown :if={membership.user_id != @current_scope.user.id} placement="bottom-end">
+                    <.dropdown
+                      :if={membership.user_id != @current_scope.user.id}
+                      placement="bottom-end"
+                    >
                       <:toggle>
                         <button class="cursor-default p-1 rounded hover:bg-base-200">
                           <.icon name="hero-ellipsis-horizontal" class="size-4 text-base-content/50" />
@@ -161,7 +170,9 @@ defmodule SwatiWeb.TeamLive.Index do
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-medium">{role.name}</span>
-                    <.badge :if={role.is_system} color="primary" variant="soft" size="xs">System</.badge>
+                    <.badge :if={role.is_system} color="primary" variant="soft" size="xs">
+                      System
+                    </.badge>
                   </div>
                 </div>
                 <span class="text-xs text-base-content/50 tabular-nums whitespace-nowrap">
@@ -283,7 +294,10 @@ defmodule SwatiWeb.TeamLive.Index do
                         <%= for perm <- group.permissions do %>
                           <label class={[
                             "flex items-center gap-2.5 rounded px-2 py-1.5 text-sm",
-                            if(@selected_role.is_system, do: "opacity-50 cursor-not-allowed", else: "hover:bg-base-200 cursor-pointer")
+                            if(@selected_role.is_system,
+                              do: "opacity-50 cursor-not-allowed",
+                              else: "hover:bg-base-200 cursor-pointer"
+                            )
                           ]}>
                             <input
                               type="checkbox"
@@ -406,7 +420,11 @@ defmodule SwatiWeb.TeamLive.Index do
     end
   end
 
-  def handle_event("change_role", %{"membership-id" => membership_id, "role_id" => role_id}, socket) do
+  def handle_event(
+        "change_role",
+        %{"membership-id" => membership_id, "role_id" => role_id},
+        socket
+      ) do
     case Accounts.update_member_role(socket.assigns.current_scope, membership_id, role_id) do
       {:ok, _} ->
         {:noreply, socket |> put_flash(:info, "Role updated.") |> load_members()}
@@ -485,11 +503,13 @@ defmodule SwatiWeb.TeamLive.Index do
            socket |> assign(:show_templates, false) |> put_flash(:error, "Could not create role.")}
       end
     else
-      {:error, unauthorized_socket} when is_struct(unauthorized_socket, Phoenix.LiveView.Socket) ->
+      {:error, unauthorized_socket}
+      when is_struct(unauthorized_socket, Phoenix.LiveView.Socket) ->
         {:noreply, unauthorized_socket}
 
       {:error, :invalid_template_key} ->
-        {:noreply, socket |> assign(:show_templates, false) |> put_flash(:error, "Invalid template.")}
+        {:noreply,
+         socket |> assign(:show_templates, false) |> put_flash(:error, "Invalid template.")}
     end
   end
 
@@ -538,7 +558,8 @@ defmodule SwatiWeb.TeamLive.Index do
 
       case Accounts.update_role(role, %{"name" => name}) do
         {:ok, _} ->
-          {:noreply, socket |> put_flash(:info, "Role renamed.") |> load_roles() |> open_role_sheet(role_id)}
+          {:noreply,
+           socket |> put_flash(:info, "Role renamed.") |> load_roles() |> open_role_sheet(role_id)}
 
         {:error, %Ecto.Changeset{} = cs} ->
           msg = cs.errors |> Enum.map(fn {f, {m, _}} -> "#{f} #{m}" end) |> Enum.join(", ")
@@ -652,8 +673,11 @@ defmodule SwatiWeb.TeamLive.Index do
 
   # ── Helpers ─────────────────────────────────────────────────────────
 
-  defp nav_class(true), do: "px-3 py-1.5 rounded-base bg-accent text-foreground font-medium text-sm"
-  defp nav_class(false), do: "px-3 py-1.5 rounded-base text-foreground-soft hover:bg-accent text-sm"
+  defp nav_class(true),
+    do: "px-3 py-1.5 rounded-base bg-accent text-foreground font-medium text-sm"
+
+  defp nav_class(false),
+    do: "px-3 py-1.5 rounded-base text-foreground-soft hover:bg-accent text-sm"
 
   defp member_count_text(0), do: "No members"
   defp member_count_text(1), do: "1 member"

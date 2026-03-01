@@ -98,6 +98,19 @@ defmodule Swati.Channels.Queries do
     |> Repo.one()
   end
 
+  def get_endpoint_by_channel_key(tenant_id, channel_key, address)
+      when is_binary(tenant_id) and is_binary(channel_key) and is_binary(address) do
+    Endpoint
+    |> Tenancy.scope(tenant_id)
+    |> join(:inner, [e], c in Channel, on: c.id == e.channel_id)
+    |> where([_e, c], c.key == ^channel_key)
+    |> where([_e, c], c.status == :active)
+    |> where([e, _c], e.address == ^address)
+    |> where([e, _c], e.status == :active)
+    |> preload([e, c], channel: c)
+    |> Repo.one()
+  end
+
   def get_endpoint_by_channel_key_any_status(channel_key, address)
       when is_binary(channel_key) and is_binary(address) do
     Endpoint
