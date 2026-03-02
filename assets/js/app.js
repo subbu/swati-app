@@ -56,6 +56,16 @@ topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
+// Copy to clipboard handler
+window.addEventListener("phx:copy", (event) => {
+  const text = event.detail.text;
+  if (text) {
+    navigator.clipboard.writeText(text).then(() => {
+      // Brief visual feedback could be added here
+    });
+  }
+});
+
 // connect if there are any LiveViews on the page
 liveSocket.connect();
 

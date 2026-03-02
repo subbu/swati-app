@@ -3,7 +3,8 @@ defmodule SwatiWeb.InboundEmailLive.Inbox do
 
   alias Swati.Agents
   alias Swati.Inbound
-  alias SwatiWeb.Formatting
+  alias SwatiWeb.InboundEmailLive.Components
+  alias SwatiWeb.InboundEmailLive.Helpers
 
   @impl true
   def mount(_params, _session, socket) do
@@ -15,6 +16,9 @@ defmodule SwatiWeb.InboundEmailLive.Inbox do
        |> assign(:tenant_id, tenant_id)
        |> assign(:agents, Agents.list_agents(tenant_id))
        |> assign(:filters, default_filters())
+       |> assign(:selected_message_id, nil)
+       |> assign(:selected_message, nil)
+       |> assign(:inbound_enabled, Inbound.enabled?())
        |> load_data()}
     else
       {:ok,
@@ -35,123 +39,175 @@ defmodule SwatiWeb.InboundEmailLive.Inbox do
   end
 
   @impl true
-  def handle_event("clear_filters", _params, socket) do
-    {:noreply, socket |> assign(:filters, default_filters()) |> load_data()}
+  def handle_event("filter", params, socket) do
+    # Handle phx-change from the search form (no "filters" wrapper)
+    filters =
+      socket.assigns.filters
+      |> Map.merge(params)
+      |> normalize_filters()
+
+    {:noreply, socket |> assign(:filters, filters) |> load_data()}
+  end
+
+  @impl true
+  def handle_event("reset_filters", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:filters, default_filters())
+     |> load_data()}
+  end
+
+  @impl true
+  def handle_event("select_message", %{"id" => id}, socket) do
+    message = Enum.find(socket.assigns.messages, &(to_string(&1.id) == id))
+
+    {:noreply,
+     socket
+     |> assign(:selected_message_id, id)
+     |> assign(:selected_message, message)}
+  end
+
+  @impl true
+  def handle_event("deselect_message", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_message_id, nil)
+     |> assign(:selected_message, nil)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div id="inbound-email-inbox" class="space-y-6">
-        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-base pb-4">
-          <div>
-            <h1 class="text-2xl font-semibold text-foreground">Email Inbox</h1>
-            <p class="text-sm text-foreground-soft">
-              Message-level inbox across inbound and outbound email with linked sessions and cases.
-            </p>
-          </div>
-          <div class="flex items-center gap-2">
-            <.link navigate={~p"/inbound-email"} class="btn btn-outline btn-sm">Configuration</.link>
-            <.button phx-click="clear_filters" variant="ghost" size="xs">Clear filters</.button>
-          </div>
-        </header>
+      <div class="space-y-6">
+        <Components.page_header active_tab="inbox" inbound_enabled={@inbound_enabled} />
 
-        <section class="rounded-base border border-base p-4">
-          <.form
-            for={to_form(@filters, as: :filters)}
-            phx-change="filter"
-            class="grid gap-3 md:grid-cols-4"
-          >
-            <.input
-              name="filters[query]"
-              value={@filters["query"]}
-              label="Search"
-              placeholder="subject, text, sender, recipient"
+        <%!-- Master-detail layout --%>
+        <section class="rounded-lg border border-base overflow-hidden">
+          <%!-- Filter bar — sessions-style --%>
+          <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-base">
+            <.form
+              for={to_form(@filters, as: :filters)}
+              id="inbox-filter"
+              phx-change="filter"
+              class="flex items-center gap-2"
+            >
+              <.input
+                name="filters[query]"
+                value={@filters["query"]}
+                type="text"
+                placeholder="Search messages"
+                phx-debounce="300"
+                class="min-w-[16rem] lg:min-w-[20rem]"
+              >
+                <:inner_prefix>
+                  <.icon name="hero-magnifying-glass" class="icon" />
+                </:inner_prefix>
+              </.input>
+            </.form>
+
+            <.dropdown placement="bottom-start">
+              <:toggle>
+                <.button variant="dashed">
+                  <.icon name="hero-arrows-right-left" class="icon" />
+                  <span class="hidden lg:inline ml-1">
+                    {direction_filter_label(@filters)}
+                  </span>
+                </.button>
+              </:toggle>
+              <.dropdown_button phx-click={JS.push("filter", value: %{filters: %{"direction" => ""}})}>
+                All directions
+              </.dropdown_button>
+              <.dropdown_button phx-click={JS.push("filter", value: %{filters: %{"direction" => "inbound"}})}>
+                Inbound
+              </.dropdown_button>
+              <.dropdown_button phx-click={JS.push("filter", value: %{filters: %{"direction" => "outbound"}})}>
+                Outbound
+              </.dropdown_button>
+            </.dropdown>
+
+            <.dropdown placement="bottom-start">
+              <:toggle>
+                <.button variant="dashed">
+                  <.icon name="hero-user-circle" class="icon" />
+                  <span class="hidden lg:inline ml-1">
+                    {agent_filter_label(@filters, @agents)}
+                  </span>
+                </.button>
+              </:toggle>
+              <.dropdown_button phx-click={JS.push("filter", value: %{filters: %{"agent_id" => ""}})}>
+                All agents
+              </.dropdown_button>
+              <.dropdown_button
+                :for={agent <- @agents}
+                phx-click={JS.push("filter", value: %{filters: %{"agent_id" => to_string(agent.id)}})}
+              >
+                {agent.name}
+              </.dropdown_button>
+            </.dropdown>
+
+            <%= if has_active_filters?(@filters) do %>
+              <.button
+                size="xs"
+                variant="ghost"
+                type="button"
+                phx-click="reset_filters"
+                aria-label="Reset filters"
+              >
+                <.icon name="hero-x-mark" class="icon" />
+                <span class="hidden lg:inline ml-1">Reset</span>
+              </.button>
+            <% end %>
+          </div>
+
+          <%= if @messages == [] do %>
+            <Components.empty_state
+              icon="hero-inbox"
+              title="No messages"
+              description="No email messages match your current filters."
             />
+          <% else %>
+            <div class="flex" style="height: calc(100vh - 340px); min-height: 400px;">
+              <%!-- Left panel: message list --%>
+              <div class={[
+                "flex-shrink-0 border-r border-base overflow-y-auto",
+                "w-full lg:w-[380px] xl:w-[420px]",
+                if(@selected_message, do: "hidden lg:block", else: "block")
+              ]}>
+                <div class="sticky top-0 bg-base border-b border-base px-4 py-2.5 flex items-center justify-between">
+                  <span class="text-xs font-medium text-foreground-softer">
+                    {length(@messages)} messages
+                  </span>
+                </div>
+                <Components.message_item
+                  :for={message <- @messages}
+                  message={message}
+                  selected={to_string(message.id) == to_string(@selected_message_id)}
+                />
+              </div>
 
-            <div class="space-y-1">
-              <.label for="filters_direction">Direction</.label>
-              <select id="filters_direction" name="filters[direction]" class="select w-full">
-                <option value="" selected={@filters["direction"] == ""}>All</option>
-                <option value="inbound" selected={@filters["direction"] == "inbound"}>Inbound</option>
-                <option value="outbound" selected={@filters["direction"] == "outbound"}>
-                  Outbound
-                </option>
-              </select>
+              <%!-- Right panel: message detail --%>
+              <div class={[
+                "flex-1 min-w-0 bg-base",
+                if(@selected_message, do: "block", else: "hidden lg:block")
+              ]}>
+                <%= if @selected_message do %>
+                  <Components.message_detail
+                    message={@selected_message}
+                    tenant={@current_scope.tenant}
+                    on_close="deselect_message"
+                  />
+                <% else %>
+                  <div class="flex items-center justify-center h-full text-foreground-softer">
+                    <div class="text-center">
+                      <.icon name="hero-envelope-open" class="size-8 mx-auto mb-2 opacity-40" />
+                      <p class="text-sm">Select a message to view details</p>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
             </div>
-
-            <div class="space-y-1">
-              <.label for="filters_agent_id">Owner agent</.label>
-              <select id="filters_agent_id" name="filters[agent_id]" class="select w-full">
-                <option value="" selected={@filters["agent_id"] == ""}>All</option>
-                <option
-                  :for={agent <- @agents}
-                  value={agent.id}
-                  selected={to_string(@filters["agent_id"]) == to_string(agent.id)}
-                >
-                  {agent.name}
-                </option>
-              </select>
-            </div>
-
-            <.input
-              name="filters[case_id]"
-              value={@filters["case_id"]}
-              label="Case id"
-              placeholder="optional case id"
-            />
-          </.form>
-        </section>
-
-        <section class="rounded-base border border-base p-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-foreground">Messages</h2>
-            <.badge size="sm" variant="soft" color="info">{length(@messages)}</.badge>
-          </div>
-
-          <div :if={@messages == []} class="mt-3 text-sm text-foreground-soft">
-            No messages match current filters.
-          </div>
-
-          <div :if={@messages != []} class="mt-3 overflow-x-auto">
-            <.table id="inbound-email-inbox-table">
-              <.table_head>
-                <:col>Time</:col>
-                <:col>Direction</:col>
-                <:col>Subject</:col>
-                <:col>From</:col>
-                <:col>To</:col>
-                <:col>Owner</:col>
-                <:col>Case</:col>
-                <:col>Thread</:col>
-              </.table_head>
-              <.table_body>
-                <.table_row :for={message <- @messages}>
-                  <:cell>{format_datetime(message.ts, @current_scope.tenant)}</:cell>
-                  <:cell>
-                    <.badge size="xs" variant="soft" color={direction_color(message.type)}>
-                      {direction_label(message.type)}
-                    </.badge>
-                  </:cell>
-                  <:cell class="max-w-xs truncate">{message_subject(message)}</:cell>
-                  <:cell class="max-w-[220px] truncate">{message_from(message)}</:cell>
-                  <:cell class="max-w-[220px] truncate">{message_to(message)}</:cell>
-                  <:cell>{message.agent_name || message.agent_id || "-"}</:cell>
-                  <:cell>
-                    <.link :if={message.case_id} navigate={~p"/cases/#{message.case_id}"} class="link">
-                      {message.case_id}
-                    </.link>
-                  </:cell>
-                  <:cell>
-                    <.link navigate={~p"/sessions/#{message.session_id}"} class="link">
-                      {message.session_external_id || message.session_id}
-                    </.link>
-                  </:cell>
-                </.table_row>
-              </.table_body>
-            </.table>
-          </div>
+          <% end %>
         </section>
       </div>
     </Layouts.app>
@@ -162,11 +218,16 @@ defmodule SwatiWeb.InboundEmailLive.Inbox do
     tenant_id = socket.assigns.tenant_id
     filters = socket.assigns.filters
 
-    assign(
-      socket,
-      :messages,
-      Inbound.list_email_messages(tenant_id, limit: 200, filters: filters)
-    )
+    messages = Inbound.list_email_messages(tenant_id, limit: 200, filters: filters)
+
+    # If selected message is no longer in the list, deselect it
+    selected_id = socket.assigns.selected_message_id
+    selected = if selected_id, do: Enum.find(messages, &(to_string(&1.id) == to_string(selected_id)))
+
+    socket
+    |> assign(:messages, messages)
+    |> assign(:selected_message, selected)
+    |> then(fn s -> if is_nil(selected), do: assign(s, :selected_message_id, nil), else: s end)
   end
 
   defp default_filters do
@@ -188,30 +249,23 @@ defmodule SwatiWeb.InboundEmailLive.Inbox do
   defp normalize_value(value) when is_binary(value), do: String.trim(value)
   defp normalize_value(value), do: to_string(value)
 
-  defp message_subject(message) do
-    payload = message.payload || %{}
-    payload["subject"] || payload[:subject] || "(no subject)"
+  defp has_active_filters?(filters) do
+    filters["direction"] != "" or filters["agent_id"] != "" or filters["case_id"] != ""
   end
 
-  defp message_from(message) do
-    payload = message.payload || %{}
-    payload["from"] || payload[:from] || "-"
+  defp direction_filter_label(filters) do
+    case filters["direction"] do
+      "inbound" -> "Inbound"
+      "outbound" -> "Outbound"
+      _ -> "Direction"
+    end
   end
 
-  defp message_to(message) do
-    payload = message.payload || %{}
-    to = payload["to"] || payload[:to] || []
-    List.wrap(to) |> Enum.join(", ")
+  defp agent_filter_label(filters, agents) do
+    case filters["agent_id"] do
+      "" -> "Agent"
+      nil -> "Agent"
+      agent_id -> Helpers.resolve_agent_name(agent_id, agents) || "Agent"
+    end
   end
-
-  defp direction_label("channel.message.received"), do: "Inbound"
-  defp direction_label("channel.message.sent"), do: "Outbound"
-  defp direction_label(_), do: "Message"
-
-  defp direction_color("channel.message.received"), do: "success"
-  defp direction_color("channel.message.sent"), do: "info"
-  defp direction_color(_), do: "neutral"
-
-  defp format_datetime(nil, _tenant), do: "-"
-  defp format_datetime(%DateTime{} = ts, tenant), do: Formatting.datetime(ts, tenant)
 end

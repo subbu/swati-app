@@ -123,7 +123,10 @@ defmodule SwatiWeb.Router do
       live "/cases/:id", CasesLive.Show, :show
       live "/customers", CustomersLive.Index, :index
       live "/inbound-email", InboundEmailLive.Index, :index
+      live "/inbound-email/setup", InboundEmailLive.Setup, :index
       live "/inbound-email/inbox", InboundEmailLive.Inbox, :index
+      live "/inbound-email/activity", InboundEmailLive.Activity, :index
+      live "/inbound-email/preview", InboundEmailLive.Preview, :index
       live "/sessions", SessionsLive.Index, :index
       live "/sessions/:id", SessionsLive.Index, :show
     end

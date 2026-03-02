@@ -14,17 +14,21 @@ defmodule SwatiWeb.InboundEmailLive.Helpers do
           nil
       end
 
-    preview_owner_name(owner_agent_id, agents)
+    resolve_agent_name(owner_agent_id, agents)
   end
 
-  def preview_owner_name(nil, _agents), do: "-"
+  def resolve_agent_name(nil, _agents), do: nil
 
-  def preview_owner_name(agent_id, agents) do
+  def resolve_agent_name(agent_id, agents) do
     case Enum.find(agents, &(to_string(&1.id) == to_string(agent_id))) do
-      nil -> agent_id
+      nil -> to_string(agent_id)
       agent -> agent.name
     end
   end
+
+  # Keep backward compat alias
+  def preview_owner_name(nil, _agents), do: "-"
+  def preview_owner_name(agent_id, agents), do: resolve_agent_name(agent_id, agents) || "-"
 
   def format_datetime(nil), do: "-"
 
@@ -34,11 +38,33 @@ defmodule SwatiWeb.InboundEmailLive.Helpers do
 
   def format_datetime(_), do: "-"
 
+  @doc """
+  Relative time display: "just now", "2m ago", "1h ago", "yesterday", "Mar 1"
+  """
+  def relative_time(nil), do: "-"
+
+  def relative_time(%DateTime{} = dt) do
+    now = DateTime.utc_now()
+    diff = DateTime.diff(now, dt, :second)
+
+    cond do
+      diff < 60 -> "just now"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86_400 -> "#{div(diff, 3600)}h ago"
+      diff < 172_800 -> "yesterday"
+      diff < 604_800 -> "#{div(diff, 86_400)}d ago"
+      true -> Calendar.strftime(dt, "%b %-d")
+    end
+  end
+
+  def relative_time(_), do: "-"
+
   def delivery_status_color(:processed), do: "success"
   def delivery_status_color(:received), do: "info"
   def delivery_status_color(:processing), do: "warning"
   def delivery_status_color(:duplicate), do: "neutral"
   def delivery_status_color(:failed), do: "danger"
+  def delivery_status_color(:ignored), do: "neutral"
   def delivery_status_color(_), do: "neutral"
 
   def delivery_from(delivery) do
@@ -60,7 +86,11 @@ defmodule SwatiWeb.InboundEmailLive.Helpers do
   end
 
   def delivery_owner_agent_id(delivery) do
-    get_in(delivery.route_details || %{}, ["owner_agent_id"]) || "-"
+    get_in(delivery.route_details || %{}, ["owner_agent_id"])
+  end
+
+  def delivery_owner_name(delivery, agents) do
+    resolve_agent_name(delivery_owner_agent_id(delivery), agents) || "-"
   end
 
   def delivery_route_reason(delivery) do
@@ -69,9 +99,9 @@ defmodule SwatiWeb.InboundEmailLive.Helpers do
 
   def delivery_continuity(delivery) do
     case get_in(delivery.route_details || %{}, ["continuity", "hit"]) do
-      true -> "hit"
-      false -> "miss"
-      _ -> "-"
+      true -> :hit
+      false -> :miss
+      _ -> nil
     end
   end
 
@@ -87,7 +117,67 @@ defmodule SwatiWeb.InboundEmailLive.Helpers do
     delivery.status in [:failed, :processed, :duplicate, :ignored]
   end
 
+  @doc """
+  Convert predicate map to a list of {type, icon, values} tuples for display as pills.
+  """
+  def format_predicates(nil), do: []
+  def format_predicates(predicates) when not is_map(predicates), do: []
+
+  def format_predicates(predicates) do
+    []
+    |> maybe_add_predicate(predicates, "to_addresses", "To")
+    |> maybe_add_predicate(predicates, "to_domains", "Domain")
+    |> maybe_add_predicate(predicates, "subject_contains", "Subject")
+  end
+
+  defp maybe_add_predicate(acc, predicates, key, label) do
+    case Map.get(predicates, key) do
+      nil -> acc
+      "" -> acc
+      [] -> acc
+      values when is_list(values) ->
+        acc ++ Enum.map(values, &{label, &1})
+
+      value when is_binary(value) and value != "" ->
+        acc ++ [{label, value}]
+
+      _ ->
+        acc
+    end
+  end
+
+  @doc """
+  Extract readable body text from a message payload.
+  """
+  def message_body(nil), do: nil
+
+  def message_body(payload) when is_map(payload) do
+    payload["text"] || payload[:text] || payload["body"] || payload[:body] ||
+      extract_html_text(payload["html"] || payload[:html])
+  end
+
+  def message_body(_), do: nil
+
+  defp extract_html_text(nil), do: nil
+
+  defp extract_html_text(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<br\s*\/?>/, "\n")
+    |> String.replace(~r/<\/p>/, "\n\n")
+    |> String.replace(~r/<[^>]+>/, "")
+    |> String.replace(~r/&nbsp;/, " ")
+    |> String.replace(~r/&amp;/, "&")
+    |> String.replace(~r/&lt;/, "<")
+    |> String.replace(~r/&gt;/, ">")
+    |> String.trim()
+  end
+
   defp delivery_normalized(delivery) do
     delivery.normalized_payload || delivery.payload || %{}
   end
+
+  def action_color("owner"), do: "info"
+  def action_color("watcher"), do: "warning"
+  def action_color("silent"), do: "neutral"
+  def action_color(_), do: "neutral"
 end
